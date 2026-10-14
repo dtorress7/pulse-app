@@ -338,7 +338,7 @@ class WhoopBackgroundService : Service() {
                 ready = true
                 assemblers.clear()
                 setState("Conectada · esperando pulso")
-                if (imuEnabled(this@WhoopBackgroundService)) startImu() else stopImu(quiet = true)
+                if (imuEnabled(this@WhoopBackgroundService)) startImu()
                 handler.removeCallbacks(offloadTimer)
                 handler.postDelayed(offloadTimer, 1500)   // primera descarga y luego cada 15 min
             }, 2500)
@@ -433,7 +433,7 @@ class WhoopBackgroundService : Service() {
             if (historyCount < 5) log("⚠️ Registro con hora rara (${bio.unixTime}), no se usa")
             return
         }
-        val live = now - t < 60_000L
+        val live = false   // un registro de la memoria nunca es "en directo"
         if (!live) {
             historyCount++
             if (historyCount % 600 == 1) log("📚 Historial: $historyCount registros (por ${SimpleDateFormat("dd/MM HH:mm", Locale.US).format(Date(t))})")
@@ -442,13 +442,15 @@ class WhoopBackgroundService : Service() {
     }
 
     private fun handleRealtime(frame: ByteArray) {
-        // El pulso en directo propietario aún no está descifrado para la 5.0: se guarda en bruto para analizarlo
-        val bio = WhoopProtocol.decodeBioV18(frame)
-        if (bio != null && bio.heartRate in 25..230) {
-            storeHr(System.currentTimeMillis(), bio.heartRate, bio.rrIntervalsMs.map { it.toDouble() }.filter { it in 300.0..2000.0 }, live = true)
-        } else if (realtimeLogged++ < 3) {
-            log("📡 Paquete de pulso en directo (${frame.size} B) guardado para descifrar")
-        }
+        // Pulso en directo propietario (tipo 40, 1 por segundo). Comprobado el 14/10 con tu prueba:
+        // hora unix en [10..13] y pulso en [16] (cuadra con el pulso estándar: 68–76 en reposo, 122 tras la bici).
+        // Sirve de respaldo si el pulso estándar (2A37) deja de llegar; los duplicados por segundo se descartan.
+        if (frame.size < 17) return
+        val hr = frame[16].toInt() and 0xFF
+        if (hr !in 25..230) return
+        if (System.currentTimeMillis() - lastBpmTime < 3000) return   // ya llega por el canal estándar
+        storeHr(System.currentTimeMillis(), hr, emptyList(), live = true)
+        if (realtimeLogged++ == 0) log("📡 Usando el pulso en directo propio de la WHOOP como respaldo")
     }
 
     private fun handleMeta(frame: ByteArray) {
@@ -538,13 +540,13 @@ class WhoopBackgroundService : Service() {
     }
 
     private fun stopImu(quiet: Boolean = false) {
-        // La orden real para cortar el chorro de datos crudos (según noop): 63 con [0]
-        command(WhoopProtocol.CMD_SEND_R10_R11_REALTIME, byteArrayOf(0), "Movimiento OFF (orden 63)")
-        if (!quiet) log("🚶 Movimiento desactivado")
+        // La orden 63 de noop la rechaza la 5.0 (probado 14/10: "fallo"). Probamos el modo IMU con [0,0];
+        // la respuesta (OK / fallo) queda en el registro para saber si funciona.
+        command(WhoopProtocol.CMD_TOGGLE_IMU_MODE, byteArrayOf(0, 0), "Movimiento OFF (orden 106 [0,0])")
+        if (!quiet) log("🚶 Movimiento desactivado (mira abajo si la pulsera responde OK)")
     }
 
     private fun startImu() {
-        command(WhoopProtocol.CMD_SEND_R10_R11_REALTIME, byteArrayOf(1), "Movimiento: datos crudos ON (orden 63)")
         command(WhoopProtocol.CMD_START_RAW_DATA, byteArrayOf(0), "Movimiento: START_RAW_DATA (81)")
         enqueue(Op.Delay(500))
         command(WhoopProtocol.CMD_TOGGLE_IMU_MODE, byteArrayOf(1, 1), "Movimiento: TOGGLE_IMU_MODE (106)")
