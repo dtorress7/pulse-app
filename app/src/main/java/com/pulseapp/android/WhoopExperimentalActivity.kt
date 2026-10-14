@@ -38,6 +38,16 @@ class WhoopExperimentalActivity : AppCompatActivity() {
     private var targetDevice: BluetoothDevice? = null
     private var gatt: BluetoothGatt? = null
     private val logLines = mutableListOf<String>()
+    private val historyFile by lazy { java.io.File(getExternalFilesDir(null), "whoop_history_raw.txt") }
+    private var historyPackets = 0
+
+    /** Guarda TODO lo que llega/sale (menos IMU) para descifrar la descarga del historial: "ms,dir,uuid,HEX". */
+    private fun recordRaw(dir: String, uuid: String, data: ByteArray) {
+        try {
+            if (historyFile.length() > 30_000_000L) return
+            historyFile.appendText("${System.currentTimeMillis()},$dir,$uuid,${WhoopProtocol.bytesToHex(data).replace(" ", "")}\n")
+        } catch (_: Exception) { }
+    }
 
     private val bondReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -122,6 +132,24 @@ class WhoopExperimentalActivity : AppCompatActivity() {
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
             startActivity(Intent.createChooser(intent, "Compartir datos IMU"))
+        }
+        findViewById<Button>(R.id.shareHistoryButton).setOnClickListener {
+            if (!historyFile.exists() || historyFile.length() == 0L) {
+                log("⚠️ Aún no hay historial guardado. Conecta, envía HELLO y pulsa Pedir historial.")
+                return@setOnClickListener
+            }
+            val uri = androidx.core.content.FileProvider.getUriForFile(this, "$packageName.fileprovider", historyFile)
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            startActivity(Intent.createChooser(intent, "Compartir historial bruto"))
+        }
+        findViewById<Button>(R.id.clearHistoryButton).setOnClickListener {
+            try { historyFile.writeText("") } catch (_: Exception) { }
+            historyPackets = 0
+            log("🗑️ Historial bruto borrado")
         }
         findViewById<Button>(R.id.clearImuButton).setOnClickListener {
             imuStore.clear()
@@ -265,6 +293,11 @@ class WhoopExperimentalActivity : AppCompatActivity() {
            }
        }
    }
+                if (characteristic.uuid != IMU_CHARACTERISTIC) {
+                    recordRaw("RX", characteristic.uuid.toString().take(8), data)
+                    historyPackets++
+                    if (historyPackets % 200 == 0) log("💾 Historial bruto: $historyPackets paquetes guardados")
+                }
                 decodedCount++
                 if (decodedCount > 20) {
                     if (decodedCount % 50 == 0) log("... van $decodedCount paquetes recibidos en total ...")
@@ -344,6 +377,7 @@ class WhoopExperimentalActivity : AppCompatActivity() {
             }
             log("Enviando CLIENT_HELLO: ${WhoopProtocol.bytesToHex(WhoopProtocol.CLIENT_HELLO)}")
             cmdChar.value = WhoopProtocol.CLIENT_HELLO
+            recordRaw("TX", "fd4b0002", WhoopProtocol.CLIENT_HELLO)
             val success = g.writeCharacteristic(cmdChar)
             log(if (success) "Saludo enviado, esperando respuesta..." else "❌ Fallo al escribir el saludo — no sigas al botón 4, repite desde el 1")
             runOnUiThread {
@@ -363,6 +397,7 @@ class WhoopExperimentalActivity : AppCompatActivity() {
         val frame1 = WhoopProtocol.buildStartRawDataFrame(seqCounter)
         log("START_RAW_DATA: ${WhoopProtocol.bytesToHex(frame1)}")
         cmdChar.value = frame1
+        recordRaw("TX", "fd4b0002", frame1)
         g.writeCharacteristic(cmdChar)
 
         android.os.Handler(mainLooper).postDelayed({
@@ -370,6 +405,7 @@ class WhoopExperimentalActivity : AppCompatActivity() {
             val frame2 = WhoopProtocol.buildToggleImuModeFrame(seqCounter)
             log("TOGGLE_IMU_MODE: ${WhoopProtocol.bytesToHex(frame2)}")
             cmdChar.value = frame2
+            recordRaw("TX", "fd4b0002", frame2)
             g.writeCharacteristic(cmdChar)
             log("✅ Secuencia IMU enviada — espera unos segundos y mira si llegan paquetes tipo 43/51")
         }, 500)
@@ -395,6 +431,7 @@ class WhoopExperimentalActivity : AppCompatActivity() {
             val frame = WhoopProtocol.buildSetConfigFrame(name, value, seqCounter)
             log("Activando '$name'=$value: ${WhoopProtocol.bytesToHex(frame)}")
             cmdChar.value = frame
+            recordRaw("TX", "fd4b0002", frame)
             g.writeCharacteristic(cmdChar)
             android.os.Handler(mainLooper).postDelayed({ sendFlag(index + 1) }, 600)
         }
@@ -413,6 +450,7 @@ class WhoopExperimentalActivity : AppCompatActivity() {
         val clockFrame = WhoopProtocol.buildCommand(WhoopProtocol.CMD_GET_CLOCK, seqCounter, clockPayload)
         log("Sincronizando reloj: ${WhoopProtocol.bytesToHex(clockFrame)}")
         cmdChar.value = clockFrame
+        recordRaw("TX", "fd4b0002", clockFrame)
         g.writeCharacteristic(cmdChar)
 
         android.os.Handler(mainLooper).postDelayed({
@@ -422,6 +460,7 @@ class WhoopExperimentalActivity : AppCompatActivity() {
             )
             log("Pidiendo historial (byte correcto=0): ${WhoopProtocol.bytesToHex(frame)}")
             cmdChar.value = frame
+            recordRaw("TX", "fd4b0002", frame)
             g.writeCharacteristic(cmdChar)
         }, 800)
     }

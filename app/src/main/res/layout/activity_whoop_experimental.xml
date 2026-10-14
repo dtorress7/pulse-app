@@ -158,6 +158,20 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Borrar datos IMU (empezar limpio)"
+            android:layout_marginBottom="8dp" />
+
+        <Button
+            android:id="@+id/shareHistoryButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Compartir historial bruto"
+            android:layout_marginBottom="8dp" />
+
+        <Button
+            android:id="@+id/clearHistoryButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Borrar historial bruto"
             android:layout_marginBottom="24dp" />
 
     </LinearLayout>
