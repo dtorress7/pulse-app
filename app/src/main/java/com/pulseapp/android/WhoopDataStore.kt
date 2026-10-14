@@ -23,7 +23,7 @@ class WhoopDataStore(context: Context) {
 
     @Synchronized
     fun append(bio: WhoopProtocol.BioRecord) {
-        val timestamp = dateFormat.format(Date())
+        val timestamp = dateFormat.format(Date(if (bio.unixTime > 1_600_000_000L) bio.unixTime * 1000 else System.currentTimeMillis()))
         val rrString = bio.rrIntervalsMs.joinToString("|")
         val line = "$timestamp,${bio.heartRate},\"$rrString\"," +
                 "${"%.2f".format(Locale.US, bio.skinTempC)}," +

@@ -9,9 +9,13 @@ class WhoopImuReassembler {
 
     private val buffer = java.io.ByteArrayOutputStream()
     private var expectedTotal = 0
+    /** true si el último trozo recibido era parte de un mensaje IMU (aunque aún no esté completo). */
+    var lastConsumed = false
+        private set
 
     /** Devuelve el mensaje completo cuando está listo, o null si aún faltan trozos. */
     fun feed(chunk: ByteArray): ByteArray? {
+        lastConsumed = true
         if (chunk.size >= 9 && (chunk[0].toInt() and 0xFF) == 0xAA && chunk[1].toInt() == 0x01) {
             val declLen = (chunk[2].toInt() and 0xFF) or ((chunk[3].toInt() and 0xFF) shl 8)
             val type = chunk[8].toInt() and 0xFF
@@ -22,7 +26,7 @@ class WhoopImuReassembler {
                 return checkComplete()
             }
         }
-        if (expectedTotal == 0) return null // trozo suelto sin cabecera: se ignora
+        if (expectedTotal == 0) { lastConsumed = false; return null } // trozo suelto sin cabecera: se ignora
         buffer.write(chunk)
         return checkComplete()
     }

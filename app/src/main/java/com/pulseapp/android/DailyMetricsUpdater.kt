@@ -285,7 +285,8 @@ class DailyMetricsUpdater {
                 result.add(Reading(time, bpm, rr))
             } catch (e: Exception) { }
         }
-        return result.sortedBy { it.timeMillis }
+        // Ordenado y sin duplicados: el historial de la pulsera puede llegar después de lecturas en directo
+        return result.sortedBy { it.timeMillis }.distinctBy { it.timeMillis / 1000 }
     }
 
     private fun splitCsvLine(line: String): List<String> {

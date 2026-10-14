@@ -9,63 +9,148 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="20dp">
+        android:paddingStart="20dp"
+        android:paddingTop="16dp"
+        android:paddingEnd="20dp"
+        android:paddingBottom="40dp">
 
-        <!-- Header -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:gravity="center_vertical"
-            android:layout_marginBottom="16dp">
+            android:layout_marginBottom="12dp">
             <TextView
                 android:id="@+id/backButton"
                 android:text="‹"
                 android:textColor="@color/text_primary"
-                android:textSize="24sp"
-                android:padding="8dp"
+                android:textSize="28sp"
+                android:paddingEnd="12dp"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content" />
             <TextView
-                android:text="WHOOP AVANZADO (EXPERIMENTAL)"
+                android:text="Mi WHOOP"
                 style="@style/TitleLabel"
-                android:textSize="13sp"
-                android:gravity="center"
+                android:textSize="15sp"
                 android:layout_width="0dp"
                 android:layout_weight="1"
                 android:layout_height="wrap_content" />
-            <View android:layout_width="32dp" android:layout_height="1dp" />
         </LinearLayout>
 
-        <TextView
-            android:text="Pantalla experimental, no afecta a la app normal. Puede no funcionar."
-            android:textColor="@color/alert_amber"
-            android:textSize="12sp"
-            android:layout_marginBottom="12dp"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
-
-        <!-- REGISTRO arriba, para verlo sin bajar -->
+        <!-- Estado de la conexión -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:layout_marginBottom="8dp">
-            <TextView
-                android:text="REGISTRO"
-                style="@style/TitleLabel"
-                android:layout_width="0dp"
-                android:layout_weight="1"
-                android:layout_height="wrap_content" />
-            <Button
-                android:id="@+id/copyLogButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Copiar" />
+            android:background="@drawable/bg_card"
+            android:orientation="vertical"
+            android:padding="16dp">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical">
+                <View android:id="@+id/statusDot" android:layout_width="10dp" android:layout_height="10dp" android:layout_marginEnd="8dp" android:background="@drawable/bg_dot_red" />
+                <TextView android:id="@+id/statusText" style="@style/RowText" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="Desconectado" />
+            </LinearLayout>
+            <TextView android:id="@+id/deviceText" style="@style/Caption" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="" />
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="14dp">
+                <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical">
+                    <TextView android:id="@+id/liveBpmText" style="@style/StatNumber" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="--" android:textSize="26sp" />
+                    <TextView style="@style/TitleLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Pulso" android:textSize="10sp" />
+                </LinearLayout>
+                <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical">
+                    <TextView android:id="@+id/liveCountText" style="@style/StatNumber" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0" android:textSize="26sp" />
+                    <TextView style="@style/TitleLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="En directo" android:textSize="10sp" />
+                </LinearLayout>
+                <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical">
+                    <TextView android:id="@+id/historyCountText" style="@style/StatNumber" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0" android:textSize="26sp" />
+                    <TextView style="@style/TitleLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Del historial" android:textSize="10sp" />
+                </LinearLayout>
+            </LinearLayout>
         </LinearLayout>
 
+        <TextView style="@style/TitleLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="20dp" android:layout_marginBottom="8dp" android:layout_marginStart="4dp" android:text="Vincular (solo la primera vez)" />
+
+        <TextView style="@style/Caption" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="10dp" android:layout_marginStart="4dp"
+            android:text="Pulsa 1. Cuando la encuentre, toca la pulsera hasta que la luz se ponga azul y pulsa 2. Después ya no hace falta: se conecta sola, también al abrir la app o reiniciar el móvil." />
+
+        <TextView
+            android:id="@+id/bondButton"
+            style="@style/PillButton"
+            android:layout_width="match_parent"
+            android:layout_marginBottom="8dp"
+            android:background="@drawable/bg_button_secondary"
+            android:text="1 · Buscar mi WHOOP"
+            android:textColor="@color/text_primary" />
+
+
+        <TextView
+            android:id="@+id/connectButton"
+            style="@style/PillButton"
+            android:layout_width="match_parent"
+            android:layout_marginBottom="8dp"
+            android:background="@drawable/bg_button_primary"
+            android:text="2 · Vincular y conectar"
+            android:textColor="@color/text_on_accent" />
+
+
+        <TextView style="@style/TitleLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="20dp" android:layout_marginBottom="8dp" android:layout_marginStart="4dp" android:text="Conexión" />
+
+
+        <TextView
+            android:id="@+id/reconnectButton"
+            style="@style/PillButton"
+            android:layout_width="match_parent"
+            android:layout_marginBottom="8dp"
+            android:background="@drawable/bg_button_secondary"
+            android:text="Conectar ahora"
+            android:textColor="@color/text_primary" />
+
+
+        <TextView
+            android:id="@+id/historyRequestButton"
+            style="@style/PillButton"
+            android:layout_width="match_parent"
+            android:layout_marginBottom="8dp"
+            android:background="@drawable/bg_button_secondary"
+            android:text="Recuperar historial de la pulsera"
+            android:textColor="@color/text_primary" />
+
+
+        <TextView
+            android:id="@+id/imuButton"
+            style="@style/PillButton"
+            android:layout_width="match_parent"
+            android:layout_marginBottom="8dp"
+            android:background="@drawable/bg_button_secondary"
+            android:text="Movimiento y pasos: activar"
+            android:textColor="@color/text_primary" />
+
+
+        <TextView
+            android:id="@+id/batteryButton"
+            style="@style/PillButton"
+            android:layout_width="match_parent"
+            android:layout_marginBottom="8dp"
+            android:background="@drawable/bg_button_secondary"
+            android:text="Que Android no la cierre (batería)"
+            android:textColor="@color/text_primary" />
+
+
+        <TextView
+            android:id="@+id/disconnectButton"
+            style="@style/PillButton"
+            android:layout_width="match_parent"
+            android:layout_marginBottom="8dp"
+            android:background="@drawable/bg_button_secondary"
+            android:text="Desconectar"
+            android:textColor="@color/text_primary" />
+
+
+        <TextView style="@style/TitleLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="20dp" android:layout_marginBottom="8dp" android:layout_marginStart="4dp" android:text="Registro" />
+
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="8dp">
+            <TextView android:id="@+id/copyLogButton" style="@style/PillButton" android:layout_width="0dp" android:layout_weight="1" android:layout_marginEnd="6dp" android:background="@drawable/bg_button_secondary" android:text="Copiar" android:textColor="@color/text_primary" />
+            <TextView android:id="@+id/shareLogButton" style="@style/PillButton" android:layout_width="0dp" android:layout_weight="1" android:layout_marginStart="6dp" android:background="@drawable/bg_button_secondary" android:text="Compartir" android:textColor="@color/text_primary" />
+        </LinearLayout>
         <TextView
             android:id="@+id/logText"
-            android:text="Esperando..."
+            android:text="Esperando…"
             android:textColor="@color/text_secondary"
             android:textSize="11sp"
             android:fontFamily="monospace"
@@ -73,106 +158,50 @@
             android:background="@drawable/bg_card"
             android:padding="12dp"
             android:minHeight="160dp"
-            android:layout_marginBottom="16dp"
             android:layout_width="match_parent"
             android:layout_height="wrap_content" />
 
-        <!-- Botones -->
-        <Button
-            android:id="@+id/bondButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="1. Conectar y explorar servicios"
-            android:layout_marginBottom="8dp" />
+        <TextView style="@style/TitleLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="20dp" android:layout_marginBottom="8dp" android:layout_marginStart="4dp" android:text="Datos en bruto (para analizar)" />
 
-        <Button
-            android:id="@+id/connectButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="2. Intentar emparejamiento cifrado"
-            android:layout_marginBottom="8dp"
-            android:enabled="false" />
 
-        <Button
-            android:id="@+id/historyButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="3. Enviar saludo"
-            android:layout_marginBottom="8dp"
-            android:enabled="false" />
-
-        <Button
-            android:id="@+id/historyRequestButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="4. Pedir historial"
-            android:layout_marginBottom="8dp"
-            android:enabled="false" />
-
-        <Button
-            android:id="@+id/enableR22Button"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="5. Activar movimiento (enable_r22)"
-            android:layout_marginBottom="8dp"
-            android:enabled="false" />
-
-        <Button
-            android:id="@+id/startRawDataButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="6. Activar IMU 100Hz (START_RAW_DATA)"
-            android:layout_marginBottom="16dp"
-            android:enabled="false" />
-
-        <Button
-            android:id="@+id/backgroundToggleButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Activar guardado en segundo plano"
-            android:layout_marginBottom="8dp" />
-
-        <Button
-            android:id="@+id/viewWhoopDataButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Ver datos guardados (avanzado)"
-            android:layout_marginBottom="8dp" />
-
-        <Button
-            android:id="@+id/viewServiceLogButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Ver registro del servicio en 2º plano"
-            android:layout_marginBottom="24dp" />
-                
-        <Button
-            android:id="@+id/shareImuButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Compartir datos IMU guardados"
-            android:layout_marginBottom="8dp" />
-
-        <Button
-            android:id="@+id/clearImuButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Borrar datos IMU (empezar limpio)"
-            android:layout_marginBottom="8dp" />
-
-        <Button
+        <TextView
             android:id="@+id/shareHistoryButton"
+            style="@style/PillButton"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:background="@drawable/bg_button_secondary"
             android:text="Compartir historial bruto"
-            android:layout_marginBottom="8dp" />
+            android:textColor="@color/text_primary" />
 
-        <Button
+
+        <TextView
             android:id="@+id/clearHistoryButton"
+            style="@style/PillButton"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:background="@drawable/bg_button_secondary"
             android:text="Borrar historial bruto"
-            android:layout_marginBottom="24dp" />
+            android:textColor="@color/text_primary" />
+
+
+        <TextView
+            android:id="@+id/shareImuButton"
+            style="@style/PillButton"
+            android:layout_width="match_parent"
+            android:layout_marginBottom="8dp"
+            android:background="@drawable/bg_button_secondary"
+            android:text="Compartir datos de movimiento"
+            android:textColor="@color/text_primary" />
+
+
+        <TextView
+            android:id="@+id/clearImuButton"
+            style="@style/PillButton"
+            android:layout_width="match_parent"
+            android:layout_marginBottom="24dp"
+            android:background="@drawable/bg_button_secondary"
+            android:text="Borrar datos de movimiento"
+            android:textColor="@color/text_primary" />
 
     </LinearLayout>
 </ScrollView>

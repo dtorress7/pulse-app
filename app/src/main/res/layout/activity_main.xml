@@ -647,7 +647,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="Buscar dispositivos" />
+                        android:text="Mi WHOOP · conexión" />
 
                     <ImageView
                         android:layout_width="14dp"
@@ -783,8 +783,8 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="WHOOP avanzado (experimental)"
-                        android:textColor="@color/alert_amber" />
+                        android:text="Mi WHOOP · registro y datos en bruto"
+                        android:textColor="@color/text_secondary" />
 
                     <ImageView
                         android:layout_width="14dp"

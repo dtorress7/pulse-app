@@ -24,8 +24,12 @@ class DataStore(context: Context) {
     }
 
     @Synchronized
-    fun append(bpm: Int, rrIntervals: List<Double>) {
-        val timestamp = dateFormat.format(Date())
+    fun append(bpm: Int, rrIntervals: List<Double>) = appendAt(System.currentTimeMillis(), bpm, rrIntervals)
+
+    /** Guarda una lectura con su hora real (las del historial de la pulsera llegan con horas pasadas). */
+    @Synchronized
+    fun appendAt(timeMillis: Long, bpm: Int, rrIntervals: List<Double>) {
+        val timestamp = dateFormat.format(Date(timeMillis))
         val rrString = rrIntervals.joinToString("|") {
             String.format(Locale.US, "%.1f", it)
         }

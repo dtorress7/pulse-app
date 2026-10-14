@@ -89,8 +89,10 @@ class MainActivity : AppCompatActivity() {
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { results ->
-        if (results.values.all { it }) {
-            startScan()
+        val btOk = Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+            ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
+        if (btOk) {
+            if (WhoopBackgroundService.findBondedWhoop(this) != null && !WhoopBackgroundService.isRunning) WhoopBackgroundService.start(this)
         } else {
             statusText.text = "Permisos denegados: necesarios para Bluetooth"
         }
@@ -169,40 +171,76 @@ class MainActivity : AppCompatActivity() {
 
         adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, mutableListOf())
 
-        rowScan.setOnClickListener {
-            if (requiredPermissions.all {
-                    ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
-                }) {
-                startScan()
-            } else {
-                permissionLauncher.launch(requiredPermissions)
-            }
+        // La conexión es la WHOOP vinculada (modo propietario). El modo Bluetooth estándar ya no se usa.
+        rowScan.setOnClickListener { startActivity(Intent(this, WhoopExperimentalActivity::class.java)) }
+        stopService(Intent(this, BleForegroundService::class.java))
+
+        WhoopBackgroundService.onActivitySaved = { message ->
+            runOnUiThread { Toast.makeText(this, message, Toast.LENGTH_LONG).show() }
         }
 
-        BleForegroundService.onBpmUpdate = { bpm, count ->
-            runOnUiThread {
-                bpmText.text = bpm.toString()
-                countText.text = "$count lecturas guardadas"
-            }
-        }
-        BleForegroundService.onAutoActivitySaved = { message ->
-            runOnUiThread {
-                Toast.makeText(this, message, Toast.LENGTH_LONG).show()
-            }
-        }
-        BleForegroundService.onStatusUpdate = { status ->
-            runOnUiThread { statusText.text = status }
-        }
-        BleForegroundService.onStatsUpdate = { _, _, rmssd ->
-            runOnUiThread {
-                hrvText.text = if (rmssd != null) "%.0f".format(rmssd) else "--"
+        // Si hay una WHOOP vinculada, se conecta sola al abrir la app (como la app de WHOOP)
+        if (WhoopBackgroundService.findBondedWhoop(this) != null) {
+            if (requiredPermissions.all { ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED }) {
+                if (!WhoopBackgroundService.isRunning) WhoopBackgroundService.start(this)
+            } else {
+                permissionLauncher.launch(requiredPermissions)
             }
         }
     }
 
     override fun onResume() {
         super.onResume()
+        restoreActivityButton()
         showSummary(showDialog = false)
+        liveHandler.post(liveTicker)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        liveHandler.removeCallbacks(liveTicker)
+    }
+
+    private val liveHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var lastSummaryRefresh = 0L
+
+    /** Pulso y estado en directo desde el servicio de la WHOOP; los anillos se recalculan cada minuto. */
+    private val liveTicker = object : Runnable {
+        override fun run() {
+            val now = System.currentTimeMillis()
+            val live = WhoopBackgroundService.lastBpmTime > now - 15_000
+            val bpm = WhoopBackgroundService.lastBpm
+            if (live && bpm != null) bpmText.text = bpm.toString()
+            statusText.text = when {
+                WhoopBackgroundService.findBondedWhoop(this@MainActivity) == null -> "Vincula tu WHOOP en \"Mi WHOOP\""
+                !WhoopBackgroundService.isRunning -> "WHOOP desconectada"
+                else -> WhoopBackgroundService.state
+            }
+            val total = WhoopBackgroundService.liveCount + WhoopBackgroundService.historyCount
+            if (total > 0) countText.text = "$total lecturas recibidas en esta conexión"
+            if (now - lastSummaryRefresh > 60_000) {
+                lastSummaryRefresh = now
+                if (now - resumedAt > 5_000) showSummary(showDialog = false)
+            }
+            liveHandler.postDelayed(this, 2000)
+        }
+    }
+    private val resumedAt = System.currentTimeMillis()
+
+    private fun restoreActivityButton() {
+        val start = ActivityState.manualStart(this)
+        activityStartMillis = start
+        BleForegroundService.externalRecordingInProgress = start != null
+        if (start != null) {
+            startActivityButton.setBackgroundResource(R.drawable.bg_button_recording)
+            startActivityButton.setTextColor(ContextCompat.getColor(this, R.color.text_primary))
+            val min = (System.currentTimeMillis() - start) / 60000
+            startActivityButton.text = "Detener actividad · ${min} min"
+        } else {
+            startActivityButton.setBackgroundResource(R.drawable.bg_button_primary)
+            startActivityButton.setTextColor(ContextCompat.getColor(this, R.color.text_on_accent))
+            startActivityButton.text = "Iniciar actividad"
+        }
     }
 
     private fun hm(minutes: Int): String = "%d:%02d".format(minutes / 60, minutes % 60)
@@ -428,6 +466,7 @@ class MainActivity : AppCompatActivity() {
         val start = activityStartMillis
         if (start == null) {
             activityStartMillis = System.currentTimeMillis()
+            ActivityState.setManualStart(this, activityStartMillis)
             BleForegroundService.externalRecordingInProgress = true
             startActivityButton.setBackgroundResource(R.drawable.bg_button_recording)
             startActivityButton.setTextColor(ContextCompat.getColor(this, R.color.text_primary))
@@ -436,6 +475,7 @@ class MainActivity : AppCompatActivity() {
         } else {
             val end = System.currentTimeMillis()
             activityStartMillis = null
+            ActivityState.setManualStart(this, null)
             BleForegroundService.externalRecordingInProgress = false
             startActivityButton.setBackgroundResource(R.drawable.bg_button_primary)
             startActivityButton.setTextColor(ContextCompat.getColor(this, R.color.text_on_accent))
