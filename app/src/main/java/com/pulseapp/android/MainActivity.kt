@@ -192,6 +192,7 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         restoreActivityButton()
+        checkSetupComplete()
         showSummary(showDialog = false)
         liveHandler.post(liveTicker)
     }
@@ -226,6 +227,36 @@ class MainActivity : AppCompatActivity() {
         }
     }
     private val resumedAt = System.currentTimeMillis()
+
+    private var setupDialogShown = false
+
+    /**
+     * Como WHOOP: sin saber quién lleva la pulsera no se puede calcular bien. Fecha de nacimiento, peso,
+     * altura y sexo son obligatorios (FC máx y zonas, esfuerzo, calorías, VO₂ máx, necesidad de sueño).
+     * Después, si ya hay pulsera, se pregunta una vez quién se queda el historial.
+     */
+    private fun checkSetupComplete() {
+        if (setupDialogShown) return
+        lifecycleScope.launch {
+            val p = db.userProfileDao().getOnce()
+            if (p == null) {
+                setupDialogShown = true
+                androidx.appcompat.app.AlertDialog.Builder(this@MainActivity)
+                    .setTitle("Antes de empezar: ¿quién lleva la pulsera?")
+                    .setMessage("Necesito tu fecha de nacimiento, peso, altura y sexo. Con ellos calculo tu FC máxima y tus zonas, " +
+                        "el esfuerzo, las calorías, el VO₂ máx y cuánto sueño necesitas. Sin ellos los números serían de una persona genérica.")
+                    .setPositiveButton("Completar ahora") { _, _ ->
+                        setupDialogShown = false
+                        startActivity(Intent(this@MainActivity, ProfileActivity::class.java))
+                    }
+                    .setCancelable(false)
+                    .show()
+            } else if (WhoopBackgroundService.findBondedWhoop(this@MainActivity) != null && WhoopBackgroundService.ackMode(this@MainActivity) == -1) {
+                setupDialogShown = true
+                AckModeDialog.show(this@MainActivity)
+            }
+        }
+    }
 
     private fun restoreActivityButton() {
         val start = ActivityState.manualStart(this)

@@ -113,6 +113,15 @@
 
 
         <TextView
+            android:id="@+id/ackModeButton"
+            style="@style/PillButton"
+            android:layout_width="match_parent"
+            android:layout_marginBottom="8dp"
+            android:background="@drawable/bg_button_secondary"
+            android:text="Historial: elegir quién se queda los datos"
+            android:textColor="@color/text_primary" />
+
+        <TextView
             android:id="@+id/imuButton"
             style="@style/PillButton"
             android:layout_width="match_parent"

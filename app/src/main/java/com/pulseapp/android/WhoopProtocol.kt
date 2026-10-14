@@ -19,11 +19,18 @@ object WhoopProtocol {
     const val CMD_SEND_HISTORICAL_DATA = 22
     const val CMD_HISTORICAL_DATA_RESULT = 23
     const val CMD_GET_BATTERY_LEVEL = 26
+    const val CMD_GET_DATA_RANGE = 34
+    const val CMD_SEND_R10_R11_REALTIME = 63   // [0] = parar el chorro de datos crudos (IMU) / [1] = activarlo
+    const val CMD_EXIT_HIGH_FREQ_SYNC = 97
+
+    /** Órdenes que pueden borrar datos, reiniciar o reflashear la pulsera: NUNCA se envían. */
+    val FORBIDDEN_COMMANDS = setOf(25, 29, 32, 36, 37, 38, 45, 99)
 
     // NUNCA usar estos opcodes (pueden dañar o borrar el reloj):
     // 25 FORCE_TRIM, 29 REBOOT, 32 POWER_CYCLE, 36/37/38 firmware, 45 BLE_DFU, 99 fuel-gauge reset
 
     fun buildCommand(cmd: Int, seq: Int = 0, payload: ByteArray = byteArrayOf(0), type: Int = 35): ByteArray {
+        require(cmd !in FORBIDDEN_COMMANDS) { "Orden $cmd prohibida (destructiva)" }
         val inner0 = byteArrayOf(type.toByte(), seq.toByte(), cmd.toByte()) + payload
         val pad = (4 - inner0.size % 4) % 4
         val inner = inner0 + ByteArray(pad)
@@ -121,17 +128,22 @@ object WhoopProtocol {
                 ((data[offset + 3].toInt() and 0xFF) shl 24)
         return Float.fromBits(bits)
     }
-        data class MetaPacket(val metaTypeByte: Int, val cursorHex: String, val rawHex: String)
+        data class MetaPacket(val metaTypeByte: Int, val cursorHex: String, val rawHex: String, val ackData: ByteArray?)
 
-    /** Detecta paquetes de metadatos (marcan inicio/fin de cada trozo del historial). */
+    /**
+     * Paquetes de metadatos del historial (WHOOP 5.0: tipo en [8] = 49 METADATA o 56 PUFFIN_METADATA).
+     * Clase en [10] (u16 en los 56): 1 = HISTORY_START, 2 = HISTORY_END, 3 = HISTORY_COMPLETE.
+     * Para confirmar un HISTORY_END se devuelven sus 8 bytes [21..29) (mismo formato que usan goose/noop).
+     */
     fun decodeMetaPacket(frame: ByteArray): MetaPacket? {
-        if (frame.size < 30) return null
-        if ((frame[9].toInt() and 0xFF) != 49) return null // tipo 49 = metadatos
-
-        val metaType = frame[10].toInt() and 0xFF
-        val cursorBytes = frame.sliceArray(21 until minOf(29, frame.size))
-        return MetaPacket(metaType, bytesToHex(cursorBytes), bytesToHex(frame))
+        if (frame.size < 12) return null
+        val type = frame[8].toInt() and 0xFF
+        if (type != 49 && type != 56) return null
+        val kind = if (type == 56) u16le(frame, 10) else frame[10].toInt() and 0xFF
+        val ack = if (frame.size >= 29 + 4) frame.copyOfRange(21, 29) else null
+        return MetaPacket(kind, ack?.let { bytesToHex(it) } ?: "", bytesToHex(frame), ack)
     }
+
         const val CMD_SET_CONFIG = 0x78 // 120 decimal
 
     /**

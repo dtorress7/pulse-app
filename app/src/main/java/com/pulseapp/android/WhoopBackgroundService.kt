@@ -58,6 +58,13 @@ class WhoopBackgroundService : Service() {
         private const val KEY_ADDRESS = "device_address"
         private const val KEY_AUTO = "auto_connect"
         private const val KEY_IMU = "imu_enabled"
+        private const val KEY_ACK = "ack_history"   // -1 sin decidir · 0 no confirmar (WHOOP conserva) · 1 confirmar
+        private const val OFFLOAD_EVERY_MS = 15 * 60_000L
+
+        /** -1 = aún no ha elegido, 0 = no confirmar (la app de WHOOP sigue pudiendo bajarlo), 1 = confirmar (PulseApp descarga todo). */
+        fun ackMode(ctx: Context): Int = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt(KEY_ACK, -1)
+        fun setAckMode(ctx: Context, mode: Int) =
+            ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putInt(KEY_ACK, mode).apply()
 
         // Estado visible para las pantallas (el servicio vive aunque la pantalla se cierre)
         @Volatile var isRunning = false
@@ -127,7 +134,24 @@ class WhoopBackgroundService : Service() {
     private lateinit var bioStore: WhoopDataStore
     private lateinit var imuStore: WhoopImuRawStore
     private lateinit var processor: LiveHrProcessor
-    private val imuReassembler = WhoopImuReassembler()
+    /** Un búfer por característica: las tramas largas llegan troceadas y a veces varias juntas. */
+    private val assemblers = HashMap<UUID, java.io.ByteArrayOutputStream>()
+    // Estado de la descarga del historial
+    private var offloading = false
+    private var chunkRecords = 0
+    private var offloadRecords = 0
+    private var ackedChunks = 0
+    private var askedAckOnce = false
+    private var responsesLogged = 0
+    private var eventsLogged = 0
+    private var realtimeLogged = 0
+    private var unknownHistLogged = 0
+    private val offloadTimer = object : Runnable {
+        override fun run() { if (isReady() && !offloading) requestHistory(); handler.postDelayed(this, OFFLOAD_EVERY_MS) }
+    }
+    private val offloadIdle = Runnable {
+        if (offloading) { offloading = false; log("📚 La pulsera dejó de enviar historial (sin COMPLETE). Recibidos $offloadRecords registros; se reintenta en 15 min.") }
+    }
     private val rawFile by lazy { File(getExternalFilesDir(null), "whoop_history_raw.txt") }
     private var gatt: BluetoothGatt? = null
     private var device: BluetoothDevice? = null
@@ -217,14 +241,14 @@ class WhoopBackgroundService : Service() {
                 stopSelf()
                 return START_NOT_STICKY
             }
-            ACTION_HISTORY -> if (isReady()) requestHistory() else { log("⚠️ Aún no está conectada, lo pediré al conectar"); connect() }
+            ACTION_HISTORY -> if (isReady()) { offloading = false; requestHistory() } else { log("⚠️ Aún no está conectada, lo pediré al conectar"); connect() }
             ACTION_IMU_ON -> {
                 getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(KEY_IMU, true).apply()
                 if (isReady()) startImu() else connect()
             }
             ACTION_IMU_OFF -> {
                 getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(KEY_IMU, false).apply()
-                log("🚶 Movimiento desactivado: se aplicará en la próxima conexión (la pulsera aún no tiene orden de parar conocida)")
+                if (isReady()) stopImu() else log("🚶 Movimiento desactivado: se aplicará al conectar")
             }
             else -> connect()
         }
@@ -266,7 +290,8 @@ class WhoopBackgroundService : Service() {
                 g.discoverServices()
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 ready = false
-                handler.post { queue.clear(); busy = false }
+                offloading = false
+                handler.post { queue.clear(); busy = false; handler.removeCallbacks(offloadTimer); handler.removeCallbacks(offloadIdle) }
                 if (stopping) return
                 log("📴 Desconectada (status=$status). Me reengancho sola cuando vuelva a estar cerca.")
                 setState("Fuera de alcance — reconectará sola")
@@ -290,15 +315,25 @@ class WhoopBackgroundService : Service() {
                 log("La pulsera también ofrece el pulso estándar: lo uso como fuente extra")
                 enqueue(Op.Subscribe(HR_SERVICE, HR_MEASUREMENT))
             }
+            // Saludo y puesta en marcha (orden de goose/noop, proyectos abiertos que ya descargan la WHOOP 5.0)
             enqueue(Op.Delay(300))
             enqueue(Op.Write(WhoopProtocol.CLIENT_HELLO, "HELLO"))
-            enqueue(Op.Delay(1000))
+            enqueue(Op.Delay(600))
+            // Reloj en formato de 8 bytes: si la pulsera cree que ha perdido la hora, NO entrega el historial
+            val now = System.currentTimeMillis() / 1000
+            command(WhoopProtocol.CMD_SET_CLOCK, byteArrayOf(
+                (now and 0xFF).toByte(), ((now shr 8) and 0xFF).toByte(), ((now shr 16) and 0xFF).toByte(), ((now shr 24) and 0xFF).toByte(),
+                0, 0, 0, 0), "Poner en hora (orden 10)")
+            command(WhoopProtocol.CMD_GET_CLOCK, ByteArray(0), "Leer reloj (orden 11)")
+            command(WhoopProtocol.CMD_EXIT_HIGH_FREQ_SYNC, byteArrayOf(0), "Salir de sincronización rápida (orden 97)")
             command(WhoopProtocol.CMD_TOGGLE_REALTIME_HR, byteArrayOf(1), "Pulso en directo ON (orden 3)")
             handler.postDelayed({
                 ready = true
+                assemblers.clear()
                 setState("Conectada · esperando pulso")
-                if (imuEnabled(this@WhoopBackgroundService)) startImu()
-                requestHistory()
+                if (imuEnabled(this@WhoopBackgroundService)) startImu() else stopImu(quiet = true)
+                handler.removeCallbacks(offloadTimer)
+                handler.postDelayed(offloadTimer, 1500)   // primera descarga y luego cada 15 min
             }, 2500)
         }
 
@@ -314,15 +349,8 @@ class WhoopBackgroundService : Service() {
 
         override fun onCharacteristicChanged(g: BluetoothGatt, c: BluetoothGattCharacteristic) {
             val data = c.value ?: return
-            when (c.uuid) {
-                HR_MEASUREMENT -> handleStandardHr(data)
-                IMU_CHARACTERISTIC -> {
-                    val msg = imuReassembler.feed(data)
-                    if (msg != null) handleImu(msg)
-                    else if (!imuReassembler.lastConsumed) handleWhoopPacket(c.uuid, data)
-                }
-                else -> handleWhoopPacket(c.uuid, data)
-            }
+            if (c.uuid == HR_MEASUREMENT) { handleStandardHr(data); return }
+            for (frame in assemble(c.uuid, data)) handleFrame(c.uuid, frame)
         }
     }
 
@@ -344,28 +372,113 @@ class WhoopBackgroundService : Service() {
         storeHr(System.currentTimeMillis(), bpm, rr, live = true)
     }
 
-    private fun handleWhoopPacket(uuid: UUID, data: ByteArray) {
-        recordRaw("RX", uuid.toString().take(8), data)
-        val bio = WhoopProtocol.decodeBioV18(data)
-        if (bio != null) {
-            bioStore.append(bio)
-            val t = bio.unixTime * 1000
-            val now = System.currentTimeMillis()
-            if (bio.unixTime < 1_600_000_000L || t > now + 5 * 60_000L || t < now - 30L * 86_400_000L) {
-                if (historyCount < 5) log("⚠️ Registro con hora rara (${bio.unixTime}), no se usa")
-                return
+    /** Junta trozos y separa tramas completas: [AA][01][declLen u16]... total = declLen + 8. */
+    private fun assemble(uuid: UUID, chunk: ByteArray): List<ByteArray> {
+        val buf = assemblers.getOrPut(uuid) { java.io.ByteArrayOutputStream() }
+        buf.write(chunk)
+        var bytes = buf.toByteArray()
+        val out = mutableListOf<ByteArray>()
+        while (true) {
+            val start = bytes.indexOfFirst { (it.toInt() and 0xFF) == 0xAA }
+            if (start < 0) { bytes = ByteArray(0); break }
+            if (start > 0) bytes = bytes.copyOfRange(start, bytes.size)
+            if (bytes.size < 8) break
+            val declLen = (bytes[2].toInt() and 0xFF) or ((bytes[3].toInt() and 0xFF) shl 8)
+            if (bytes[1].toInt() != 0x01 || declLen < 4 || declLen > 4096) { bytes = bytes.copyOfRange(1, bytes.size); continue }
+            val total = declLen + 8
+            if (bytes.size < total) break
+            out.add(bytes.copyOfRange(0, total))
+            bytes = bytes.copyOfRange(total, bytes.size)
+        }
+        buf.reset()
+        if (bytes.size in 1..8192) buf.write(bytes)
+        return out
+    }
+
+    private fun handleFrame(uuid: UUID, frame: ByteArray) {
+        if (frame.size < 12) return
+        val type = frame[8].toInt() and 0xFF
+        if (type == 43 || type == 51) { handleImu(frame); return }   // movimiento: no se guarda en bruto (es enorme)
+        recordRaw("RX", uuid.toString().take(8), frame)
+        when (type) {
+            47 -> handleHistoricalRecord(frame)
+            40 -> handleRealtime(frame)
+            49, 56 -> handleMeta(frame)
+            36, 38 -> if (responsesLogged++ < 40) {
+                val res = when (frame[12].toInt() and 0xFF) { 1 -> "OK"; 2 -> "pendiente"; 3 -> "fallo"; 4 -> "no soportada"; else -> "código ${frame[12].toInt() and 0xFF}" }
+                log("↩️ Respuesta a la orden ${frame[10].toInt() and 0xFF}: $res")
             }
-            val live = now - t < 60_000L
-            if (!live) { historyCount++; lastHistoryPacketAt = now; if (historyCount % 300 == 1) log("📚 Historial: $historyCount registros recuperados (último ${SimpleDateFormat("dd/MM HH:mm", Locale.US).format(Date(t))})") }
-            storeHr(t, bio.heartRate, bio.rrIntervalsMs.map { it.toDouble() }.filter { it in 300.0..2000.0 }, live)
+            48, 53, 54 -> if (eventsLogged++ < 20) log("🔔 Evento de la pulsera nº ${frame[10].toInt() and 0xFF}")
+        }
+    }
+
+    private fun handleHistoricalRecord(frame: ByteArray) {
+        if (offloading) { chunkRecords++; offloadRecords++; handler.removeCallbacks(offloadIdle); handler.postDelayed(offloadIdle, 60_000) }
+        val bio = WhoopProtocol.decodeBioV18(frame)
+        if (bio == null) {
+            if (unknownHistLogged++ < 3) log("❔ Registro de historial versión ${frame[9].toInt() and 0xFF} aún sin descifrar (${frame.size} B), guardado en bruto")
             return
         }
-        val meta = WhoopProtocol.decodeMetaPacket(data)
-        if (meta != null) {
-            log("🏷️ Metadatos tipo ${meta.metaTypeByte} · cursor ${meta.cursorHex}")
+        bioStore.append(bio)
+        val t = bio.unixTime * 1000
+        val now = System.currentTimeMillis()
+        if (bio.unixTime < 1_600_000_000L || t > now + 5 * 60_000L || t < now - 30L * 86_400_000L) {
+            if (historyCount < 5) log("⚠️ Registro con hora rara (${bio.unixTime}), no se usa")
             return
         }
-        if (rawCount <= 40) log("📥 [${uuid.toString().take(8)}] ${data.size} B: ${WhoopProtocol.bytesToHex(data.copyOfRange(0, minOf(data.size, 40)))}")
+        val live = now - t < 60_000L
+        if (!live) {
+            historyCount++
+            if (historyCount % 600 == 1) log("📚 Historial: $historyCount registros (por ${SimpleDateFormat("dd/MM HH:mm", Locale.US).format(Date(t))})")
+        }
+        storeHr(t, bio.heartRate, bio.rrIntervalsMs.map { it.toDouble() }.filter { it in 300.0..2000.0 }, live)
+    }
+
+    private fun handleRealtime(frame: ByteArray) {
+        // El pulso en directo propietario aún no está descifrado para la 5.0: se guarda en bruto para analizarlo
+        val bio = WhoopProtocol.decodeBioV18(frame)
+        if (bio != null && bio.heartRate in 25..230) {
+            storeHr(System.currentTimeMillis(), bio.heartRate, bio.rrIntervalsMs.map { it.toDouble() }.filter { it in 300.0..2000.0 }, live = true)
+        } else if (realtimeLogged++ < 3) {
+            log("📡 Paquete de pulso en directo (${frame.size} B) guardado para descifrar")
+        }
+    }
+
+    private fun handleMeta(frame: ByteArray) {
+        val meta = WhoopProtocol.decodeMetaPacket(frame) ?: return
+        handler.removeCallbacks(offloadIdle)
+        handler.postDelayed(offloadIdle, 60_000)
+        when (meta.metaTypeByte) {
+            1 -> { offloading = true; chunkRecords = 0; log("📚 La pulsera empieza a enviar el historial…") }
+            2 -> {
+                offloading = true
+                val ackData = meta.ackData
+                val mode = ackMode(this)
+                when {
+                    ackData == null -> log("⚠️ Fin de bloque sin datos de confirmación")
+                    mode == 1 -> {
+                        // Los registros de este bloque ya están escritos en hr_log.csv (se guardan al llegar): se puede confirmar
+                        ackedChunks++
+                        command(WhoopProtocol.CMD_HISTORICAL_DATA_RESULT, byteArrayOf(1) + ackData,
+                            "Bloque $ackedChunks recibido ($chunkRecords registros), pidiendo el siguiente")
+                    }
+                    else -> if (!askedAckOnce) {
+                        askedAckOnce = true
+                        log(if (mode == -1) "⏸️ Bloque recibido ($chunkRecords registros). Para seguir con el resto hay que confirmar a la pulsera: elige en \"Mi WHOOP\" quién se queda los datos."
+                            else "⏸️ Bloque recibido ($chunkRecords registros). No confirmo (WHOOP conserva los datos), así que la pulsera no envía más.")
+                    }
+                }
+                chunkRecords = 0
+            }
+            3 -> {
+                offloading = false
+                handler.removeCallbacks(offloadIdle)
+                log("✅ Historial completo: $offloadRecords registros en esta descarga ($ackedChunks bloques)")
+                offloadRecords = 0
+                onUpdate?.invoke()
+            }
+            else -> log("🏷️ Metadatos tipo ${meta.metaTypeByte}")
+        }
     }
 
     private fun storeHr(timeMillis: Long, bpm: Int, rr: List<Double>, live: Boolean) {
@@ -408,16 +521,23 @@ class WhoopBackgroundService : Service() {
     // ---------- Órdenes ----------
 
     private fun requestHistory() {
+        if (offloading) { log("📚 Ya se está descargando el historial"); return }
         log("📚 Pidiendo a la pulsera lo que guardó mientras no estabas…")
-        command(WhoopProtocol.CMD_GET_CLOCK, ByteArray(4), "Leer reloj (orden 11)")
-        enqueue(Op.Delay(800))
+        offloading = true
+        offloadRecords = 0; ackedChunks = 0; chunkRecords = 0; askedAckOnce = false
         command(WhoopProtocol.CMD_SEND_HISTORICAL_DATA, byteArrayOf(0), "Pedir historial (orden 22)")
-        handler.postDelayed({
-            if (historyCount == 0) log("ℹ️ La pulsera aún no ha entregado registros de historial. Guardado en bruto para analizarlo.")
-        }, 20_000)
+        handler.removeCallbacks(offloadIdle)
+        handler.postDelayed(offloadIdle, 60_000)
+    }
+
+    private fun stopImu(quiet: Boolean = false) {
+        // La orden real para cortar el chorro de datos crudos (según noop): 63 con [0]
+        command(WhoopProtocol.CMD_SEND_R10_R11_REALTIME, byteArrayOf(0), "Movimiento OFF (orden 63)")
+        if (!quiet) log("🚶 Movimiento desactivado")
     }
 
     private fun startImu() {
+        command(WhoopProtocol.CMD_SEND_R10_R11_REALTIME, byteArrayOf(1), "Movimiento: datos crudos ON (orden 63)")
         command(WhoopProtocol.CMD_START_RAW_DATA, byteArrayOf(0), "Movimiento: START_RAW_DATA (81)")
         enqueue(Op.Delay(500))
         command(WhoopProtocol.CMD_TOGGLE_IMU_MODE, byteArrayOf(1, 1), "Movimiento: TOGGLE_IMU_MODE (106)")

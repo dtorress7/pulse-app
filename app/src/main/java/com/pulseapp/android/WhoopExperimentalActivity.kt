@@ -110,6 +110,7 @@ class WhoopExperimentalActivity : AppCompatActivity() {
             }
         }
         findViewById<View>(R.id.batteryButton).setOnClickListener { askIgnoreBatteryOptimizations() }
+        findViewById<View>(R.id.ackModeButton).setOnClickListener { AckModeDialog.show(this) { refresh() } }
         findViewById<View>(R.id.disconnectButton).setOnClickListener {
             androidx.appcompat.app.AlertDialog.Builder(this)
                 .setTitle("Desconectar")
@@ -178,6 +179,7 @@ class WhoopExperimentalActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.liveBpmText).text = if (live) "${WhoopBackgroundService.lastBpm}" else "--"
         findViewById<TextView>(R.id.liveCountText).text = Ui.thousands(WhoopBackgroundService.liveCount.toLong())
         findViewById<TextView>(R.id.historyCountText).text = Ui.thousands(WhoopBackgroundService.historyCount.toLong())
+        findViewById<TextView>(R.id.ackModeButton).text = AckModeDialog.label(WhoopBackgroundService.ackMode(this))
         imuButton.text = if (WhoopBackgroundService.imuEnabled(this)) "Movimiento y pasos: desactivar" else "Movimiento y pasos: activar"
         val lines = synchronized(WhoopBackgroundService.serviceLogLines) { WhoopBackgroundService.serviceLogLines.take(150) }
         logText.text = if (lines.isEmpty()) "Sin actividad todavía." else lines.joinToString("\n")

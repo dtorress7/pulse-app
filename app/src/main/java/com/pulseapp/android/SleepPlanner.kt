@@ -26,22 +26,32 @@ data class SleepPlan(
 class SleepPlanner {
 
     companion object {
-        const val BASELINE_MINUTES = 7 * 60 + 50 // 7h50
+        const val BASELINE_MINUTES = 7 * 60 + 50 // 7h50 (adulto 18–64, ajustado a tu histórico de WHOOP)
+
+        /** Sueño base según la edad (recomendaciones de la National Sleep Foundation / AASM). */
+        fun baselineForAge(age: Int?): Int = when {
+            age == null -> BASELINE_MINUTES
+            age < 14 -> 10 * 60
+            age < 18 -> 9 * 60
+            age >= 65 -> 7 * 60 + 30
+            else -> BASELINE_MINUTES
+        }
     }
 
     suspend fun computeTonightPlan(db: AppDatabase, todayStrain: Double?, wakeUpHour: Int = 7, wakeUpMinute: Int = 30): SleepPlan {
         val strainMinutes = todayStrain?.let { Formulas.sleepNeedFromStrain(it) } ?: 0
 
-        val debtMinutes = computeAccumulatedDebt(db)
+        val debtMinutes = computeAccumulatedDebt(db, baselineForAge(db.userProfileDao().getOnce()?.ageYears()))
 
         val napMinutes = 0 // pendiente: necesitaríamos detección de siestas
 
-        val totalNeed = BASELINE_MINUTES + strainMinutes + debtMinutes - napMinutes
+        val baseline = baselineForAge(db.userProfileDao().getOnce()?.ageYears())
+        val totalNeed = baseline + strainMinutes + debtMinutes - napMinutes
 
         val bedtime = computeSuggestedBedtime(totalNeed, wakeUpHour, wakeUpMinute)
 
         return SleepPlan(
-            baselineMinutes = BASELINE_MINUTES,
+            baselineMinutes = baseline,
             strainAdjustmentMinutes = strainMinutes,
             debtAdjustmentMinutes = debtMinutes,
             napAdjustmentMinutes = napMinutes,
@@ -50,13 +60,13 @@ class SleepPlanner {
         )
     }
 
-    private suspend fun computeAccumulatedDebt(db: AppDatabase): Int {
+    private suspend fun computeAccumulatedDebt(db: AppDatabase, base: Int): Int {
         val lastDays = db.dailyMetricsDao().getLastDays(7)
         var debt = 0
         // Recorre del más antiguo al más reciente, con decaimiento (los días viejos pesan menos)
         lastDays.sortedBy { it.date }.forEachIndexed { index, day ->
             val slept = day.sleepMinutes ?: return@forEachIndexed
-            val diff = BASELINE_MINUTES - slept
+            val diff = base - slept
             if (diff > 0) {
                 val decay = 0.7 // cada día que pasa, la deuda anterior pesa un 70% menos
                 debt = (debt * decay + diff).toInt()
