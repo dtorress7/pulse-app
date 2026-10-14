@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.PulseApp" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:windowBackground">@color/background</item>
+        <item name="colorPrimary">@color/recovery_green</item>
+        <item name="colorOnPrimary">@color/text_on_accent</item>
+        <item name="colorSurface">@color/card_bg</item>
+        <item name="colorOnSurface">@color/text_primary</item>
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:textColorSecondary">@color/text_secondary</item>
+        <item name="android:statusBarColor">@color/background</item>
+        <item name="android:navigationBarColor">@color/background</item>
+        <item name="android:fontFamily">@font/archivo</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+
+    <!-- Etiqueta de métrica: mayúsculas condensadas, espaciado 0,14 -->
+    <style name="TitleLabel">
+        <item name="android:textColor">@color/text_secondary</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:textAllCaps">true</item>
+        <item name="android:letterSpacing">0.14</item>
+        <item name="android:fontFamily">@font/barlow_condensed_semibold</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <!-- Número grande tabular -->
+    <style name="BigNumber">
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textSize">56sp</item>
+        <item name="android:fontFamily">@font/barlow_condensed_bold</item>
+        <item name="android:fontFeatureSettings">tnum</item>
+        <item name="android:letterSpacing">-0.02</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <!-- Número de tarjeta (30sp) -->
+    <style name="StatNumber" parent="BigNumber">
+        <item name="android:textSize">30sp</item>
+    </style>
+
+    <!-- Título grande estilo iOS ("Hoy") -->
+    <style name="LargeTitle">
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textSize">34sp</item>
+        <item name="android:fontFamily">@font/archivo_semibold</item>
+        <item name="android:letterSpacing">-0.01</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <!-- Título de sección ("Mi día") -->
+    <style name="SectionTitle">
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textSize">22sp</item>
+        <item name="android:fontFamily">@font/archivo_semibold</item>
+        <item name="android:letterSpacing">-0.01</item>
+    </style>
+
+    <!-- Texto de fila de lista -->
+    <style name="RowText">
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:fontFamily">@font/archivo</item>
+    </style>
+
+    <!-- Texto secundario pequeño -->
+    <style name="Caption">
+        <item name="android:textColor">@color/text_secondary</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:fontFamily">@font/archivo</item>
+    </style>
+
+    <!-- Botón grande con etiqueta condensada -->
+    <style name="PillButton">
+        <item name="android:layout_height">48dp</item>
+        <item name="android:gravity">center</item>
+        <item name="android:textAllCaps">true</item>
+        <item name="android:letterSpacing">0.1</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:fontFamily">@font/barlow_condensed_bold</item>
+        <item name="android:clickable">true</item>
+        <item name="android:focusable">true</item>
+    </style>
+
+    <!-- Pestaña de la barra inferior -->
+    <style name="TabItem">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">match_parent</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:gravity">center</item>
+        <item name="android:textSize">10.5sp</item>
+        <item name="android:fontFamily">@font/archivo_medium</item>
+        <item name="android:textColor">@color/text_secondary</item>
+        <item name="android:drawablePadding">2dp</item>
+        <item name="android:clickable">true</item>
+        <item name="android:focusable">true</item>
+        <item name="android:background">?android:attr/selectableItemBackgroundBorderless</item>
+    </style>
+</resources>

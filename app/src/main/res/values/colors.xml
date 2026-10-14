@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Superficies (rediseño oct-2026, convertido desde OKLCH) -->
+    <color name="background">#0F1519</color>
+    <color name="card_bg">#1B2126</color>
+    <color name="card_elevated">#292F33</color>
+    <color name="track_gray">#33393E</color>
+    <color name="hairline">#14F4F5F6</color>
+    <color name="tabbar_bg">#E61B2126</color>
+
+    <!-- Semánticos (mismos nombres de siempre: el resto de pantallas los heredan) -->
+    <color name="recovery_green">#00F88A</color>
+    <color name="sleep_blue">#8FB3D2</color>
+    <color name="strain_blue">#02A9F7</color>
+    <color name="alert_red">#F04C55</color>
+    <color name="alert_amber">#F9C718</color>
+
+    <!-- Texto -->
+    <color name="text_primary">#F4F5F6</color>
+    <color name="text_secondary">#95999D</color>
+    <color name="text_on_accent">#0F1519</color>
+
+    <!-- Fases de sueño -->
+    <color name="stage_awake">#DBE6F2</color>
+    <color name="stage_rem">#B1B0EF</color>
+    <color name="stage_light">#6291BA</color>
+    <color name="stage_deep">#2C5A9D</color>
+
+    <!-- Zonas de FC -->
+    <color name="zone1">#546673</color>
+    <color name="zone2">#578DB2</color>
+    <color name="zone3">#02A9F7</color>
+    <color name="zone4">#F9C718</color>
+    <color name="zone5">#F04C55</color>
+
+    <!-- Fondos tintados para iconos -->
+    <color name="sleep_tint">#298FB3D2</color>
+    <color name="strain_tint">#2E02A9F7</color>
+    <color name="recovery_tint">#2400F88A</color>
+</resources>

@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Barra inferior flotante compartida (Inicio, Salud, Sueño, Esfuerzo + Coach). La configura Ui.setupTabBar(). -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/tabBar"
+    android:layout_width="match_parent"
+    android:layout_height="64dp"
+    android:layout_gravity="bottom"
+    android:layout_marginStart="16dp"
+    android:layout_marginEnd="16dp"
+    android:layout_marginBottom="20dp"
+    android:gravity="center_vertical"
+    android:orientation="horizontal">
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="64dp"
+        android:layout_weight="1"
+        android:background="@drawable/bg_tabbar_pill"
+        android:elevation="12dp"
+        android:orientation="horizontal"
+        android:paddingStart="6dp"
+        android:paddingEnd="6dp">
+
+        <TextView
+            android:id="@+id/tabHome"
+            style="@style/TabItem"
+            android:drawableTop="@drawable/ic_home"
+            android:drawableTint="@color/text_secondary"
+            android:paddingTop="9dp"
+            android:text="Inicio" />
+
+        <TextView
+            android:id="@+id/tabHealth"
+            style="@style/TabItem"
+            android:drawableTop="@drawable/ic_pulse"
+            android:drawableTint="@color/text_secondary"
+            android:paddingTop="9dp"
+            android:text="Salud" />
+
+        <TextView
+            android:id="@+id/tabSleep"
+            style="@style/TabItem"
+            android:drawableTop="@drawable/ic_moon"
+            android:drawableTint="@color/text_secondary"
+            android:paddingTop="9dp"
+            android:text="Sueño" />
+
+        <TextView
+            android:id="@+id/tabActivities"
+            style="@style/TabItem"
+            android:drawableTop="@drawable/ic_bolt"
+            android:drawableTint="@color/text_secondary"
+            android:paddingTop="9dp"
+            android:text="Esfuerzo" />
+    </LinearLayout>
+
+    <ImageView
+        android:id="@+id/tabCoach"
+        android:layout_width="64dp"
+        android:layout_height="64dp"
+        android:layout_marginStart="10dp"
+        android:background="@drawable/bg_fab_accent"
+        android:clickable="true"
+        android:contentDescription="Coach"
+        android:elevation="12dp"
+        android:focusable="true"
+        android:padding="20dp"
+        android:src="@drawable/ic_chat"
+        android:tint="@color/text_on_accent" />
+</LinearLayout>

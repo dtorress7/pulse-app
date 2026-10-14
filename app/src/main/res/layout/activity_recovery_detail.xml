@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingStart="20dp"
+        android:paddingTop="16dp"
+        android:paddingEnd="20dp"
+        android:paddingBottom="40dp">
+
+        <include layout="@layout/include_detail_header" />
+
+        <com.pulseapp.android.ui.CircularRingView
+            android:id="@+id/recoveryRing"
+            android:layout_width="212dp"
+            android:layout_height="212dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="20dp" />
+
+        <TextView
+            android:id="@+id/recoveryExplanationText"
+            style="@style/RowText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginStart="24dp"
+            android:layout_marginTop="16dp"
+            android:layout_marginEnd="24dp"
+            android:gravity="center"
+            android:text=""
+            android:textColor="@color/text_secondary" />
+
+        <!-- VFC y FC en reposo frente a tu media -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:orientation="horizontal">
+
+            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_marginEnd="6dp" android:layout_weight="1" android:background="@drawable/bg_card" android:orientation="vertical" android:padding="16dp">
+                <TextView style="@style/TitleLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="VFC" />
+                <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:gravity="bottom">
+                    <TextView android:id="@+id/hrvValueText" style="@style/StatNumber" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="--" android:textSize="34sp" />
+                    <TextView style="@style/Caption" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="4dp" android:layout_marginBottom="3dp" android:text="ms" />
+                </LinearLayout>
+                <TextView android:id="@+id/hrvDeltaText" style="@style/StatNumber" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:text="" android:textSize="16sp" />
+                <TextView android:id="@+id/hrvBaselineText" style="@style/Caption" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="" />
+            </LinearLayout>
+
+            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_marginStart="6dp" android:layout_weight="1" android:background="@drawable/bg_card" android:orientation="vertical" android:padding="16dp">
+                <TextView style="@style/TitleLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="FC reposo" />
+                <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:gravity="bottom">
+                    <TextView android:id="@+id/rhrValueText" style="@style/StatNumber" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="--" android:textSize="34sp" />
+                    <TextView style="@style/Caption" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="4dp" android:layout_marginBottom="3dp" android:text="lpm" />
+                </LinearLayout>
+                <TextView android:id="@+id/rhrDeltaText" style="@style/StatNumber" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:text="" android:textSize="16sp" />
+                <TextView android:id="@+id/rhrBaselineText" style="@style/Caption" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Qué la compone -->
+        <LinearLayout
+            android:id="@+id/compositionCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/bg_card"
+            android:orientation="vertical"
+            android:padding="18dp">
+
+            <TextView style="@style/TitleLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Qué la compone" android:textSize="13sp" />
+
+            <LinearLayout
+                android:id="@+id/compositionList"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+        </LinearLayout>
+
+        <!-- Últimos 7 días -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/bg_card"
+            android:orientation="vertical"
+            android:padding="18dp">
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="bottom">
+                <TextView style="@style/TitleLabel" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Últimos 7 días" android:textSize="13sp" />
+                <TextView android:id="@+id/trendAverageText" style="@style/Caption" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/trendBars"
+                android:layout_width="match_parent"
+                android:layout_height="150dp"
+                android:layout_marginTop="12dp"
+                android:orientation="horizontal" />
+
+            <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:gravity="center_vertical">
+                <View android:layout_width="8dp" android:layout_height="8dp" android:background="@drawable/bg_dot_green" />
+                <TextView style="@style/Caption" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="6dp" android:layout_marginEnd="14dp" android:text="67–100" />
+                <View android:layout_width="8dp" android:layout_height="8dp" android:background="@drawable/bg_dot_amber" />
+                <TextView style="@style/Caption" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="6dp" android:layout_marginEnd="14dp" android:text="34–66" />
+                <View android:layout_width="8dp" android:layout_height="8dp" android:background="@drawable/bg_dot_red" />
+                <TextView style="@style/Caption" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="6dp" android:text="0–33" />
+            </LinearLayout>
+
+            <TextView android:id="@+id/trendNote" style="@style/Caption" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="" />
+        </LinearLayout>
+    </LinearLayout>
+</ScrollView>

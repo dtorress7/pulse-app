@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <!-- Header -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="16dp">
+            <TextView
+                android:id="@+id/backButton"
+                android:text="‹"
+                android:textColor="@color/text_primary"
+                android:textSize="24sp"
+                android:padding="8dp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+            <TextView
+                android:text="WHOOP AVANZADO (EXPERIMENTAL)"
+                style="@style/TitleLabel"
+                android:textSize="13sp"
+                android:gravity="center"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content" />
+            <View android:layout_width="32dp" android:layout_height="1dp" />
+        </LinearLayout>
+
+        <TextView
+            android:text="Pantalla experimental, no afecta a la app normal. Puede no funcionar."
+            android:textColor="@color/alert_amber"
+            android:textSize="12sp"
+            android:layout_marginBottom="12dp"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <!-- REGISTRO arriba, para verlo sin bajar -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="8dp">
+            <TextView
+                android:text="REGISTRO"
+                style="@style/TitleLabel"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content" />
+            <Button
+                android:id="@+id/copyLogButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Copiar" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/logText"
+            android:text="Esperando..."
+            android:textColor="@color/text_secondary"
+            android:textSize="11sp"
+            android:fontFamily="monospace"
+            android:textIsSelectable="true"
+            android:background="@drawable/bg_card"
+            android:padding="12dp"
+            android:minHeight="160dp"
+            android:layout_marginBottom="16dp"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <!-- Botones -->
+        <Button
+            android:id="@+id/bondButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="1. Conectar y explorar servicios"
+            android:layout_marginBottom="8dp" />
+
+        <Button
+            android:id="@+id/connectButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="2. Intentar emparejamiento cifrado"
+            android:layout_marginBottom="8dp"
+            android:enabled="false" />
+
+        <Button
+            android:id="@+id/historyButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="3. Enviar saludo"
+            android:layout_marginBottom="8dp"
+            android:enabled="false" />
+
+        <Button
+            android:id="@+id/historyRequestButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="4. Pedir historial"
+            android:layout_marginBottom="8dp"
+            android:enabled="false" />
+
+        <Button
+            android:id="@+id/enableR22Button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="5. Activar movimiento (enable_r22)"
+            android:layout_marginBottom="8dp"
+            android:enabled="false" />
+
+        <Button
+            android:id="@+id/startRawDataButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="6. Activar IMU 100Hz (START_RAW_DATA)"
+            android:layout_marginBottom="16dp"
+            android:enabled="false" />
+
+        <Button
+            android:id="@+id/backgroundToggleButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Activar guardado en segundo plano"
+            android:layout_marginBottom="8dp" />
+
+        <Button
+            android:id="@+id/viewWhoopDataButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Ver datos guardados (avanzado)"
+            android:layout_marginBottom="8dp" />
+
+        <Button
+            android:id="@+id/viewServiceLogButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Ver registro del servicio en 2º plano"
+            android:layout_marginBottom="24dp" />
+                
+        <Button
+            android:id="@+id/shareImuButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Compartir datos IMU guardados"
+            android:layout_marginBottom="8dp" />
+
+        <Button
+            android:id="@+id/clearImuButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Borrar datos IMU (empezar limpio)"
+            android:layout_marginBottom="24dp" />
+
+    </LinearLayout>
+</ScrollView>
