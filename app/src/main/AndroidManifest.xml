@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <uses-feature android:name="android.hardware.bluetooth_le" android:required="true" />
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:label="PulseApp"
+        android:theme="@style/Theme.PulseApp">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".ProfileActivity"
+            android:exported="false" />
+        <activity
+            android:name=".StressDetailActivity"
+            android:exported="false" />
+        <activity
+            android:name=".RecoveryDetailActivity"
+            android:exported="false" />
+        <activity
+            android:name=".SleepDetailActivity"
+            android:exported="false" />
+        <activity
+            android:name=".EditSessionActivity"
+            android:exported="false" />
+        <activity
+            android:name=".WhoopExperimentalActivity"
+            android:exported="false" />
+        <activity
+            android:name=".ActivitiesListActivity"
+            android:exported="false" />
+        <activity
+            android:name=".HealthActivity"
+            android:exported="false" />
+
+        <service
+            android:name=".BleForegroundService"
+            android:foregroundServiceType="connectedDevice"
+            android:exported="false" />
+        
+        <service
+            android:name=".WhoopBackgroundService"
+            android:foregroundServiceType="connectedDevice"
+            android:exported="false" />
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+    </application>
+</manifest>
