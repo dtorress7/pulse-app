@@ -219,6 +219,7 @@ class WhoopBackgroundService : Service() {
         processor = LiveHrProcessor(this, scope, hrStore.getFile()) { msg -> onActivitySaved?.invoke(msg); log("🏃 $msg") }
         createNotificationChannel()
         isRunning = true
+        registerReceiver(btStateReceiver, android.content.IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED))
         scope.launch {
             val profile = com.pulseapp.android.data.AppDatabase.getInstance(applicationContext).userProfileDao().getOnce()
             hrMax = Formulas.hrMax(profile?.ageYears() ?: 30)
@@ -258,8 +259,14 @@ class WhoopBackgroundService : Service() {
     private var ready = false
     private fun isReady() = gatt != null && ready
 
-    private fun connect() {
-        if (gatt != null) { log("Ya hay una conexión en marcha ($state)"); onUpdate?.invoke(); return }
+    private fun connect(force: Boolean = false) {
+        if (gatt != null && !force) {
+            if (ready) { log("Ya está conectada ($state)"); onUpdate?.invoke(); return }
+            // Conexión colgada (p. ej. tras apagar el Bluetooth): se descarta y se abre una nueva
+            log("Reabriendo la conexión…")
+        }
+        try { gatt?.close() } catch (_: SecurityException) { }
+        gatt = null
         val d = findBondedWhoop(this)
         if (d == null) {
             log("❌ No hay ninguna WHOOP vinculada. Ve a WHOOP avanzado y pulsa 1 → 2.")
@@ -579,7 +586,27 @@ class WhoopBackgroundService : Service() {
         } catch (_: Exception) { }
     }
 
+    /** Si apagas y enciendes el Bluetooth del móvil, la conexión se rehace sola. */
+    private val btStateReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(c: Context, i: Intent) {
+            when (i.getIntExtra(BluetoothAdapter.EXTRA_STATE, -1)) {
+                BluetoothAdapter.STATE_OFF -> {
+                    ready = false; offloading = false
+                    log("📴 Bluetooth del móvil apagado")
+                    setState("Bluetooth apagado")
+                    try { gatt?.close() } catch (_: SecurityException) { }
+                    gatt = null
+                }
+                BluetoothAdapter.STATE_ON -> if (!stopping) {
+                    log("📶 Bluetooth encendido: reconectando")
+                    handler.postDelayed({ connect(force = true) }, 1500)
+                }
+            }
+        }
+    }
+
     override fun onDestroy() {
+        try { unregisterReceiver(btStateReceiver) } catch (_: Exception) { }
         isRunning = false
         ready = false
         handler.removeCallbacksAndMessages(null)
