@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <!-- Header -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="24dp">
+            <TextView
+                android:id="@+id/backButton"
+                android:text="‹"
+                android:textColor="@color/text_primary"
+                android:textSize="24sp"
+                android:padding="8dp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+            <TextView
+                android:text="RECOVERY / SALUD"
+                style="@style/TitleLabel"
+                android:textSize="14sp"
+                android:gravity="center"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content" />
+            <View android:layout_width="32dp" android:layout_height="1dp" />
+        </LinearLayout>
+
+        <!-- Badge grande de recovery -->
+        <LinearLayout
+            android:id="@+id/recoveryBadge"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:background="@drawable/bg_card"
+            android:padding="28dp"
+            android:layout_marginBottom="20dp">
+
+            <TextView
+                android:id="@+id/recoveryPercentText"
+                android:text="--%"
+                android:textSize="56sp"
+                android:textStyle="bold"
+                android:textColor="@color/recovery_green"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+
+            <TextView
+                android:id="@+id/recoveryLevelText"
+                android:text="--"
+                style="@style/TitleLabel"
+                android:textSize="14sp"
+                android:layout_marginTop="4dp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+
+            <TextView
+                android:id="@+id/recoveryExplanationText"
+                android:text=""
+                android:textColor="@color/text_secondary"
+                android:textSize="13sp"
+                android:gravity="center"
+                android:layout_marginTop="12dp"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <!-- HRV vs línea base -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_card"
+            android:padding="16dp"
+            android:layout_marginBottom="12dp">
+            <TextView android:text="HRV" style="@style/TitleLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:layout_marginTop="4dp">
+                <TextView android:id="@+id/hrvValueText" android:text="-- ms" android:textColor="@color/text_primary" android:textSize="28sp" android:textStyle="bold" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" />
+                <TextView android:id="@+id/hrvDeltaText" android:text="" android:textSize="13sp" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+            </LinearLayout>
+            <TextView android:id="@+id/hrvBaselineText" android:text="Línea base: --" android:textColor="@color/text_secondary" android:textSize="12sp" android:layout_marginTop="4dp" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <!-- FC reposo vs línea base -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_card"
+            android:padding="16dp"
+            android:layout_marginBottom="24dp">
+            <TextView android:text="FC EN REPOSO" style="@style/TitleLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:layout_marginTop="4dp">
+                <TextView android:id="@+id/rhrValueText" android:text="-- bpm" android:textColor="@color/text_primary" android:textSize="28sp" android:textStyle="bold" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" />
+                <TextView android:id="@+id/rhrDeltaText" android:text="" android:textSize="13sp" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+            </LinearLayout>
+            <TextView android:id="@+id/rhrBaselineText" android:text="Línea base: --" android:textColor="@color/text_secondary" android:textSize="12sp" android:layout_marginTop="4dp" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <!-- Tendencia -->
+        <TextView
+            android:text="TENDENCIA (ÚLTIMOS DÍAS)"
+            style="@style/TitleLabel"
+            android:layout_marginBottom="8dp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+
+        <LinearLayout
+            android:id="@+id/trendList"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_card"
+            android:layout_marginBottom="16dp" />
+
+        <TextView
+            android:text="No medimos frecuencia respiratoria, SpO₂ ni temperatura de piel (el reloj no los transmite por Bluetooth estándar), así que este Recovery se calcula solo con HRV, FC en reposo y sueño."
+            android:textColor="@color/text_secondary"
+            android:textSize="11sp"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+    </LinearLayout>
+</ScrollView>

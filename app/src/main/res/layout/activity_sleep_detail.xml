@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <!-- Header -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="24dp">
+            <TextView
+                android:id="@+id/backButton"
+                android:text="‹"
+                android:textColor="@color/text_primary"
+                android:textSize="24sp"
+                android:padding="8dp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+            <TextView
+                android:text="SUEÑO"
+                style="@style/TitleLabel"
+                android:textSize="14sp"
+                android:gravity="center"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content" />
+            <View android:layout_width="32dp" android:layout_height="1dp" />
+        </LinearLayout>
+
+        <!-- Hero: dormido vs necesidad -->
+        <!-- Sleep Score combinado -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:background="@drawable/bg_card"
+            android:padding="20dp"
+            android:layout_marginBottom="16dp">
+            <TextView android:text="CALIFICACIÓN DEL SUEÑO" style="@style/TitleLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+            <TextView
+                android:id="@+id/sleepScoreText"
+                android:text="--%"
+                android:textSize="40sp"
+                android:textStyle="bold"
+                android:textColor="@color/sleep_blue"
+                android:layout_marginTop="4dp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <!-- Hero: dormido vs necesidad -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:background="@drawable/bg_card"
+            android:padding="28dp"
+            android:layout_marginBottom="16dp">
+
+            <TextView
+                android:id="@+id/performancePercentText"
+                android:text="--%"
+                android:textSize="56sp"
+                android:textStyle="bold"
+                android:textColor="@color/sleep_blue"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+
+            <TextView
+                android:text="SLEEP PERFORMANCE"
+                style="@style/TitleLabel"
+                android:textSize="12sp"
+                android:layout_marginTop="4dp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+
+            <TextView
+                android:id="@+id/hoursVsNeedText"
+                android:text="-- de --"
+                android:textColor="@color/text_secondary"
+                android:textSize="14sp"
+                android:layout_marginTop="12dp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <!-- Eficiencia y Consistencia -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:weightSum="2"
+            android:layout_marginBottom="16dp">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/bg_card"
+                android:padding="16dp"
+                android:layout_marginEnd="6dp">
+                <TextView android:text="EFICIENCIA" style="@style/TitleLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                <TextView android:id="@+id/efficiencyText" android:text="--%" android:textColor="@color/sleep_blue" android:textSize="28sp" android:textStyle="bold" android:layout_marginTop="4dp" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/bg_card"
+                android:padding="16dp"
+                android:layout_marginStart="6dp">
+                <TextView android:text="CONSISTENCIA" style="@style/TitleLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                <TextView android:id="@+id/consistencyText" android:text="--%" android:textColor="@color/sleep_blue" android:textSize="28sp" android:textStyle="bold" android:layout_marginTop="4dp" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Deuda de sueño -->
+        <!-- Deuda de sueño -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_card"
+            android:padding="16dp"
+            android:layout_marginBottom="24dp">
+            <TextView android:text="DEUDA DE SUEÑO" style="@style/TitleLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+            <TextView
+                android:id="@+id/sleepDebtText"
+                android:text="--"
+                android:textColor="@color/alert_amber"
+                android:textSize="28sp"
+                android:textStyle="bold"
+                android:layout_marginTop="4dp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+        <!-- Estrés durante el sueño -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_card"
+            android:padding="16dp"
+            android:layout_marginBottom="24dp">
+            <TextView android:text="ESTRÉS EN EL SUEÑO" style="@style/TitleLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+            <TextView
+                android:id="@+id/sleepStressText"
+                android:text="--%"
+                android:textColor="@color/alert_amber"
+                android:textSize="28sp"
+                android:textStyle="bold"
+                android:layout_marginTop="4dp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+            <TextView
+                android:text="% de la noche con activación alta detectada"
+                android:textColor="@color/text_secondary"
+                android:textSize="11sp"
+                android:layout_marginTop="4dp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <!-- Histórico -->
+        <!-- Histórico -->
+        <TextView
+            android:text="ÚLTIMOS DÍAS"
+            style="@style/TitleLabel"
+            android:layout_marginBottom="10dp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+
+        <LinearLayout
+            android:id="@+id/historyList"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_card"
+            android:layout_marginBottom="16dp" />
+
+        <TextView
+            android:text="No detectamos fases de sueño (ligero/profundo/REM) ni despertares — necesitaría datos de movimiento del reloj que no podemos leer por Bluetooth estándar. Estos números se basan solo en frecuencia cardíaca."
+            android:textColor="@color/text_secondary"
+            android:textSize="11sp"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+    </LinearLayout>
+</ScrollView>
