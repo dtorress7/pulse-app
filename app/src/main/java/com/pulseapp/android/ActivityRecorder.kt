@@ -21,17 +21,19 @@ class ActivityRecorder {
         weightKg: Float,
         sex: String,
         type: String = "Sin clasificar",
-        autoDetected: Boolean = false
+        autoDetected: Boolean = false,
+        restingHr: Int? = null
     ): ActivitySession? {
         val readings = parseCsv(file).filter { it.timeMillis in startMillis..endMillis }
         if (readings.isEmpty()) return null
 
-        val hrMax = 208.0 - 0.7 * ageYears
+        val hrMax = Formulas.hrMax(ageYears)
         val avgHr = readings.map { it.bpm }.average()
         val maxHr = readings.maxOf { it.bpm }
 
                 var z0 = 0; var z1 = 0; var z2 = 0; var z3 = 0; var z4 = 0; var z5 = 0
-        var strainTotal = 0.0
+        var trimpTotal = 0.0
+        val rhr = restingHr ?: Formulas.DEFAULT_RESTING_HR
 
         for (i in 1 until readings.size) {
             val deltaMin = (readings[i].timeMillis - readings[i - 1].timeMillis) / 60000.0
@@ -45,13 +47,10 @@ class ActivityRecorder {
                 pct < 0.9 -> z4 += deltaMin.toInt().coerceAtLeast(0)
                 else -> z5 += deltaMin.toInt().coerceAtLeast(0)
             }
-            val weight = when {
-                pct < 0.5 -> 0.0; pct < 0.6 -> 1.0; pct < 0.7 -> 2.0
-                pct < 0.8 -> 3.0; pct < 0.9 -> 4.0; else -> 5.0
-            }
-            strainTotal += deltaMin * weight
+            trimpTotal += Formulas.trimp(deltaMin, readings[i].bpm, rhr, hrMax, sex != "F")
         }
-        val strain = (strainTotal / 200.0 * 21.0).coerceIn(0.0, 21.0)
+        // Esfuerzo de la actividad: misma escala que el del día (WHOOP: fútbol 2 h ≈ 10,7)
+        val strain = Formulas.strainFromTrimp(trimpTotal)
 
         val durationMinutes = (endMillis - startMillis) / 60000.0
         val calories = estimateCalories(avgHr, durationMinutes, ageYears, weightKg, sex)

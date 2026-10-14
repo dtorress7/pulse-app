@@ -63,11 +63,12 @@ class BleForegroundService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        Formulas.init(this)
         bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
         dataStore = DataStore(this)
         serviceScope.launch {
             val profile = AppDatabase.getInstance(applicationContext).userProfileDao().getOnce()
-            hrMax = 208.0 - 0.7 * (profile?.ageYears() ?: 30)
+            hrMax = Formulas.hrMax(profile?.ageYears() ?: 30)
         }
         createNotificationChannel()
     }
@@ -256,9 +257,11 @@ class BleForegroundService : Service() {
                 weightKg = profile?.weightKg ?: 75f,
                 sex = profile?.sex ?: "M",
                 type = "Sin clasificar",
-                autoDetected = true
+                autoDetected = true,
+                restingHr = BaselineProvider().compute(db)?.avgRestingHr?.toInt()
             )
             if (session != null) {
+                Formulas.updateObservedHrMax(applicationContext, session.maxHr)
                 db.activitySessionDao().save(session)
                 onAutoActivitySaved?.invoke("Actividad detectada guardada (${((end - start) / 60000)} min)")
             }

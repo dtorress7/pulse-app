@@ -4,146 +4,157 @@ import android.os.Bundle
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.pulseapp.android.data.AppDatabase
+import com.pulseapp.android.ui.CircularRingView
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Locale
 
+/** Pestaña Sueño (rediseño): rendimiento, fases, necesidad, planificador, consistencia/eficiencia e histórico. */
 class SleepDetailActivity : AppCompatActivity() {
+
+    private val es = Locale("es", "ES")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_sleep_detail)
+        Ui.setupTabBar(this, Ui.Tab.SLEEP)
 
-        val backButton: TextView = findViewById(R.id.backButton)
-        val performancePercentText: TextView = findViewById(R.id.performancePercentText)
-        val hoursVsNeedText: TextView = findViewById(R.id.hoursVsNeedText)
-        val sleepDebtText: TextView = findViewById(R.id.sleepDebtText)
-        val historyList: LinearLayout = findViewById(R.id.historyList)
+        val yesterday = Calendar.getInstance().apply { add(Calendar.DAY_OF_MONTH, -1) }
+        val today = Calendar.getInstance()
+        findViewById<TextView>(R.id.sleepNightText).text =
+            "Noche del ${yesterday.get(Calendar.DAY_OF_MONTH)} al ${SimpleDateFormat("d 'de' MMMM", es).format(today.time)}"
+    }
 
-        backButton.setOnClickListener { finish() }
+    override fun onResume() {
+        super.onResume()
+        load()
+    }
 
+    private fun t(id: Int): TextView = findViewById(id)
+
+    private fun load() {
         lifecycleScope.launch {
             val db = AppDatabase.getInstance(this@SleepDetailActivity)
             val profile = db.userProfileDao().getOnce()
-
-           val metricsCalculator = MetricsCalculator(ageYears = profile?.ageYears() ?: 30)
             val file = java.io.File(getExternalFilesDir(null), "hr_log.csv")
-            val summary = metricsCalculator.analyze(file)
-
-            // Misma fórmula exacta que la tarjeta de Inicio (Baseline + Strain + Deuda)
-            val sleepPlan = SleepPlanner().computeTonightPlan(db, summary.strain)
-            val targetMinutes = sleepPlan.totalNeedMinutes
-            val sleptMinutes = summary.sleepMinutes ?: 0
-            val performancePct = if (targetMinutes > 0) {
-                ((sleptMinutes.toFloat() / targetMinutes) * 100).toInt().coerceIn(0, 150)
-            } else 0
-
-            performancePercentText.text = if (summary.sleepMinutes != null) "$performancePct%" else "--%"
-           hoursVsNeedText.text = if (summary.sleepMinutes != null) {
-                val base = "${sleptMinutes / 60}h ${sleptMinutes % 60}min de ${targetMinutes / 60}h ${targetMinutes % 60}min"
-                val extra = if (summary.timeInBedMinutes != null && summary.awakeMinutes != null) {
-                    "\nTotal en cama: ${summary.timeInBedMinutes!! / 60}h ${summary.timeInBedMinutes!! % 60}min " +
-                    "(${summary.awakeMinutes!! / 60}h ${summary.awakeMinutes!! % 60}min despierto)"
-                } else ""
-                base + extra
-            } else {
-                "Sin ventana de sueño detectada todavía"
+            val summary = withContext(Dispatchers.IO) {
+                MetricsCalculator(ageYears = profile?.ageYears() ?: 30).analyze(file)
             }
 
-            val debtMinutes = (targetMinutes - sleptMinutes).coerceAtLeast(0)
-            sleepDebtText.text = if (summary.sleepMinutes != null) {
-                "${debtMinutes / 60}h ${debtMinutes % 60}min"
-            } else {
-                "--"
-            }
-            val efficiencyText: TextView = findViewById(R.id.efficiencyText)
-            val consistencyText: TextView = findViewById(R.id.consistencyText)
-            val sleepStressText: TextView = findViewById(R.id.sleepStressText)
-            efficiencyText.text = summary.sleepEfficiencyPct?.let { "$it%" } ?: "--%"
+            // Misma fórmula que Inicio (base + esfuerzo + deuda)
+            val plan = SleepPlanner().computeTonightPlan(db, summary.strain)
+            val need = plan.totalNeedMinutes
+            val slept = summary.sleepMinutes
+            val perf = slept?.let { (it * 100 / need.coerceAtLeast(1)).coerceIn(0, 100) }
 
-            // Consistencia: compara la hora de inicio de sueño de los últimos días.
-            // Cuanto menor la variación entre noches, más alta la puntuación.
-            val recentDays = db.dailyMetricsDao().getLastDays(7)
-                .mapNotNull { it.sleepStartMinuteOfDay }
-            val consistencyPct: Int? = if (recentDays.size >= 3) {
-                val avg = recentDays.average()
-                val variance = recentDays.map { (it - avg) * (it - avg) }.average()
-                val stdDevMinutes = kotlin.math.sqrt(variance)
-                val pct = (100 - (stdDevMinutes / 120.0 * 100)).coerceIn(0.0, 100.0).toInt()
-                consistencyText.text = "$pct%"
-                pct
+            findViewById<CircularRingView>(R.id.sleepPerfRing).setValue(
+                (perf ?: 0) / 100f, perf?.let { "$it%" } ?: "--", "Rendimiento",
+                Ui.color(this@SleepDetailActivity, R.color.sleep_blue)
+            )
+            t(R.id.sleptText).text = slept?.let { Ui.hm(it) } ?: "--"
+            t(R.id.needText).text = Ui.hm(need)
+            t(R.id.inBedText).text = summary.timeInBedMinutes?.let { Ui.hm(it) } ?: "--"
+
+            // Fases: hoy solo distinguimos despierto / dormido (las 4 fases llegarán con el acelerómetro)
+            val awake = summary.awakeMinutes
+            t(R.id.stageAwakeText).text = awake?.let { Ui.hm(it) } ?: "–"
+            t(R.id.stageLightText).text = "–"
+            t(R.id.stageRemText).text = "–"
+            t(R.id.stageDeepText).text = "–"
+            Ui.fillStackedBar(
+                findViewById(R.id.stageBar),
+                listOf((awake ?: 0).toFloat() to R.color.stage_awake, (slept ?: 0).toFloat() to R.color.sleep_blue)
+            )
+            t(R.id.stagesNote).text = if (slept != null) {
+                "Dormido ${Ui.hm(slept)}. Ligero, REM y Profundo se calcularán con el acelerómetro de la pulsera cuando grabe una noche completa."
             } else {
-                consistencyText.text = "Faltan días"
-                null
+                "Todavía no hay una noche detectada. Duerme con la pulsera conectada y aparecerá aquí."
             }
 
-            // Sleep Score combinado: Horas vs necesidad (50%) + Eficiencia (30%) + Consistencia (20%)
-            val sleepScoreText: TextView = findViewById(R.id.sleepScoreText)
-            val effPct = summary.sleepEfficiencyPct
-            if (summary.sleepMinutes != null) {
-                val performanceComponent = performancePct.coerceIn(0, 100)
-                val efficiencyComponent = effPct ?: 70
-                val consistencyComponent = consistencyPct ?: 70
-                val score = (performanceComponent * 0.5 + efficiencyComponent * 0.3 + consistencyComponent * 0.2).toInt()
-                sleepScoreText.text = "$score%"
-            } else {
-                sleepScoreText.text = "--%"
-            }
-            // Estrés en el sueño: % de puntos de la ventana nocturna con score MEDIO o ALTO
-            if (summary.sleepStartMinuteOfDay != null && summary.sleepEndMinuteOfDay != null) {
-                val baselineProvider = BaselineProvider()
-                val baseline = baselineProvider.compute(db)
-                val stressSummary = StressCalculator().analyze(file, summary.restingHr, baseline)
+            // Necesidad
+            t(R.id.needBaseText).text = Ui.hm(plan.baselineMinutes)
+            t(R.id.needStrainText).text = "+" + Ui.hm(plan.strainAdjustmentMinutes)
+            t(R.id.needDebtText).text = "+" + Ui.hm(plan.debtAdjustmentMinutes)
+            t(R.id.needNapText).text = "−" + Ui.hm(plan.napAdjustmentMinutes)
+            t(R.id.needTotalText).text = Ui.hm(need)
 
-                val nightPoints = stressSummary.series.filter {
-                    it.minuteOfDay >= summary.sleepStartMinuteOfDay!! || it.minuteOfDay <= summary.sleepEndMinuteOfDay!!
+            // Planificador: ventana de ±15 min alrededor de la hora sugerida
+            val bed = plan.suggestedBedtime
+            if (bed != null) {
+                val (h, m) = bed.split(":").map { it.toInt() }
+                fun shift(delta: Int): String {
+                    val total = ((h * 60 + m + delta) % 1440 + 1440) % 1440
+                    return "%02d:%02d".format(total / 60, total % 60)
                 }
-                if (nightPoints.isNotEmpty()) {
-                    val stressedCount = nightPoints.count { it.score >= 1f }
-                    val pct = ((stressedCount.toDouble() / nightPoints.size) * 100).toInt()
-                    sleepStressText.text = "$pct%"
+                t(R.id.bedWindowText).text = "${shift(-15)} – ${shift(15)}"
+                t(R.id.bedTimeText).text = bed
+                t(R.id.plannerNote).text = "Con ese horario cubres tus ${Ui.hm(need)} y despiertas a las 07:30."
+            }
+
+            // Eficiencia y consistencia
+            val eff = summary.sleepEfficiencyPct
+            t(R.id.efficiencyText).text = eff?.let { "$it%" } ?: "--"
+            findViewById<LinearLayout>(R.id.efficiencyCard).apply {
+                if (childCount > 2) removeViewAt(2)
+                addView(Ui.progressBar(this@SleepDetailActivity, (eff ?: 0) / 100f, R.color.sleep_blue))
+            }
+            val recentStarts = db.dailyMetricsDao().getLastDays(7).mapNotNull { it.sleepStartMinuteOfDay }
+            val consistency: Int? = Formulas.sleepConsistency(recentStarts)
+            t(R.id.consistencyText).text = consistency?.let { "$it%" } ?: "--"
+            findViewById<LinearLayout>(R.id.consistencyCard).apply {
+                if (childCount > 2) removeViewAt(2)
+                if (consistency != null) {
+                    addView(Ui.progressBar(this@SleepDetailActivity, consistency / 100f, R.color.sleep_blue))
                 } else {
-                    sleepStressText.text = "--%"
+                    addView(TextView(this@SleepDetailActivity).apply {
+                        text = "Necesita 3 noches"
+                        textSize = 12f
+                        setTextColor(Ui.color(this@SleepDetailActivity, R.color.text_secondary))
+                    })
                 }
-            } else {
-                sleepStressText.text = "--%"
             }
-            // Histórico de los últimos 7 días guardados
-            val lastDays = db.dailyMetricsDao().getLastDays(7).sortedByDescending { it.date }
-            val dateFmt = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-            val displayFmt = SimpleDateFormat("dd MMM", Locale("es"))
 
-            if (lastDays.isEmpty()) {
-                val emptyRow = TextView(this@SleepDetailActivity).apply {
-                    text = "Todavía no hay noches guardadas."
-                    setTextColor(ContextCompat.getColor(this@SleepDetailActivity, R.color.text_secondary))
-                    setPadding(32, 32, 32, 32)
-                    textSize = 13f
+            // Calificación como WHOOP (ajustada a tus 155 noches): horas vs necesidad + eficiencia + regularidad
+            t(R.id.sleepScoreText).text = if (perf != null) {
+                "${Formulas.sleepScore(perf, eff, consistency)}%"
+            } else "--"
+            t(R.id.sleepDebtText).text = Ui.hm(plan.debtAdjustmentMinutes)
+
+            // Estrés durante el sueño: % de la noche con nivel medio o alto
+            val start = summary.sleepStartMinuteOfDay
+            val end = summary.sleepEndMinuteOfDay
+            if (start != null && end != null) {
+                val baseline = BaselineProvider().compute(db)
+                val stress = withContext(Dispatchers.IO) { StressCalculator().analyze(file, summary.restingHr, baseline) }
+                val night = stress.series.filter {
+                    if (start <= end) it.minuteOfDay in start..end else it.minuteOfDay >= start || it.minuteOfDay <= end
                 }
-                historyList.addView(emptyRow)
+                t(R.id.sleepStressText).text = if (night.isNotEmpty()) {
+                    "${night.count { it.score >= 1f } * 100 / night.size}%"
+                } else "--"
             } else {
-                lastDays.forEach { day ->
-                    val row = LinearLayout(this@SleepDetailActivity).apply {
-                        orientation = LinearLayout.HORIZONTAL
-                        setPadding(32, 24, 32, 24)
-                    }
-                    val dateLabel = TextView(this@SleepDetailActivity).apply {
-                        text = try { displayFmt.format(dateFmt.parse(day.date)!!) } catch (e: Exception) { day.date }
-                        setTextColor(ContextCompat.getColor(this@SleepDetailActivity, R.color.text_primary))
-                        textSize = 13f
-                        layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-                    }
-                    val durationLabel = TextView(this@SleepDetailActivity).apply {
-                        text = day.sleepMinutes?.let { "${it / 60}h ${it % 60}min" } ?: "Sin datos"
-                        setTextColor(ContextCompat.getColor(this@SleepDetailActivity, R.color.sleep_blue))
-                        textSize = 13f
-                    }
-                    row.addView(dateLabel)
-                    row.addView(durationLabel)
-                    historyList.addView(row)
+                t(R.id.sleepStressText).text = "--"
+            }
+
+            // Últimas noches
+            val history: LinearLayout = findViewById(R.id.historyList)
+            history.removeAllViews()
+            val days = db.dailyMetricsDao().getLastDays(7).sortedByDescending { it.date }
+            if (days.isEmpty()) {
+                history.addView(Ui.emptyText(this@SleepDetailActivity, "Todavía no hay noches guardadas. Se guarda una cada día a medianoche."))
+            } else {
+                val iso = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+                val pretty = SimpleDateFormat("EEEE d", es)
+                days.forEachIndexed { i, day ->
+                    if (i > 0) history.addView(Ui.hairline(this@SleepDetailActivity))
+                    val label = try { pretty.format(iso.parse(day.date)!!).replaceFirstChar { it.uppercase() } } catch (e: Exception) { day.date }
+                    val sub = day.sleepEfficiencyPct?.let { "Eficiencia $it%" }
+                    history.addView(Ui.listRow(this@SleepDetailActivity, label, day.sleepMinutes?.let { Ui.hm(it) } ?: "–", R.color.sleep_blue, sub))
                 }
             }
         }

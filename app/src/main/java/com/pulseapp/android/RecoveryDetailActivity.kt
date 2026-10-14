@@ -1,18 +1,17 @@
 package com.pulseapp.android
 
-import android.graphics.Color
 import android.os.Bundle
-import android.view.Gravity
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.pulseapp.android.data.AppDatabase
+import com.pulseapp.android.ui.CircularRingView
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Locale
+import kotlinx.coroutines.withContext
 
+/** Detalle de Recuperación (rediseño): anillo grande, VFC/FC frente a tu media, componentes y 7 días. */
 class RecoveryDetailActivity : AppCompatActivity() {
 
     private val recoveryCalculator = RecoveryCalculator()
@@ -21,122 +20,122 @@ class RecoveryDetailActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_recovery_detail)
+        Ui.setupDetailHeader(this, "Recuperación")
+    }
 
-        val backButton: TextView = findViewById(R.id.backButton)
-        val recoveryPercentText: TextView = findViewById(R.id.recoveryPercentText)
-        val recoveryLevelText: TextView = findViewById(R.id.recoveryLevelText)
-        val recoveryExplanationText: TextView = findViewById(R.id.recoveryExplanationText)
-        val hrvValueText: TextView = findViewById(R.id.hrvValueText)
-        val hrvDeltaText: TextView = findViewById(R.id.hrvDeltaText)
-        val hrvBaselineText: TextView = findViewById(R.id.hrvBaselineText)
-        val rhrValueText: TextView = findViewById(R.id.rhrValueText)
-        val rhrDeltaText: TextView = findViewById(R.id.rhrDeltaText)
-        val rhrBaselineText: TextView = findViewById(R.id.rhrBaselineText)
-        val trendList: LinearLayout = findViewById(R.id.trendList)
+    override fun onResume() {
+        super.onResume()
+        load()
+    }
 
-        backButton.setOnClickListener { finish() }
+    private fun t(id: Int): TextView = findViewById(id)
 
+    private fun load() {
         lifecycleScope.launch {
-            val db = AppDatabase.getInstance(this@RecoveryDetailActivity)
+            val ctx = this@RecoveryDetailActivity
+            val db = AppDatabase.getInstance(ctx)
             val profile = db.userProfileDao().getOnce()
             val baseline = baselineProvider.compute(db)
-
-            val metricsCalculator = MetricsCalculator(ageYears = profile?.ageYears() ?: 30)
             val file = java.io.File(getExternalFilesDir(null), "hr_log.csv")
-            val summary = metricsCalculator.analyze(file)
-
-            val sleepPlan = SleepPlanner().computeTonightPlan(db, summary.strain)
-            val recoveryScore = recoveryCalculator.calculate(
-                summary.avgHrv, summary.restingHr, summary.sleepMinutes,
-                sleepPlan.totalNeedMinutes, summary.sleepEfficiencyPct, baseline
+            val summary = withContext(Dispatchers.IO) {
+                MetricsCalculator(ageYears = profile?.ageYears() ?: 30).analyze(file)
+            }
+            val b = recoveryCalculator.breakdown(summary.avgHrv, summary.restingHr, baseline, summary.respiratoryRate)
+            val colorRes = Ui.recoveryColor(b.total)
+            val label = when {
+                b.total >= 67 -> "Recuperado"
+                b.total >= 34 -> "Moderada"
+                else -> "Baja"
+            }
+            findViewById<CircularRingView>(R.id.recoveryRing).setValue(
+                b.total / 100f, "${b.total}%", label, Ui.color(ctx, colorRes)
             )
-
-            // Badge principal
-            val (color, level) = when {
-                recoveryScore >= 67 -> R.color.recovery_green to "ALTA"
-                recoveryScore >= 34 -> R.color.alert_amber to "MEDIA"
-                else -> R.color.alert_red to "BAJA"
-            }
-            recoveryPercentText.text = "$recoveryScore%"
-            recoveryPercentText.setTextColor(ContextCompat.getColor(this@RecoveryDetailActivity, color))
-            recoveryLevelText.text = level
-            recoveryLevelText.setTextColor(ContextCompat.getColor(this@RecoveryDetailActivity, color))
-            recoveryExplanationText.text = when (level) {
-                "ALTA" -> "Tu cuerpo está bien recuperado. Buen día para empujar en el entreno."
-                "MEDIA" -> "Recuperación moderada. Escucha a tu cuerpo antes de forzar hoy."
-                else -> "Recuperación baja. Hoy sería buen día para bajar revoluciones."
+            t(R.id.recoveryExplanationText).text = when {
+                b.total >= 67 -> "Buena recuperación. Tu cuerpo está preparado para un día de esfuerzo alto."
+                b.total >= 34 -> "Recuperación moderada. Escucha a tu cuerpo antes de forzar hoy."
+                else -> "Recuperación baja. Hoy es buen día para bajar revoluciones y descansar."
             }
 
-            // HRV
-            hrvValueText.text = summary.avgHrv?.let { "%.0f ms".format(it) } ?: "-- ms"
+            // VFC frente a tu media
+            t(R.id.hrvValueText).text = summary.avgHrv?.let { "%.0f".format(it) } ?: "--"
             if (baseline != null && summary.avgHrv != null) {
                 val diff = summary.avgHrv - baseline.avgHrv
-                hrvDeltaText.text = (if (diff >= 0) "+%.0f ms".format(diff) else "%.0f ms".format(diff))
-                hrvDeltaText.setTextColor(
-                    ContextCompat.getColor(this@RecoveryDetailActivity, if (diff >= 0) R.color.recovery_green else R.color.alert_amber)
-                )
-                hrvBaselineText.text = "Línea base (${baseline.daysUsed} días): %.0f ms".format(baseline.avgHrv)
+                t(R.id.hrvDeltaText).apply {
+                    text = (if (diff >= 0) "▲ +" else "▼ −") + "%.0f".format(kotlin.math.abs(diff))
+                    setTextColor(Ui.color(ctx, if (diff >= 0) R.color.recovery_green else R.color.alert_amber))
+                }
+                t(R.id.hrvBaselineText).text = "Tu media: %.0f ms".format(baseline.avgHrv)
             } else {
-                hrvBaselineText.text = "Línea base: necesitas ${BaselineProvider.MIN_DAYS_REQUIRED}+ días guardados"
+                t(R.id.hrvDeltaText).text = ""
+                t(R.id.hrvBaselineText).text = "Media disponible con ${BaselineProvider.MIN_DAYS_REQUIRED}+ días"
             }
 
-            // FC reposo
-            rhrValueText.text = summary.restingHr?.let { "$it bpm" } ?: "-- bpm"
+            // FC en reposo frente a tu media (más baja = mejor)
+            t(R.id.rhrValueText).text = summary.restingHr?.toString() ?: "--"
             if (baseline != null && summary.restingHr != null) {
                 val diff = summary.restingHr - baseline.avgRestingHr
-                rhrDeltaText.text = (if (diff >= 0) "+%.0f bpm".format(diff) else "%.0f bpm".format(diff))
-                // FC reposo más baja que la base = bueno (verde); más alta = atención (ámbar)
-                rhrDeltaText.setTextColor(
-                    ContextCompat.getColor(this@RecoveryDetailActivity, if (diff <= 0) R.color.recovery_green else R.color.alert_amber)
-                )
-                rhrBaselineText.text = "Línea base (${baseline.daysUsed} días): %.0f bpm".format(baseline.avgRestingHr)
+                t(R.id.rhrDeltaText).apply {
+                    text = (if (diff > 0) "▲ +" else "▼ −") + "%.0f".format(kotlin.math.abs(diff))
+                    setTextColor(Ui.color(ctx, if (diff <= 0) R.color.recovery_green else R.color.alert_amber))
+                }
+                t(R.id.rhrBaselineText).text = "Tu media: %.0f lpm".format(baseline.avgRestingHr)
             } else {
-                rhrBaselineText.text = "Línea base: necesitas ${BaselineProvider.MIN_DAYS_REQUIRED}+ días guardados"
+                t(R.id.rhrDeltaText).text = ""
+                t(R.id.rhrBaselineText).text = "Media disponible con ${BaselineProvider.MIN_DAYS_REQUIRED}+ días"
             }
 
-            // Tendencia: últimos días guardados
-            val lastDays = db.dailyMetricsDao().getLastDays(7).sortedByDescending { it.date }
-            val dateFmt = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-            val displayFmt = SimpleDateFormat("dd MMM", Locale("es"))
-
-            if (lastDays.isEmpty()) {
-                val emptyRow = TextView(this@RecoveryDetailActivity).apply {
-                    text = "Todavía no hay días guardados. Vuelve en 1-2 días."
-                    setTextColor(ContextCompat.getColor(this@RecoveryDetailActivity, R.color.text_secondary))
-                    setPadding(32, 32, 32, 32)
-                    textSize = 13f
-                }
-                trendList.addView(emptyRow)
-            } else {
-                lastDays.forEach { day ->
-                    val row = LinearLayout(this@RecoveryDetailActivity).apply {
-                        orientation = LinearLayout.HORIZONTAL
-                        gravity = Gravity.CENTER_VERTICAL
-                        setPadding(32, 24, 32, 24)
-                    }
-                    val dateLabel = TextView(this@RecoveryDetailActivity).apply {
-                        text = try { displayFmt.format(dateFmt.parse(day.date)!!) } catch (e: Exception) { day.date }
-                        setTextColor(ContextCompat.getColor(this@RecoveryDetailActivity, R.color.text_primary))
-                        textSize = 13f
-                        layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-                    }
-                    val hrvLabel = TextView(this@RecoveryDetailActivity).apply {
-                        text = day.avgHrv?.let { "%.0f ms".format(it) } ?: "--"
-                        setTextColor(ContextCompat.getColor(this@RecoveryDetailActivity, R.color.recovery_green))
-                        textSize = 12f
-                        setPadding(16, 0, 16, 0)
-                    }
-                    val rhrLabel = TextView(this@RecoveryDetailActivity).apply {
-                        text = day.restingHr?.let { "$it bpm" } ?: "--"
-                        setTextColor(ContextCompat.getColor(this@RecoveryDetailActivity, R.color.text_secondary))
-                        textSize = 12f
-                    }
-                    row.addView(dateLabel)
-                    row.addView(hrvLabel)
-                    row.addView(rhrLabel)
-                    trendList.addView(row)
-                }
+            // Qué la compone
+            val list: LinearLayout = findViewById(R.id.compositionList)
+            list.removeAllViews()
+            fun addRow(title: String, value: String, colorRes: Int, sub: String, bar: Float?) {
+                val row = Ui.listRow(ctx, title, value, colorRes, sub)
+                row.setPadding(0, Ui.dp(ctx, 12f), 0, Ui.dp(ctx, 6f))
+                list.addView(row)
+                if (bar != null) list.addView(Ui.progressBar(ctx, bar.coerceIn(0.02f, 1f), colorRes))
             }
+            // VFC: lo que más pesa. Barra centrada en el 50 %: ±30 % de tu media llena o vacía la barra.
+            val hrvPct = b.hrvDeltaPct
+            addRow(
+                "VFC frente a tu media  ·  decide la nota",
+                hrvPct?.let { (if (it >= 0) "+" else "−") + "%.0f %%".format(kotlin.math.abs(it)) } ?: "--",
+                if ((hrvPct ?: 0.0) >= -5) R.color.recovery_green else if (hrvPct!! >= -20) R.color.alert_amber else R.color.alert_red,
+                if (b.personalBaseline) "Comparada con tu media ponderada de los últimos 14 días"
+                else "Aún sin media propia: se compara con 95 ms (tu media en WHOOP)",
+                hrvPct?.let { (0.5 + it / 60.0).toFloat() }
+            )
+            val rd = b.rhrDelta
+            addRow(
+                "FC en reposo frente a tu media  ·  ajuste pequeño",
+                rd?.let { (if (it > 0) "+" else "−") + "%.0f lpm".format(kotlin.math.abs(it)) } ?: "--",
+                if ((rd ?: 0.0) <= 2) R.color.recovery_green else R.color.alert_amber,
+                "Cada 5 lpm por encima de tu media resta unos 3 puntos",
+                null
+            )
+            addRow(
+                "Respiración",
+                if (b.respPenalty) "Alta" else if (summary.respiratoryRate != null) "Normal" else "--",
+                if (b.respPenalty) R.color.alert_red else R.color.text_primary,
+                if (b.respPenalty) "Mucho más alta que tu media: posible inicio de catarro o fatiga, resta puntos"
+                else "Solo resta si sube claramente sobre lo normal",
+                null
+            )
+            addRow(
+                "Sueño", "No suma", R.color.text_secondary,
+                "En tus 155 noches de WHOOP el sueño no cambia la nota: influye a través de la VFC",
+                null
+            )
+
+            // Últimos 7 días (los días guardados se recalculan con la necesidad base de sueño)
+            val days = db.dailyMetricsDao().getLastDays(6).sortedBy { it.date }
+            val items = days.map { d ->
+                val score = recoveryCalculator.breakdown(d.avgHrv, d.restingHr, baseline, d.respiratoryRate)
+                    .total.takeIf { d.avgHrv != null }
+                Triple(Ui.weekdayLetter(d.date), score?.toDouble(), Ui.recoveryColor(score ?: 0))
+            } + Triple("Hoy", b.total.toDouble(), colorRes)
+            Ui.fillWeekBars(findViewById(R.id.trendBars), items, 100.0) { "%.0f".format(it) }
+            val valid = items.mapNotNull { it.second }
+            t(R.id.trendAverageText).text = if (valid.size > 1) "Media ${valid.average().toInt()} %" else ""
+            t(R.id.trendNote).text = if (days.isEmpty()) "Cada día guardado añade una barra. La línea base personal se activa con 3 días." else ""
         }
     }
 }

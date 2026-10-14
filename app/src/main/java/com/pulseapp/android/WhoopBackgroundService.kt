@@ -45,6 +45,8 @@ class WhoopBackgroundService : Service() {
     private lateinit var dataStore: WhoopDataStore
     private val imuReassembler = WhoopImuReassembler()
     private lateinit var imuStore: WhoopImuRawStore
+    private var imuMessageCount = 0
+    private val IMU_CHARACTERISTIC = java.util.UUID.fromString("fd4b0005-cce1-4033-93ce-002d5875f58a")
     private var seq = 0
     private var gatt: BluetoothGatt? = null
     private val handler = Handler(Looper.getMainLooper())
@@ -52,6 +54,7 @@ class WhoopBackgroundService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        Formulas.init(this)
         dataStore = WhoopDataStore(this)
         imuStore = WhoopImuRawStore(this)
         createNotificationChannel()
@@ -107,27 +110,29 @@ class WhoopBackgroundService : Service() {
             subscribeNext(g, service, 0)
         }
 
-                override fun onCharacteristicChanged(g: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
+                        override fun onCharacteristicChanged(g: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
             val data = characteristic.value ?: return
-                       if (characteristic.uuid == IMU_CHARACTERISTIC) {
-       imuReassembler.feed(data)?.let { message ->
-           imuStore.append(message)
-           imuMessageCount++
-           WhoopImuDecoder.decode(message)?.let { sec ->
-               val tracker = MotionTrackerHolder.get(this)
-               tracker.feed(sec)?.let { m ->
-                   log("🚶 Minuto: ${m.steps} pasos · intensidad ${m.enmoMg.toInt()} mg · quieto ${m.stillSecs}s")
-               }
-               if (imuMessageCount % 10 == 1) log("🎯 IMU #$imuMessageCount · pasos hoy: ${tracker.stepsToday}")
-           }
-       }
-   }
-               if (characteristic.uuid == java.util.UUID.fromString("fd4b0005-cce1-4033-93ce-002d5875f58a")) {
-                imuReassembler.feed(data)?.let { imuStore.append(it) }
-            }       
+
+            if (characteristic.uuid == IMU_CHARACTERISTIC) {
+                imuReassembler.feed(data)?.let { message ->
+                    imuStore.append(message)
+                    imuMessageCount++
+                    WhoopImuDecoder.decode(message)?.let { sec ->
+                        val tracker = MotionTrackerHolder.get(this@WhoopBackgroundService)
+                        tracker.feed(sec)?.let { m ->
+                            log("🚶 Minuto: ${m.steps} pasos · intensidad ${m.enmoMg.toInt()} mg · quieto ${m.stillSecs}s")
+                            updateNotification("Pasos hoy: ${tracker.stepsToday}")
+                        }
+                        if (imuMessageCount % 10 == 1) log("🎯 IMU #$imuMessageCount · pasos hoy: ${tracker.stepsToday}")
+                    }
+                }
+            }
+
             val bio = WhoopProtocol.decodeBioV18(data)
             if (bio == null) {
-                log("📥 [${characteristic.uuid.toString().take(8)}] (${data.size}b): ${WhoopProtocol.bytesToHex(data)}")
+                if (characteristic.uuid != IMU_CHARACTERISTIC) {
+                    log("📥 [${characteristic.uuid.toString().take(8)}] (${data.size}b): ${WhoopProtocol.bytesToHex(data)}")
+                }
                 return
             }
             dataStore.append(bio)

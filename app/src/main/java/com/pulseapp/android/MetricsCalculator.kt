@@ -26,9 +26,9 @@ data class DailySummary(
 
 private data class Reading(val timeMillis: Long, val bpm: Int, val rr: List<Double>)
 
-class MetricsCalculator(ageYears: Int) {
+class MetricsCalculator(ageYears: Int, private val male: Boolean = true) {
 
-    private val hrMax: Double = 208.0 - 0.7 * ageYears
+    private val hrMax: Double = Formulas.hrMax(ageYears)
     private val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
 
     companion object {
@@ -45,7 +45,6 @@ class MetricsCalculator(ageYears: Int) {
         }
 
         val avgHr = readings.map { it.bpm }.average().toInt()
-        val strain = computeStrain(readings)
         val restWindow = findLongestRestWindow(readings)
 
         // FC en reposo y HRV se calculan SOLO con la ventana de sueño detectada
@@ -62,6 +61,7 @@ class MetricsCalculator(ageYears: Int) {
             computeRMSSD(readings.flatMap { it.rr })
         }
         val vo2Max = restingHr?.let { 15.3 * (hrMax / it) }
+        val strain = computeStrain(readings, restingHr)
 
         val calStart = restWindow?.first?.let { java.util.Calendar.getInstance().apply { timeInMillis = it } }
         val calEnd = restWindow?.second?.let { java.util.Calendar.getInstance().apply { timeInMillis = it } }
@@ -172,25 +172,9 @@ class MetricsCalculator(ageYears: Int) {
         }
     }
 
-    private fun computeStrain(readings: List<Reading>): Double {
-        if (readings.size < 2) return 0.0
-        var totalStrain = 0.0
-        for (i in 1 until readings.size) {
-            val deltaMinutes = (readings[i].timeMillis - readings[i - 1].timeMillis) / 60000.0
-            if (deltaMinutes <= 0 || deltaMinutes > 5) continue
-            val pctHrMax = readings[i].bpm / hrMax
-            val zoneWeight = when {
-                pctHrMax < 0.5 -> 0.0
-                pctHrMax < 0.6 -> 1.0
-                pctHrMax < 0.7 -> 2.0
-                pctHrMax < 0.8 -> 3.0
-                pctHrMax < 0.9 -> 4.0
-                else -> 5.0
-            }
-            totalStrain += deltaMinutes * zoneWeight
-        }
-        return (totalStrain / 200.0 * 21.0).coerceIn(0.0, 21.0)
-    }
+    /** Esfuerzo del día con TRIMP de Banister + escala logarítmica (ver Formulas). */
+    private fun computeStrain(readings: List<Reading>, restingHr: Int?): Double =
+        Formulas.strainOf(readings.map { it.timeMillis to it.bpm }, restingHr, hrMax, male)
 
     /** Solo se considera "posible sueño" lo que ocurre entre las 20:00 y las 12:00 del día siguiente. */
     private fun isNightHour(timeMillis: Long): Boolean {

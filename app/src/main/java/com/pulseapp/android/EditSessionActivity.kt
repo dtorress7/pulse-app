@@ -87,7 +87,8 @@ class EditSessionActivity : AppCompatActivity() {
                         weightKg = profile?.weightKg ?: 75f,
                         sex = profile?.sex ?: "M",
                         type = selectedType,
-                        autoDetected = session.autoDetected
+                        autoDetected = session.autoDetected,
+                        restingHr = BaselineProvider().compute(db)?.avgRestingHr?.toInt()
                     )
 
                     if (recalculated == null) {
@@ -95,6 +96,7 @@ class EditSessionActivity : AppCompatActivity() {
                         return@launch
                     }
 
+                    Formulas.updateObservedHrMax(this@EditSessionActivity, recalculated.maxHr)
                     db.activitySessionDao().update(recalculated.copy(id = session.id))
                     Toast.makeText(this@EditSessionActivity, "Actividad actualizada", Toast.LENGTH_SHORT).show()
                     finish()

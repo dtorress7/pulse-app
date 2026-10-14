@@ -37,8 +37,7 @@ class DailyMetricsUpdater {
         val dayReadings = allReadings.filter { dayFormat.format(Date(it.timeMillis)) == yesterdayKey }
         if (dayReadings.isEmpty()) return
 
-       val hrMax = 208.0 - 0.7 * ageYears
-        val strain = computeStrain(dayReadings, hrMax)
+       val hrMax = Formulas.hrMax(ageYears)
         val restWindowMinutes = findLongestRestWindowMinutes(dayReadings)
 
         // FC en reposo y HRV solo con la ventana de sueño (igual que Whoop)
@@ -50,6 +49,7 @@ class DailyMetricsUpdater {
             computeRMSSD(dayReadings.flatMap { it.rr })
         }
         val vo2Max = restingHr?.let { 15.3 * (hrMax / it) }
+        val strain = Formulas.strainOf(dayReadings.map { it.timeMillis to it.bpm }, restingHr, hrMax, sex != "F")
         val sleepMinutes = restWindowMinutes
 
         var sleepStartMinute: Int? = null
@@ -125,22 +125,6 @@ class DailyMetricsUpdater {
         } else {
             sortedBpm[mid]
         }
-    }
-
-    private fun computeStrain(readings: List<Reading>, hrMax: Double): Double {
-        if (readings.size < 2) return 0.0
-        var total = 0.0
-        for (i in 1 until readings.size) {
-            val deltaMin = (readings[i].timeMillis - readings[i - 1].timeMillis) / 60000.0
-            if (deltaMin <= 0 || deltaMin > 5) continue
-            val pct = readings[i].bpm / hrMax
-            val weight = when {
-                pct < 0.5 -> 0.0; pct < 0.6 -> 1.0; pct < 0.7 -> 2.0
-                pct < 0.8 -> 3.0; pct < 0.9 -> 4.0; else -> 5.0
-            }
-            total += deltaMin * weight
-        }
-        return (total / 200.0 * 21.0).coerceIn(0.0, 21.0)
     }
 
     /** Igual que en MetricsCalculator: agrupa por minuto y tolera picos breves de FC. */

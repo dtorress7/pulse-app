@@ -1,52 +1,39 @@
 package com.pulseapp.android
 
 /**
- * Recovery ponderado según cómo lo describes en Whoop:
- * - HRV + FC reposo = núcleo duro (60% combinado), comparados con tu línea base
- * - Sueño = peso medio-alto (40%): horas dormidas vs necesidad (fórmula del
- *   Sleep Planner) + eficiencia del sueño
- *
- * Pendiente de añadir cuando construyamos Frecuencia Respiratoria: le
- * restaremos peso a estos tres para dárselo a esa nueva señal, tal y como
- * la pesa Whoop (peso medio, solo penaliza si se desvía de tu normal).
+ * Recuperación calibrada con tu histórico de WHOOP (ver Formulas.recovery):
+ * lo que decide la nota es tu VFC de esta noche frente a tu media reciente,
+ * con un pequeño ajuste por la FC en reposo y una alerta si la respiración sube mucho.
  */
+data class RecoveryBreakdown(
+    val total: Int,
+    val hrvDeltaPct: Double?,
+    val rhrDelta: Double?,
+    val respPenalty: Boolean,
+    val personalBaseline: Boolean
+)
+
 class RecoveryCalculator {
 
+    /** Firma antigua conservada: el sueño ya no entra en la nota (en tus datos de WHOOP no la cambia). */
+    @Suppress("UNUSED_PARAMETER")
     fun calculate(
         nightlyHrv: Double?,
         restingHr: Int?,
         sleptMinutes: Int?,
         targetSleepMinutes: Int,
         sleepEfficiencyPct: Int?,
-        baseline: PersonalBaseline? = null
-    ): Int {
-        val hrvComponent = nightlyHrv?.let { hrv ->
-            if (baseline != null) {
-                ((hrv / baseline.avgHrv) * 100.0).coerceIn(0.0, 130.0).let { if (it > 100) 100.0 else it }
-            } else {
-                (((hrv - 20.0) / 80.0) * 100.0).coerceIn(0.0, 100.0)
-            }
-        } ?: 50.0
+        baseline: PersonalBaseline? = null,
+        respiratoryRate: Double? = null
+    ): Int = breakdown(nightlyHrv, restingHr, baseline, respiratoryRate).total
 
-        val rhrComponent = restingHr?.let { rhr ->
-            if (baseline != null) {
-                ((baseline.avgRestingHr / rhr) * 100.0).coerceIn(0.0, 130.0).let { if (it > 100) 100.0 else it }
-            } else {
-                (((80 - rhr) / 40.0) * 100.0).coerceIn(0.0, 100.0)
-            }
-        } ?: 50.0
-
-        val sleepPerformancePct = if (sleptMinutes != null && targetSleepMinutes > 0) {
-            ((sleptMinutes.toDouble() / targetSleepMinutes) * 100.0).coerceIn(0.0, 100.0)
-        } else 40.0
-
-        val sleepComponent = if (sleepEfficiencyPct != null) {
-            sleepPerformancePct * 0.7 + sleepEfficiencyPct * 0.3
-        } else {
-            sleepPerformancePct
-        }
-
-        val recovery = hrvComponent * 0.35 + rhrComponent * 0.25 + sleepComponent * 0.40
-        return recovery.toInt().coerceIn(0, 100)
+    fun breakdown(
+        nightlyHrv: Double?,
+        restingHr: Int?,
+        baseline: PersonalBaseline?,
+        respiratoryRate: Double? = null
+    ): RecoveryBreakdown {
+        val r = Formulas.recovery(nightlyHrv, restingHr, respiratoryRate, baseline)
+        return RecoveryBreakdown(r.total, r.hrvDeltaPct, r.rhrDelta, r.respPenalty, r.usedPersonalBaseline)
     }
 }
