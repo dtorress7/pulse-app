@@ -521,7 +521,8 @@ class WhoopBackgroundService : Service() {
     }
 
     private fun handleImu(message: ByteArray) {
-        imuStore.append(message)
+        // El crudo (100 lecturas/s) ya no se guarda: el decodificador está verificado y escribir ~9 MB/h gastaba batería.
+        // Se guarda el resumen por minuto (motion_minutes.csv: pasos, intensidad, segundos quieto, postura).
         imuMessages++
         WhoopImuDecoder.decode(message)?.let { sec ->
             MotionTrackerHolder.get(this).feed(sec)?.let { m ->

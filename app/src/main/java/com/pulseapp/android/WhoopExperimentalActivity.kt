@@ -132,7 +132,7 @@ class WhoopExperimentalActivity : AppCompatActivity() {
             WhoopBackgroundService.rawCount = 0
             log("🗑️ Historial bruto borrado")
         }
-        findViewById<View>(R.id.shareImuButton).setOnClickListener { share("whoop_imu_raw.txt", "Compartir movimiento") }
+        findViewById<View>(R.id.shareImuButton).setOnClickListener { share(MotionTracker.FILE_NAME, "Compartir movimiento por minuto") }
         findViewById<View>(R.id.clearImuButton).setOnClickListener {
             WhoopImuRawStore(this).clear()
             log("🗑️ Datos de movimiento borrados")
