@@ -100,7 +100,7 @@ class RecoveryDetailActivity : AppCompatActivity() {
                 hrvPct?.let { (if (it >= 0) "+" else "−") + "%.0f %%".format(kotlin.math.abs(it)) } ?: "--",
                 if ((hrvPct ?: 0.0) >= -5) R.color.recovery_green else if (hrvPct!! >= -20) R.color.alert_amber else R.color.alert_red,
                 if (b.personalBaseline) "Comparada con tu media ponderada de los últimos 14 días"
-                else "Aún sin media propia: se compara con 95 ms (tu media en WHOOP)",
+                else "Aún sin 3 noches propias: se compara con tu media reciente en WHOOP (86 ms)",
                 hrvPct?.let { (0.5 + it / 60.0).toFloat() }
             )
             val rd = b.rhrDelta

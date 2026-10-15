@@ -18,7 +18,7 @@ import java.util.Calendar
 data class ActivityPeriod(val startMinute: Int, val endMinute: Int)
 
 /**
- * Gráfica de estrés del rediseño: escala fija 0–3, eje X = minutos del día.
+ * Gráfica de estrés del rediseño: escala fija 0–3, eje X = últimas 24 h (ahora a la derecha).
  * Línea fina con degradado azul eléctrico → azul acero → verde, relleno verde que se desvanece,
  * guías tenues en 0/1/2/3, franja de sueño (10 % + línea superior), marcas de actividad
  * y marcador discontinuo de "ahora".
@@ -102,19 +102,29 @@ class StressChartView @JvmOverloads constructor(
 
         val top = 4f * dp
         val bottom = h - 4f * dp
-        fun xFor(minute: Int) = w * minute / 1439f
+        // Eje X = últimas 24 h hasta ahora (como WHOOP): "ahora" queda en el borde derecho
+        val now = System.currentTimeMillis()
+        val from = now - 24 * 3_600_000L
+        fun xForTime(t: Long) = (w * (t - from) / (now - from).toFloat()).coerceIn(0f, w)
+        /** Un minuto del día → su aparición más reciente que no sea futura. */
+        fun timeOfMinute(minute: Int): Long {
+            val c = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, minute / 60); set(Calendar.MINUTE, minute % 60)
+                set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+            }
+            if (c.timeInMillis > now) c.add(Calendar.DAY_OF_YEAR, -1)
+            return c.timeInMillis
+        }
         fun yFor(score: Float) = bottom - (score.coerceIn(0f, 3f) / 3f) * (bottom - top)
 
-        // Franja de sueño (puede cruzar la medianoche)
+        // Franja de sueño
         val start = sleepStartMinute
         val end = sleepEndMinute
         if (start != null && end != null) {
-            if (start <= end) {
-                drawSleep(canvas, xFor(start), xFor(end), top, bottom)
-            } else {
-                drawSleep(canvas, xFor(start), w, top, bottom)
-                drawSleep(canvas, 0f, xFor(end), top, bottom)
-            }
+            val te = timeOfMinute(end)
+            var ts = timeOfMinute(start)
+            if (ts > te) ts -= 24 * 3_600_000L
+            drawSleep(canvas, xForTime(ts), xForTime(te), top, bottom)
         }
 
         // Guías 0/1/2/3
@@ -125,12 +135,17 @@ class StressChartView @JvmOverloads constructor(
 
         // Actividades: barra fina en la parte inferior
         activities.forEach { a ->
-            val x1 = xFor(a.startMinute)
-            val x2 = xFor(a.endMinute).coerceAtLeast(x1 + 4f * dp)
+            val te = timeOfMinute(a.endMinute)
+            var ts = timeOfMinute(a.startMinute)
+            if (ts > te) ts -= 24 * 3_600_000L
+            val x1 = xForTime(ts)
+            val x2 = xForTime(te).coerceAtLeast(x1 + 4f * dp)
             canvas.drawRoundRect(x1, bottom - 3f * dp, x2, bottom + 1f * dp, 2f * dp, 2f * dp, activityPaint)
         }
 
-        if (points.size >= 2) {
+        val pts = points.map { p -> (if (p.timeMillis > 0) p.timeMillis else timeOfMinute(p.minuteOfDay)) to p.score }
+            .filter { it.first >= from }.sortedBy { it.first }
+        if (pts.isNotEmpty()) {
             linePaint.shader = LinearGradient(
                 0f, 0f, w, 0f, intArrayOf(strainBlue, sleepBlue, green), null, Shader.TileMode.CLAMP
             )
@@ -140,31 +155,32 @@ class StressChartView @JvmOverloads constructor(
                 Color.argb(0, Color.red(green), Color.green(green), Color.blue(green)),
                 Shader.TileMode.CLAMP
             )
-            val linePath = Path()
-            val fillPath = Path()
-            points.forEachIndexed { index, p ->
-                val x = xFor(p.minuteOfDay)
-                val y = yFor(p.score)
-                if (index == 0) {
-                    linePath.moveTo(x, y)
-                    fillPath.moveTo(x, bottom)
-                    fillPath.lineTo(x, y)
-                } else {
-                    linePath.lineTo(x, y)
-                    fillPath.lineTo(x, y)
-                }
+            // Tramos separados: si faltan datos más de 15 min, la línea se corta (antes unía los huecos en recta)
+            val segments = mutableListOf<MutableList<Pair<Long, Float>>>()
+            pts.forEach { p ->
+                val last = segments.lastOrNull()?.lastOrNull()
+                if (last == null || p.first - last.first > 15 * 60_000L) segments.add(mutableListOf(p)) else segments.last().add(p)
             }
-            fillPath.lineTo(xFor(points.last().minuteOfDay), bottom)
-            fillPath.close()
-            canvas.drawPath(fillPath, fillPaint)
-            canvas.drawPath(linePath, linePaint)
+            segments.forEach { seg ->
+                val linePath = Path()
+                val fillPath = Path()
+                seg.forEachIndexed { i, (t, sc) ->
+                    val x = xForTime(t); val y = yFor(sc)
+                    if (i == 0) { linePath.moveTo(x, y); fillPath.moveTo(x, bottom); fillPath.lineTo(x, y) }
+                    else { linePath.lineTo(x, y); fillPath.lineTo(x, y) }
+                }
+                if (seg.size == 1) linePath.lineTo(xForTime(seg[0].first) + 2f * dp, yFor(seg[0].second))
+                fillPath.lineTo(xForTime(seg.last().first), bottom)
+                fillPath.close()
+                canvas.drawPath(fillPath, fillPaint)
+                canvas.drawPath(linePath, linePaint)
+            }
         }
 
         if (showNowMarker) {
-            val now = Calendar.getInstance()
-            val x = xFor(now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE))
+            val x = w - 1.5f * dp
             canvas.drawLine(x, top, x, bottom, nowPaint)
-            canvas.drawCircle(x, bottom, 3f * dp, nowDotPaint)
+            canvas.drawCircle(x - 1.5f * dp, bottom, 3f * dp, nowDotPaint)
         }
     }
 

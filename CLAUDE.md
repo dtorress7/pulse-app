@@ -52,19 +52,23 @@ Peso/altura/edad/sexo → calorías (Mifflin + Keytel). Sexo → TRIMP. Recupera
 - Esfuerzo = TRIMP Banister con reserva de FC, sólo minutos con FC ≥ 45 % FCmáx → 4,14·ln(1+TRIMP/2,6), máx 21.
   Misma curva para día y actividades. Error vs WHOOP: fútbol 0,7, global 1,7 (173 entrenos).
 - Recuperación = sigmoide(0,84 + 5,5·(ln VFC − EWMA14 ln VFC previas) − 0,028·(FCR − EWMA FCR)) − penalización si
-  respiración z>2. Sin línea base: referencia 95 ms. El SUEÑO NO entra (en sus datos no cambia la nota).
+  respiración z>2. Sin línea base: referencia 86 ms y 59 lpm. El SUEÑO NO entra (en sus datos no cambia la nota).
   Comprobado en Kotlin con 155 noches: MAE 6,4, ±10 puntos 84 %, color igual 85 %.
 - Calificación sueño = 0,281·horas vs necesidad (máx 100) + 0,202·eficiencia + 0,288·regularidad + 19,6 (MAE 1,9).
   Es lo que muestra el anillo de Sueño del inicio. Regularidad = 100 − sd(hora de dormirse, 7 noches)/120·100.
-- Estrés: el export de WHOOP no trae estrés → no se puede calibrar; se mantiene la fórmula propia.
 - FC reposo = mediana de la ventana de sueño (cuadra con WHOOP: 58 vs 57, 59 vs 59).
 - VFC = RMSSD de RR nocturnos, filtrando saltos >20 %.
-- Sueño: sólo 20:00–09:00, medias por minuto, umbral 1,25 × media del 10 % más bajo, tolera 20 min por encima,
-  hueco >3 min = desconexión, mínimo 90 min, se coge **la última** ventana válida.
+- Sueño (`SleepDetector`, ajustado 15/10 con la noche 14→15 vs WHOOP): 20:00–12:00, medias por minuto suavizadas 3 min,
+  umbral 1,30 × media del 10 % más bajo, tolera 30 min por encima, hueco >10 min = desconexión, mínimo 90 min, la última
+  ventana. Resultado: 23:20–07:24, 39 min despierto, 91 % (WHOOP 23:17–07:20, 42 min, 92 %). VFC de esa ventana ≈ 69 (WHOOP 69),
+  FC reposo mediana 64 (WHOOP 64). Ciclo del día = desde que te duermes (o 00:00): esfuerzo y FC media solo de ese ciclo
+  (antes usaba todo el archivo). `DailyMetricsUpdater` guarda la noche que TERMINA ese día (18:00 víspera → 14:00).
+  `BaselineProvider` solo usa días con ≥ 3 h dormido. Sin 3 noches propias: referencia 86 ms / 59 lpm (media reciente WHOOP).
 - Necesidad de sueño = 470 min + max(0, strain−8)·6 + deuda (decae ×0,7/día). Despertar fijo 7:30.
 - Calorías = Mifflin-St Jeor × (min transcurridos/1440) × 1,15 + kcal de actividades (Keytel).
 - VO2máx = 15,3 × FCmáx / FC reposo, se recalcula sólo los martes.
-- Estrés: ventanas de 5 min, (subida FC·0,5 + caída VFC·0,5)·3 → 0–3 (bajo/medio/alto).
+- Estrés (15/10): ventanas de 5 min de las últimas 24 h, 4,8·(0,7·(FC−FCRbase)/FCRbase + 0,3·ln(VFCbase/VFC)) → 0–3.
+  Noche 14→15: 54/38/8 % vs WHOOP 53/42/5 %. Gráfica: eje = últimas 24 h, se corta en huecos >15 min.
 - Actividad automática: media 4 min >60 % FCmáx durante 8 min empieza; <55 % 5 min termina.
 - SpO₂ es imposible offline (los canales rojo/IR no se muestrean a la vez). Las puntuaciones oficiales de WHOOP
   se calculan en su nube y no se pueden leer.
@@ -100,7 +104,10 @@ Peso/altura/edad/sexo → calorías (Mifflin + Keytel). Sexo → TRIMP. Recupera
   → END (clase 2) repetido cada ~2,5 s esperando la confirmación. El 1.er bloque solo trae **15–22 s** y empieza donde se
   quedó la app de WHOOP del iPhone (19:10:29): sin confirmar, el modo "WHOOP conserva" no sirve para rellenar huecos.
   Tiempo real propietario tipo 40 (32 B, 1/s): hora @10, **FC @16** (verificado contra 2A37); se usa de respaldo.
-  Pendiente: probar el modo confirmar y ver si la app de WHOOP sigue recibiendo esos datos después.
+  **Modo confirmar probado 14/10 19:41**: 36 bloques (≤60 registros cada uno) y COMPLETE en 11 s, 1852 registros 19:10→19:41.
+  Después la app de WHOOP del iPhone NO tenía ese tramo → confirmar = WHOOP pierde esos datos (confirmado).
+  Aparecen también registros de historial versión 26 (88 B) sin descifrar. Zonas de actividad daban 0 (se truncaba cada
+  segundo a 0 min) → corregido. FC reposo del día sin noche = vacía (antes salía la diurna, 74).
 - Registro bio v18 (tipo 47): hora @15, FC @22, nRR @23, RR @24.., gravedad f32 @45/49/53, temp piel u16/128 @73.
 
 ## Prueba del acelerómetro (14/10, 12:15–12:22)

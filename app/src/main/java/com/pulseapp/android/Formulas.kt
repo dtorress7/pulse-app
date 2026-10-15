@@ -108,8 +108,13 @@ object Formulas {
     const val K_HRV = 5.5
     const val K_RHR = 0.028
     const val BIAS = 0.84
-    /** VFC de referencia (tu media en WHOOP) mientras no haya 3 noches propias guardadas. */
-    const val FALLBACK_HRV = 95.0
+    /**
+     * Referencias mientras no haya 3 noches propias: tu media reciente en WHOOP (9–14/10: VFC 119, 70, 68, 113, 101, 62
+     * → media geométrica 86 ms; FC reposo 54, 61, 63, 57, 56, 64 → 59 lpm). Con 95 ms (media de 30 días) la
+     * recuperación del 15/10 salía 33 % frente al 43 % de WHOOP; con estas, ~38 %.
+     */
+    const val FALLBACK_HRV = 86.0
+    const val FALLBACK_RHR = 59.0
 
     data class RecoveryResult(
         val total: Int,
@@ -122,7 +127,7 @@ object Formulas {
     fun recovery(hrv: Double?, restingHr: Int?, respiratoryRate: Double?, b: PersonalBaseline?): RecoveryResult {
         val lnRef = b?.lnHrvMean ?: ln(FALLBACK_HRV)
         val delta = hrv?.takeIf { it > 0 }?.let { ln(it) - lnRef }
-        val rhrDelta = if (b != null && restingHr != null) restingHr - b.avgRestingHr else null
+        val rhrDelta = if (restingHr != null) restingHr - (b?.avgRestingHr ?: FALLBACK_RHR) else null
         var logit = BIAS + K_HRV * (delta ?: -0.1) - K_RHR * (rhrDelta ?: 0.0)
         var penalty = false
         if (respiratoryRate != null && respiratoryRate in 8.0..25.0 && b?.respMean != null && b.respSd != null) {

@@ -35,7 +35,8 @@ class BaselineProvider {
     }
 
     suspend fun compute(db: AppDatabase): PersonalBaseline? {
-        val days = db.dailyMetricsDao().getLastDays(LOOKBACK_DAYS)
+        // Solo noches de verdad (≥ 3 h dormido): un día sin noche registrada no debe mover tu media
+        val days = db.dailyMetricsDao().getLastDays(LOOKBACK_DAYS).filter { (it.sleepMinutes ?: 0) >= 180 }
         val validHrv = days.mapNotNull { it.avgHrv?.takeIf { v -> v > 0 } }
         val validRhr = days.mapNotNull { it.restingHr?.toDouble() }
         val validResp = days.mapNotNull { it.respiratoryRate?.takeIf { r -> r in 8.0..25.0 } }

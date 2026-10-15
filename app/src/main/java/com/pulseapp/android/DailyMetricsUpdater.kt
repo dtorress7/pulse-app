@@ -37,47 +37,34 @@ class DailyMetricsUpdater {
         val dayReadings = allReadings.filter { dayFormat.format(Date(it.timeMillis)) == yesterdayKey }
         if (dayReadings.isEmpty()) return
 
-       val hrMax = Formulas.hrMax(ageYears)
-        val restWindowMinutes = findLongestRestWindowMinutes(dayReadings)
+        val hrMax = Formulas.hrMax(ageYears)
 
-        // FC en reposo y HRV solo con la ventana de sueño (igual que Whoop)
-        val sleepWindowReadings = findLongestRestWindowReadings(dayReadings)
-        val restingHr = if (sleepWindowReadings.isNotEmpty()) findRestingHr(sleepWindowReadings) else findRestingHr(dayReadings)
-        val avgHrv = if (sleepWindowReadings.isNotEmpty()) {
-            computeRMSSD(sleepWindowReadings.flatMap { it.rr })
-        } else {
-            computeRMSSD(dayReadings.flatMap { it.rr })
-        }
+        // La noche que TERMINÓ ese día (se duerme la víspera y se despierta ese día): de las 18:00 de la víspera
+        // a las 14:00. Antes se buscaba solo dentro del día natural y la noche quedaba partida en dos.
+        val dayStart = Calendar.getInstance().apply {
+            time = yesterdayCal.time
+            set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        val nightReadings = allReadings.filter { it.timeMillis in (dayStart - 6 * 3_600_000L)..(dayStart + 14 * 3_600_000L) }
+        val sleep = SleepDetector.detect(nightReadings.map { it.timeMillis to it.bpm })
+        val sleepWindowReadings = if (sleep != null) {
+            nightReadings.filter { it.timeMillis in sleep.startMillis..sleep.endMillis }
+        } else emptyList()
+
+        val restingHr = if (sleepWindowReadings.isNotEmpty()) findRestingHr(sleepWindowReadings) else null
+        val avgHrv = if (sleepWindowReadings.isNotEmpty()) computeRMSSD(sleepWindowReadings.flatMap { it.rr }) else null
         val vo2Max = restingHr?.let { 15.3 * (hrMax / it) }
         val strain = Formulas.strainOf(dayReadings.map { it.timeMillis to it.bpm }, restingHr, hrMax, sex != "F")
-        val sleepMinutes = restWindowMinutes
+        val sleepMinutes = sleep?.asleepMinutes
 
         var sleepStartMinute: Int? = null
         var sleepEndMinute: Int? = null
-        var sleepEfficiency: Int? = null
-        if (sleepWindowReadings.isNotEmpty()) {
-            val startMillis = sleepWindowReadings.first().timeMillis
-            val endMillis = sleepWindowReadings.last().timeMillis
-            val startCal = Calendar.getInstance().apply { timeInMillis = startMillis }
-            val endCal = Calendar.getInstance().apply { timeInMillis = endMillis }
+        val sleepEfficiency: Int? = sleep?.efficiencyPct
+        if (sleep != null) {
+            val startCal = Calendar.getInstance().apply { timeInMillis = sleep.startMillis }
+            val endCal = Calendar.getInstance().apply { timeInMillis = sleep.endMillis }
             sleepStartMinute = startCal.get(Calendar.HOUR_OF_DAY) * 60 + startCal.get(Calendar.MINUTE)
             sleepEndMinute = endCal.get(Calendar.HOUR_OF_DAY) * 60 + endCal.get(Calendar.MINUTE)
-
-            val sortedBpm = sleepWindowReadings.map { it.bpm }.sorted()
-            val tenPercentCount = (sortedBpm.size * 0.10).toInt().coerceAtLeast(1)
-            val windowRestingHr = sortedBpm.take(tenPercentCount).average()
-            val threshold = windowRestingHr * REST_THRESHOLD_MULTIPLIER
-            val buckets = LinkedHashMap<Long, MutableList<Int>>()
-            for (r in sleepWindowReadings) {
-                val minuteKey = r.timeMillis / 60000
-                buckets.getOrPut(minuteKey) { mutableListOf() }.add(r.bpm)
-            }
-            val minuteAverages = buckets.values.map { it.sum().toDouble() / it.size }
-            val belowCount = minuteAverages.count { it <= threshold }
-            sleepEfficiency = if (minuteAverages.isNotEmpty()) {
-                ((belowCount.toDouble() / minuteAverages.size) * 100).toInt().coerceIn(0, 100)
-            } else null
-            
         }
         val respiratoryRate = if (sleepWindowReadings.isNotEmpty()) {
             RespiratoryRateCalculator().estimate(sleepWindowReadings.flatMap { it.rr })

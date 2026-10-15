@@ -138,6 +138,7 @@ class WhoopBackgroundService : Service() {
     private val assemblers = HashMap<UUID, java.io.ByteArrayOutputStream>()
     // Estado de la descarga del historial
     private var offloading = false
+    private var offloadedThisConnection = false
     private var chunkRecords = 0
     private var offloadRecords = 0
     private var ackedChunks = 0
@@ -147,7 +148,14 @@ class WhoopBackgroundService : Service() {
     private var realtimeLogged = 0
     private var unknownHistLogged = 0
     private val offloadTimer = object : Runnable {
-        override fun run() { if (isReady() && !offloading) requestHistory(); handler.postDelayed(this, OFFLOAD_EVERY_MS) }
+        override fun run() {
+            // En "WHOOP conserva" la pulsera siempre manda el mismo primer bloque: basta con pedirlo al conectar
+            if (isReady() && !offloading && (ackMode(this@WhoopBackgroundService) == 1 || !offloadedThisConnection)) {
+                offloadedThisConnection = true
+                requestHistory()
+            }
+            handler.postDelayed(this, OFFLOAD_EVERY_MS)
+        }
     }
     private val offloadIdle = Runnable {
         if (offloading) { offloading = false; log("📚 La pulsera dejó de enviar historial (sin COMPLETE). Recibidos $offloadRecords registros; se reintenta en 15 min.") }
@@ -336,6 +344,7 @@ class WhoopBackgroundService : Service() {
             command(WhoopProtocol.CMD_TOGGLE_REALTIME_HR, byteArrayOf(1), "Pulso en directo ON (orden 3)")
             handler.postDelayed({
                 ready = true
+                offloadedThisConnection = false
                 assemblers.clear()
                 setState("Conectada · esperando pulso")
                 if (imuEnabled(this@WhoopBackgroundService)) startImu()
@@ -406,7 +415,9 @@ class WhoopBackgroundService : Service() {
         if (frame.size < 12) return
         val type = frame[8].toInt() and 0xFF
         if (type == 43 || type == 51) { handleImu(frame); return }   // movimiento: no se guarda en bruto (es enorme)
-        recordRaw("RX", uuid.toString().take(8), frame)
+        // El pulso en directo (40, 1/s) y los textos internos de la pulsera (50) ya están descifrados o no sirven:
+        // no se guardan en bruto (escribir cada segundo gastaba batería del móvil)
+        if (type != 40 && type != 50) recordRaw("RX", uuid.toString().take(8), frame)
         when (type) {
             47 -> handleHistoricalRecord(frame)
             40 -> handleRealtime(frame)
@@ -609,6 +620,7 @@ class WhoopBackgroundService : Service() {
 
     override fun onDestroy() {
         try { unregisterReceiver(btStateReceiver) } catch (_: Exception) { }
+        hrStore.flush()
         isRunning = false
         ready = false
         handler.removeCallbacksAndMessages(null)

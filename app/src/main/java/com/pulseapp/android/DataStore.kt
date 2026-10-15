@@ -33,7 +33,22 @@ class DataStore(context: Context) {
         val rrString = rrIntervals.joinToString("|") {
             String.format(Locale.US, "%.1f", it)
         }
-        file.appendText("$timestamp,$bpm,\"$rrString\"\n")
+        // Se escribe en bloques (cada 30 lecturas o 30 s) en vez de abrir el archivo cada segundo: ahorra batería
+        buffer.append("$timestamp,$bpm,\"$rrString\"\n")
+        pending++
+        val now = System.currentTimeMillis()
+        if (pending >= 30 || now - lastFlush > 30_000L) flush()
+    }
+
+    private val buffer = StringBuilder()
+    private var pending = 0
+    private var lastFlush = System.currentTimeMillis()
+
+    @Synchronized
+    fun flush() {
+        if (buffer.isEmpty()) return
+        try { file.appendText(buffer.toString()) } catch (_: Exception) { }
+        buffer.setLength(0); pending = 0; lastFlush = System.currentTimeMillis()
     }
 
     fun getFile(): File = file

@@ -2,6 +2,7 @@ package com.pulseapp.android
 
 import com.pulseapp.android.data.ActivitySession
 import java.io.File
+import kotlin.math.roundToInt
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -31,7 +32,8 @@ class ActivityRecorder {
         val avgHr = readings.map { it.bpm }.average()
         val maxHr = readings.maxOf { it.bpm }
 
-                var z0 = 0; var z1 = 0; var z2 = 0; var z3 = 0; var z4 = 0; var z5 = 0
+        // Minutos por zona en decimales: con lecturas cada segundo, truncar cada tramo a entero daba siempre 0
+        var z0 = 0.0; var z1 = 0.0; var z2 = 0.0; var z3 = 0.0; var z4 = 0.0; var z5 = 0.0
         var trimpTotal = 0.0
         val rhr = restingHr ?: Formulas.DEFAULT_RESTING_HR
 
@@ -40,12 +42,12 @@ class ActivityRecorder {
             if (deltaMin <= 0 || deltaMin > 8) continue
             val pct = readings[i].bpm / hrMax
             when {
-                pct < 0.5 -> z0 += deltaMin.toInt().coerceAtLeast(0)
-                pct < 0.6 -> z1 += deltaMin.toInt().coerceAtLeast(0)
-                pct < 0.7 -> z2 += deltaMin.toInt().coerceAtLeast(0)
-                pct < 0.8 -> z3 += deltaMin.toInt().coerceAtLeast(0)
-                pct < 0.9 -> z4 += deltaMin.toInt().coerceAtLeast(0)
-                else -> z5 += deltaMin.toInt().coerceAtLeast(0)
+                pct < 0.5 -> z0 += deltaMin
+                pct < 0.6 -> z1 += deltaMin
+                pct < 0.7 -> z2 += deltaMin
+                pct < 0.8 -> z3 += deltaMin
+                pct < 0.9 -> z4 += deltaMin
+                else -> z5 += deltaMin
             }
             trimpTotal += Formulas.trimp(deltaMin, readings[i].bpm, rhr, hrMax, sex != "F")
         }
@@ -62,11 +64,11 @@ class ActivityRecorder {
             maxHr = maxHr,
             strain = strain,
             caloriesKcal = calories,
-            minutesZone1 = z1, minutesZone2 = z2, minutesZone3 = z3,
-            minutesZone4 = z4, minutesZone5 = z5,
+            minutesZone1 = z1.roundToInt(), minutesZone2 = z2.roundToInt(), minutesZone3 = z3.roundToInt(),
+            minutesZone4 = z4.roundToInt(), minutesZone5 = z5.roundToInt(),
             type = type,
             autoDetected = autoDetected,
-            minutesZone0 = z0
+            minutesZone0 = z0.roundToInt()
         )
     }
 

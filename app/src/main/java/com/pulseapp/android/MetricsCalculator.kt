@@ -32,9 +32,6 @@ class MetricsCalculator(ageYears: Int, private val male: Boolean = true) {
     private val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
 
     companion object {
-        private const val REST_THRESHOLD_MULTIPLIER = 1.25
-        private const val REST_GRACE_MINUTES = 20
-        private const val REST_MIN_DURATION_MINUTES = 90
         private const val DISCONNECT_GAP_MINUTES = 3
     }
 
@@ -44,37 +41,42 @@ class MetricsCalculator(ageYears: Int, private val male: Boolean = true) {
             return DailySummary(null, null, null, null, 0.0, null, null, null, null, null, null, null, null, null, 0)
         }
 
-        val avgHr = readings.map { it.bpm }.average().toInt()
-        val restWindow = findLongestRestWindow(readings)
+        // Noche más reciente (últimas 30 h), detectada con SleepDetector (ajustado con tu noche del 14→15/10)
+        val now = System.currentTimeMillis()
+        val recent = readings.filter { it.timeMillis >= now - 30 * 3_600_000L }
+        val sleep = SleepDetector.detect(recent.map { it.timeMillis to it.bpm })
+        val restWindow = sleep?.let { it.startMillis to it.endMillis }
 
-        // FC en reposo y HRV se calculan SOLO con la ventana de sueño detectada
-        // (igual que Whoop) — usar el día entero dispara ambos valores artificialmente.
+        // Ciclo del día como WHOOP: empieza al dormirte (si la noche acabó hace menos de 20 h); si no, a las 00:00.
+        // Antes se usaba TODO el archivo y el esfuerzo de hoy arrastraba el de días anteriores.
+        val midnight = java.util.Calendar.getInstance().apply {
+            set(java.util.Calendar.HOUR_OF_DAY, 0); set(java.util.Calendar.MINUTE, 0)
+            set(java.util.Calendar.SECOND, 0); set(java.util.Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        val cycleStart = if (sleep != null && now - sleep.endMillis < 20 * 3_600_000L) sleep.startMillis else midnight
+        val cycleReadings = readings.filter { it.timeMillis >= cycleStart }
+        val avgHr = cycleReadings.takeIf { it.isNotEmpty() }?.map { it.bpm }?.average()?.toInt()
+
+        // FC en reposo y VFC SOLO con la ventana de sueño (igual que WHOOP)
         val sleepReadings = if (restWindow != null) {
             readings.filter { it.timeMillis in restWindow.first..restWindow.second }
-        } else {
-            emptyList()
-        }
-        val restingHr = if (sleepReadings.isNotEmpty()) findRestingHr(sleepReadings) else findRestingHr(readings)
-        val avgHrv = if (sleepReadings.isNotEmpty()) {
-            computeRMSSD(sleepReadings.flatMap { it.rr })
-        } else {
-            computeRMSSD(readings.flatMap { it.rr })
-        }
+        } else emptyList()
+        // Sin noche registrada no hay FC en reposo real (de día sale ~15 lpm más alta y hunde el esfuerzo): se deja vacía
+        val restingHr = if (sleepReadings.isNotEmpty()) findRestingHr(sleepReadings) else null
+        val avgHrv = if (sleepReadings.isNotEmpty()) computeRMSSD(sleepReadings.flatMap { it.rr }) else null
         val vo2Max = restingHr?.let { 15.3 * (hrMax / it) }
-        val strain = computeStrain(readings, restingHr)
+        val strain = computeStrain(cycleReadings, restingHr)
 
         val calStart = restWindow?.first?.let { java.util.Calendar.getInstance().apply { timeInMillis = it } }
         val calEnd = restWindow?.second?.let { java.util.Calendar.getInstance().apply { timeInMillis = it } }
-        val sleepEfficiency = restWindow?.let { computeSleepEfficiency(readings, it.first, it.second) }
+        val sleepEfficiency = sleep?.efficiencyPct
         val respiratoryRate = if (sleepReadings.isNotEmpty()) {
             RespiratoryRateCalculator().estimate(sleepReadings.flatMap { it.rr })
         } else null
 
-        val timeInBedMinutes = restWindow?.let { ((it.second - it.first) / 60000).toInt() }
-        val awakeMinutes = restWindow?.let { computeAwakeMinutes(readings, it.first, it.second) }
-        val actualSleepMinutes = if (timeInBedMinutes != null && awakeMinutes != null) {
-            (timeInBedMinutes - awakeMinutes).coerceAtLeast(0)
-        } else timeInBedMinutes
+        val timeInBedMinutes = sleep?.inBedMinutes
+        val awakeMinutes = sleep?.awakeMinutes
+        val actualSleepMinutes = sleep?.asleepMinutes
 
         return DailySummary(
             restingHr = restingHr,
@@ -176,114 +178,4 @@ class MetricsCalculator(ageYears: Int, private val male: Boolean = true) {
     /** Esfuerzo del día con TRIMP de Banister + escala logarítmica (ver Formulas). */
     private fun computeStrain(readings: List<Reading>, restingHr: Int?): Double =
         Formulas.strainOf(readings.map { it.timeMillis to it.bpm }, restingHr, hrMax, male)
-
-    /** Solo se considera "posible sueño" lo que ocurre entre las 20:00 y las 12:00 del día siguiente. */
-    private fun isNightHour(timeMillis: Long): Boolean {
-        val cal = java.util.Calendar.getInstance().apply { timeInMillis = timeMillis }
-        val hour = cal.get(java.util.Calendar.HOUR_OF_DAY)
-        return hour >= 20 || hour < 10
-    }
-
-    private fun findLongestRestWindow(readings: List<Reading>): Pair<Long, Long>? {
-        val nightReadings = readings.filter { isNightHour(it.timeMillis) }
-        if (nightReadings.size < 2) return null
-
-        val buckets = LinkedHashMap<Long, MutableList<Int>>()
-        for (r in nightReadings) {
-            val minuteKey = r.timeMillis / 60000
-            buckets.getOrPut(minuteKey) { mutableListOf() }.add(r.bpm)
-        }
-        val series = buckets.entries.sortedBy { it.key }
-            .map { (key, values) -> key to (values.sum().toDouble() / values.size) }
-
-        val sortedBpm = nightReadings.map { it.bpm }.sorted()
-        val tenPercentCount = (sortedBpm.size * 0.10).toInt().coerceAtLeast(1)
-        val restingHr = sortedBpm.take(tenPercentCount).average()
-        val threshold = restingHr * REST_THRESHOLD_MULTIPLIER
-
-        var bestDurationMin = 0L
-        var bestStart: Long? = null
-        var bestEnd: Long? = null
-
-        var currentStart: Long? = null
-        var aboveSince: Long? = null
-        var prevKey: Long? = null
-
-        for ((key, avg) in series) {
-            val gapMinutes = prevKey?.let { key - it } ?: 0
-            if (prevKey != null && gapMinutes > DISCONNECT_GAP_MINUTES) {
-                if (currentStart != null && prevKey != null) {
-                    val d = prevKey - currentStart
-                    if (d >= REST_MIN_DURATION_MINUTES) { bestDurationMin = d; bestStart = currentStart; bestEnd = prevKey }
-                }
-                currentStart = key
-                aboveSince = null
-            } else {
-                if (avg <= threshold) {
-                    aboveSince = null
-                    if (currentStart == null) currentStart = key
-                } else if (currentStart != null) {
-                    if (aboveSince == null) {
-                        aboveSince = key
-                    } else if (key - aboveSince!! > REST_GRACE_MINUTES) {
-                        val d = aboveSince!! - currentStart!!
-                        if (d >= REST_MIN_DURATION_MINUTES) { bestDurationMin = d; bestStart = currentStart; bestEnd = aboveSince }
-                        currentStart = null
-                        aboveSince = null
-                    }
-                }
-            }
-            prevKey = key
-        }
-        if (currentStart != null && prevKey != null) {
-            val d = prevKey - currentStart!!
-            if (d >= REST_MIN_DURATION_MINUTES) { bestDurationMin = d; bestStart = currentStart; bestEnd = prevKey }
-        }
-
-        if (bestDurationMin < REST_MIN_DURATION_MINUTES) return null
-        return Pair(bestStart!! * 60000, bestEnd!! * 60000)
-    }
-    /**
-     * % de minutos dentro de la ventana de sueño que estuvieron realmente por debajo
-     * del umbral de reposo (sin contar los picos breves tolerados) — es nuestra
-     * aproximación a "Sleep Efficiency": cuánto de ese tiempo fue descanso real
-     * frente a movimiento/activación.
-     */
-    private fun computeSleepEfficiency(readings: List<Reading>, windowStart: Long, windowEnd: Long): Int {
-        val windowReadings = readings.filter { it.timeMillis in windowStart..windowEnd }
-        if (windowReadings.isEmpty()) return 0
-
-        val buckets = LinkedHashMap<Long, MutableList<Int>>()
-        for (r in windowReadings) {
-            val minuteKey = r.timeMillis / 60000
-            buckets.getOrPut(minuteKey) { mutableListOf() }.add(r.bpm)
-        }
-        val minuteAverages = buckets.values.map { it.sum().toDouble() / it.size }
-
-        val sortedBpm = windowReadings.map { it.bpm }.sorted()
-        val tenPercentCount = (sortedBpm.size * 0.10).toInt().coerceAtLeast(1)
-        val restingHr = sortedBpm.take(tenPercentCount).average()
-        val threshold = restingHr * REST_THRESHOLD_MULTIPLIER
-
-        val belowCount = minuteAverages.count { it <= threshold }
-        return ((belowCount.toDouble() / minuteAverages.size) * 100).toInt().coerceIn(0, 100)
-    }
-    /** Minutos dentro de la ventana con FC por encima del umbral de reposo (aprox. "despierto"). */
-    private fun computeAwakeMinutes(readings: List<Reading>, windowStart: Long, windowEnd: Long): Int {
-        val windowReadings = readings.filter { it.timeMillis in windowStart..windowEnd }
-        if (windowReadings.isEmpty()) return 0
-
-        val buckets = LinkedHashMap<Long, MutableList<Int>>()
-        for (r in windowReadings) {
-            val minuteKey = r.timeMillis / 60000
-            buckets.getOrPut(minuteKey) { mutableListOf() }.add(r.bpm)
-        }
-        val minuteAverages = buckets.values.map { it.sum().toDouble() / it.size }
-
-        val sortedBpm = windowReadings.map { it.bpm }.sorted()
-        val tenPercentCount = (sortedBpm.size * 0.10).toInt().coerceAtLeast(1)
-        val threshold = sortedBpm.take(tenPercentCount).average() * REST_THRESHOLD_MULTIPLIER
-
-        return minuteAverages.count { it > threshold }
-    }
 }

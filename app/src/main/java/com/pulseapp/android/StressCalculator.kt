@@ -5,87 +5,79 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import kotlin.math.ln
 import kotlin.math.sqrt
 
-data class StressPoint(val minuteOfDay: Int, val score: Float) // score 0..3
+data class StressPoint(val minuteOfDay: Int, val score: Float, val timeMillis: Long = 0L) // score 0..3
 
 data class StressSummary(
     val currentScore: Float?,      // score de la última ventana (0..3)
     val level: String,             // "BAJO" / "MEDIO" / "ALTO"
     val lastUpdateMinute: Int?,    // minuto del día (0-1439) de la última lectura
-    val series: List<StressPoint>  // un punto cada 5 min, para la mini-gráfica
+    val series: List<StressPoint>  // un punto cada 5 min de las ÚLTIMAS 24 h
 )
 
 /**
- * Calcula un "Stress Score" 0-3 por ventanas de 5 minutos, comparando la FC y el HRV
- * de cada ventana con una línea base.
+ * Estrés 0–3 por ventanas de 5 minutos: pulso y VFC de la ventana frente a tu línea base.
  *
- * IMPORTANTE — esto es una aproximación, no el algoritmo real de ninguna marca comercial:
- * - La "línea base" debería ser HRV media de los últimos 14 días. Por ahora se calcula
- *   con todo el histórico disponible en el CSV (no hay aún almacenamiento diario persistente).
- * - Umbrales: <1 bajo, 1-2 medio, >=2 alto (igual que el spec pedido).
+ * Ajustado con tu noche del 14→15/10 frente a WHOOP (WHOOP: 53 % bajo, 42 % medio, 5 % alto;
+ * antes salíamos 90 % bajo):  score = 4,8 · (0,7 · subida de pulso + 0,3 · caída de VFC)
+ *   subida de pulso = (FC − FC reposo base) / FC reposo base   (solo si sube)
+ *   caída de VFC    = ln(VFC base / VFC de la ventana)            (solo si baja)
+ * Con esa noche da 54 % / 38 % / 8 %. Bases: tu media personal; si aún no hay, 58 lpm y 86 ms.
+ * Solo se usan las últimas 24 h (antes se mezclaban días distintos en la misma gráfica).
  */
 class StressCalculator {
 
     private data class Reading(val timeMillis: Long, val bpm: Int, val rr: List<Double>)
 
-    fun analyze(file: File, restingHr: Int?, baseline: PersonalBaseline? = null): StressSummary {
-        val readings = parseCsv(file)
-        if (readings.isEmpty() || restingHr == null) {
-            return StressSummary(null, "BAJO", null, emptyList())
-        }
+    companion object {
+        const val SCALE = 4.8
+        const val W_HR = 0.7
+        const val W_HRV = 0.3
+    }
 
-        // Usa la línea base personal de 14 días si ya existe; si no, respaldo con la sesión actual
-        val baselineHrv = baseline?.avgHrv ?: (computeRMSSD(readings.flatMap { it.rr }) ?: 40.0)
-        val baselineRhr = baseline?.avgRestingHr ?: restingHr.toDouble()
+    fun analyze(file: File, restingHr: Int?, baseline: PersonalBaseline? = null): StressSummary {
+        val now = System.currentTimeMillis()
+        val readings = parseCsv(file).filter { it.timeMillis >= now - 24 * 3_600_000L }
+        if (readings.isEmpty()) return StressSummary(null, "BAJO", null, emptyList())
+
+        val baselineRhr = baseline?.avgRestingHr ?: Formulas.FALLBACK_RHR
+        val baselineHrv = baseline?.avgHrv ?: Formulas.FALLBACK_HRV
 
         val windowMillis = 5 * 60 * 1000L
-        val windows = readings.groupBy { it.timeMillis / windowMillis }
-
-        val series = windows.entries.sortedBy { it.key }.mapNotNull { (windowKey, windowReadings) ->
-            val avgHr = windowReadings.map { it.bpm }.average()
-            val windowRR = windowReadings.flatMap { it.rr }
-            val windowHrv = computeRMSSD(windowRR)
-
-            val score = computeScore(avgHr, windowHrv, baselineRhr, baselineHrv)
-
-            val cal = Calendar.getInstance()
-            cal.timeInMillis = windowKey * windowMillis
-            val minuteOfDay = cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE)
-
-            StressPoint(minuteOfDay, score)
-        }
+        val series = readings.groupBy { it.timeMillis / windowMillis }.entries.sortedBy { it.key }
+            .filter { it.value.size >= 30 }   // ventanas con al menos ~30 s de datos
+            .map { (windowKey, w) ->
+                val score = computeScore(w.map { it.bpm }.average(), computeRMSSD(w.flatMap { it.rr }), baselineRhr, baselineHrv)
+                val t = windowKey * windowMillis
+                val cal = Calendar.getInstance().apply { timeInMillis = t }
+                StressPoint(cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE), score, t)
+            }
 
         val current = series.lastOrNull()
         val level = when {
-            current == null -> "BAJO"
-            current.score < 1f -> "BAJO"
+            current == null || current.score < 1f -> "BAJO"
             current.score < 2f -> "MEDIO"
             else -> "ALTO"
         }
-
         return StressSummary(current?.score, level, current?.minuteOfDay, series)
     }
 
     private fun computeScore(avgHr: Double, windowHrv: Double?, baselineRhr: Double, baselineHrv: Double): Float {
-        val hrElevation = ((avgHr - baselineRhr) / baselineRhr).coerceIn(0.0, 1.0)
-        val hrvDrop = if (windowHrv != null) {
-            ((baselineHrv - windowHrv) / baselineHrv).coerceIn(0.0, 1.0)
-        } else {
-            hrElevation
-        }
-        val combined = (hrElevation * 0.5 + hrvDrop * 0.5) * 3.0
-        return combined.toFloat().coerceIn(0f, 3f)
+        val hrUp = ((avgHr - baselineRhr) / baselineRhr).coerceAtLeast(0.0)
+        val hrvDown = if (windowHrv != null && windowHrv > 0) ln(baselineHrv / windowHrv).coerceAtLeast(0.0) else hrUp
+        return (SCALE * (W_HR * hrUp + W_HRV * hrvDown)).toFloat().coerceIn(0f, 3f)
     }
 
+    /** RMSSD descartando saltos > 20 % (artefactos), mínimo 10 diferencias válidas. */
     private fun computeRMSSD(rr: List<Double>): Double? {
-        if (rr.size < 2) return null
-        var sumSq = 0.0
+        var sum = 0.0; var n = 0
         for (i in 1 until rr.size) {
-            val diff = rr[i] - rr[i - 1]
-            sumSq += diff * diff
+            val d = rr[i] - rr[i - 1]
+            if (kotlin.math.abs(d) <= 0.2 * rr[i - 1]) { sum += d * d; n++ }
         }
-        return sqrt(sumSq / (rr.size - 1))
+        return if (n >= 10) sqrt(sum / n) else null
     }
 
     private fun parseCsv(file: File): List<Reading> {
