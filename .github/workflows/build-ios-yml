@@ -1,0 +1,52 @@
+name: Build iOS
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'ios/**'
+      - '.github/workflows/build-ios.yml'
+
+jobs:
+  build:
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: ios
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar XcodeGen
+        run: brew install xcodegen
+
+      - name: Generar proyecto
+        run: xcodegen generate
+
+      - name: Compilar (sin firmar)
+        run: |
+          set -o pipefail
+          xcodebuild -project PulseApp.xcodeproj -scheme PulseApp -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build 2>&1 | tee build.log
+
+      - name: Empaquetar .ipa
+        run: |
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/PulseApp.app Payload/
+          zip -qry PulseApp.ipa Payload
+          ls -la PulseApp.ipa
+
+      - name: Subir .ipa
+        uses: actions/upload-artifact@v4
+        with:
+          name: PulseApp-ipa
+          path: ios/PulseApp.ipa
+
+      - name: Subir registro de compilación
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: ios/build.log
