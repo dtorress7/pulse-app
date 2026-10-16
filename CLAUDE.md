@@ -73,6 +73,23 @@ Peso/altura/edad/sexo → calorías (Mifflin + Keytel). Sexo → TRIMP. Recupera
 - SpO₂ es imposible offline (los canales rojo/IR no se muestrean a la vez). Las puntuaciones oficiales de WHOOP
   se calculan en su nube y no se pueden leer.
 
+## Fases del sueño (16/10, `SleepStager.kt`)
+Solo se ejecuta si esa noche hay `motion_minutes.csv` (≥60 % de los minutos de la ventana de `SleepDetector`); sin movimiento no se inventan fases.
+- Despierto: minuto agitado = (≥10 s moviéndose o pasos) y pulso ≥ +6 lpm sobre la base local (percentil 33 de ±20 min), o ≥30 s de movimiento,
+  o pulso ≥ +15 con giro/cambio de postura. Grupos con huecos ≤2 min, 1 min antes y hasta 2 después; vale si dura ≥3 min o el pulso sube ≥12.
+- Profundo / REM: respecto a la MEDIANA LOCAL de ±45 min (quita la subida circadiana de VFC y la bajada de pulso) de pulso (mediana 5 min) y ln RMSSD
+  (ventana 7 min, ≥40 diferencias RR). Profundo: ΔlnRMSSD ≥ 0,3·(progreso−0,5) y Δpulso ≤ −0,5; REM: ΔlnRMSSD ≤ −0,3 y Δpulso ≥ 0.
+  Sin REM en los primeros 45 min ni profundo en los últimos 45. Lejos (±2 min) de un despertar. Tramos <4 min → ligero.
+- Calibración con 2 noches de WHOOP (14→15: despierto 42/ligero 266/profundo 120/REM 54; 15→16: 33/240/126/52, 9 despertares, eficiencia 93 %).
+  Resultado 15→16 con movimiento: 34/236/125/52 min, 10 despertares, 92 %. Solo se ajustaron totales: no hay hipnograma minuto a minuto de WHOOP,
+  así que la COLOCACIÓN de las fases no está validada. Referencia de tus 155 noches de WHOOP: ligero 298±52, profundo 100±16, REM 86±27, despierto 33±13
+  (estas dos noches tuvieron más profundo y menos REM de lo normal, venían de gimnasio/fútbol).
+- `MetricsCalculator.analyze` usa el resultado para tiempo despierto, dormido y eficiencia (si hay fases); `DailyMetricsUpdater` también.
+  `SleepDetailActivity` muestra `HypnogramView` + 4 fases. `SleepPlanner.planForLastNight` = necesidad de la noche dormida con el esfuerzo de AYER.
+- Movimiento por noche: ENMO NO sirve parado (el offset de calibración da 0–40 mg según la postura); usar `still_secs`, `gyro_dps` (suelo 1,4) y cambio de gravedad.
+- Pendiente de validar: VFC de WHOOP (80) vs la nuestra (70) esa noche; WHOOP parece tomarla de las fases profundas (RMSSD en profundo 88, en toda la noche 74).
+- AVISO horario: `hr_log.csv` guarda hora LOCAL sin zona; el 25/10/2026 (fin del horario de verano) la hora 02:00–03:00 se repite y esas lecturas se pisan.
+
 ## Protocolo WHOOP 5.0 (lo que funciona)
 - Servicio `fd4b0001-cce1-4033-93ce-002d5875f58a`; órdenes a `fd4b0002` (write con respuesta);
   notificaciones en `fd4b0003/0004/0005/0007`. Suscribirse **de una en una** esperando `onDescriptorWrite`.
@@ -89,7 +106,7 @@ Peso/altura/edad/sexo → calorías (Mifflin + Keytel). Sexo → TRIMP. Recupera
   - [28..627] acelerómetro 100 X, 100 Y, 100 Z (int16 LE), **4096 = 1 g**, ±8 g
   - [628..639] sub-cabecera giro · [640..1239] giroscopio 100 X/Y/Z, **16,4 = 1 °/s**, ±2000 °/s
   - [1240..1243] CRC32 de [8..1239]. `-32768` = muestra no válida.
-  - Gasta 1,5–2,3× batería. **Falta encontrar la orden de PARAR** (probar 82 STOP_RAW_DATA).
+  - Gasta 1,5–2,3× batería. **PARAR (16/10): TOGGLE_IMU_MODE 106 con payload `[0,0]` responde código 0 (igual que 81 al arrancar) y DEJAN de llegar datos: el último minuto de movimiento es el de la orden (07:21:43) aunque el pulso siguió 1 min más. Funciona.**
 - **Historial (14/10, basado en los proyectos abiertos goose y noop, que ya descargan la 5.0)** — en `WhoopBackgroundService`:
   conexión: HELLO → SET_CLOCK (10, **8 bytes** [unix u32][0×4]; si no, la pulsera cree que perdió la hora y no entrega
   historial) → GET_CLOCK (11, vacío) → EXIT_HIGH_FREQ_SYNC (97,[0]) → orden 3 [1] → a los 1,5 s SEND_HISTORICAL_DATA (22,[0]),
@@ -131,7 +148,7 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
 
 ## Pendiente (en orden)
 1. Ajustar el contador de pasos con una prueba de 100 pasos contados.
-2. Orden de parar el IMU antes de usarlo de noche.
-3. Clasificador de sueño en **4 fases** (Despierto/Ligero/Profundo/REM) con movimiento + FC + VFC, y despertares por movimiento.
+2. ~~Orden de parar el IMU~~ HECHO: 106 `[0,0]` (ver Acelerómetro).
+3. ~~Clasificador de sueño en 4 fases~~ HECHO v1 (16/10, ver arriba). Falta validar la colocación con más noches y usar fases en recuperación (VFC en profundo).
 4. Integrar movimiento en Sueño, Recuperación, Strain, actividades automáticas y pasos en el inicio.
 5. Historial de la pulsera con ACK (caso fútbol). 6. Frecuencia respiratoria por análisis espectral. 7. Coach (en espera).

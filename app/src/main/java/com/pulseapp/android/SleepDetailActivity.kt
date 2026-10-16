@@ -48,7 +48,8 @@ class SleepDetailActivity : AppCompatActivity() {
 
             // Misma fórmula que Inicio (base + esfuerzo + deuda)
             val plan = SleepPlanner().computeTonightPlan(db, summary.strain)
-            val need = plan.totalNeedMinutes
+            // Lo que necesitabas la noche que acabas de dormir (con el esfuerzo de ayer), como WHOOP
+            val need = SleepPlanner().planForLastNight(db, summary).totalNeedMinutes
             val slept = summary.sleepMinutes
             val perf = slept?.let { (it * 100 / need.coerceAtLeast(1)).coerceIn(0, 100) }
 
@@ -60,20 +61,44 @@ class SleepDetailActivity : AppCompatActivity() {
             t(R.id.needText).text = Ui.hm(need)
             t(R.id.inBedText).text = summary.timeInBedMinutes?.let { Ui.hm(it) } ?: "--"
 
-            // Fases: hoy solo distinguimos despierto / dormido (las 4 fases llegarán con el acelerómetro)
-            val awake = summary.awakeMinutes
-            t(R.id.stageAwakeText).text = awake?.let { Ui.hm(it) } ?: "–"
-            t(R.id.stageLightText).text = "–"
-            t(R.id.stageRemText).text = "–"
-            t(R.id.stageDeepText).text = "–"
-            Ui.fillStackedBar(
-                findViewById(R.id.stageBar),
-                listOf((awake ?: 0).toFloat() to R.color.stage_awake, (slept ?: 0).toFloat() to R.color.sleep_blue)
-            )
-            t(R.id.stagesNote).text = if (slept != null) {
-                "Dormido ${Ui.hm(slept)}. Ligero, REM y Profundo se calcularán con el acelerómetro de la pulsera cuando grabe una noche completa."
+            // Fases con movimiento + pulso + VFC (SleepStager). Sin movimiento esa noche solo despierto / dormido.
+            val stages = summary.stages
+            val hypnogram = findViewById<com.pulseapp.android.ui.HypnogramView>(R.id.hypnogram)
+            if (stages != null) {
+                hypnogram.visibility = android.view.View.VISIBLE
+                hypnogram.setStages(stages.startMillis, stages.stages)
+                t(R.id.stageAwakeText).text = Ui.hm(stages.awakeMinutes)
+                t(R.id.stageLightText).text = Ui.hm(stages.lightMinutes)
+                t(R.id.stageRemText).text = Ui.hm(stages.remMinutes)
+                t(R.id.stageDeepText).text = Ui.hm(stages.deepMinutes)
+                Ui.fillStackedBar(
+                    findViewById(R.id.stageBar),
+                    listOf(
+                        stages.awakeMinutes.toFloat() to R.color.stage_awake,
+                        stages.lightMinutes.toFloat() to R.color.stage_light,
+                        stages.deepMinutes.toFloat() to R.color.stage_deep,
+                        stages.remMinutes.toFloat() to R.color.stage_rem
+                    )
+                )
+                t(R.id.stagesNote).text = "Dormido ${Ui.hm(stages.asleepMinutes)} · ${stages.awakenings} despertares. " +
+                    "Fases estimadas con el movimiento, el pulso y la VFC de la pulsera; es una primera versión que se afinará con más noches."
             } else {
-                "Todavía no hay una noche detectada. Duerme con la pulsera conectada y aparecerá aquí."
+                hypnogram.visibility = android.view.View.GONE
+                val awake = summary.awakeMinutes
+                t(R.id.stageAwakeText).text = awake?.let { Ui.hm(it) } ?: "–"
+                t(R.id.stageLightText).text = "–"
+                t(R.id.stageRemText).text = "–"
+                t(R.id.stageDeepText).text = "–"
+                Ui.fillStackedBar(
+                    findViewById(R.id.stageBar),
+                    listOf((awake ?: 0).toFloat() to R.color.stage_awake, (slept ?: 0).toFloat() to R.color.sleep_blue)
+                )
+                t(R.id.stagesNote).text = if (slept != null) {
+                    "Dormido ${Ui.hm(slept)}. Para ver Ligero, REM y Profundo, activa «Movimiento y pasos» en Mi WHOOP antes de dormir " +
+                        "y deja el móvil cerca (carga la pulsera al menos al 30 %)."
+                } else {
+                    "Todavía no hay una noche detectada. Duerme con la pulsera conectada y aparecerá aquí."
+                }
             }
 
             // Necesidad

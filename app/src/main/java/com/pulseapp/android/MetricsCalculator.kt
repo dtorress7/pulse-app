@@ -21,7 +21,11 @@ data class DailySummary(
     val sleepEndMinuteOfDay: Int?,
     val sleepEfficiencyPct: Int?,
     val respiratoryRate: Double?,
-    val totalReadings: Int
+    val totalReadings: Int,
+    val sleepStartMillis: Long? = null,
+    val sleepEndMillis: Long? = null,
+    /** Fases minuto a minuto de la noche (solo si esa noche hay movimiento grabado). */
+    val stages: SleepStager.Result? = null
 )
 
 private data class Reading(val timeMillis: Long, val bpm: Int, val rr: List<Double>)
@@ -35,7 +39,7 @@ class MetricsCalculator(ageYears: Int, private val male: Boolean = true) {
         private const val DISCONNECT_GAP_MINUTES = 3
     }
 
-    fun analyze(file: File): DailySummary {
+    fun analyze(file: File, motionFile: File = File(file.parentFile, MotionTracker.FILE_NAME)): DailySummary {
         val readings = parseCsv(file)
         if (readings.isEmpty()) {
             return DailySummary(null, null, null, null, 0.0, null, null, null, null, null, null, null, null, null, 0)
@@ -74,9 +78,11 @@ class MetricsCalculator(ageYears: Int, private val male: Boolean = true) {
             RespiratoryRateCalculator().estimate(sleepReadings.flatMap { it.rr })
         } else null
 
-        val timeInBedMinutes = sleep?.inBedMinutes
-        val awakeMinutes = sleep?.awakeMinutes
-        val actualSleepMinutes = sleep?.asleepMinutes
+        // Con movimiento grabado esa noche, las fases (y el tiempo despierto) salen de SleepStager
+        val staged = sleep?.let { SleepStager.stageNight(file, motionFile, it.startMillis, it.endMillis) }
+        val timeInBedMinutes = staged?.minutes ?: sleep?.inBedMinutes
+        val awakeMinutes = staged?.awakeMinutes ?: sleep?.awakeMinutes
+        val actualSleepMinutes = staged?.asleepMinutes ?: sleep?.asleepMinutes
 
         return DailySummary(
             restingHr = restingHr,
@@ -91,9 +97,12 @@ class MetricsCalculator(ageYears: Int, private val male: Boolean = true) {
             sleepEnd = restWindow?.second?.let { sdf.format(Date(it)) },
             sleepStartMinuteOfDay = calStart?.let { it.get(java.util.Calendar.HOUR_OF_DAY) * 60 + it.get(java.util.Calendar.MINUTE) },
             sleepEndMinuteOfDay = calEnd?.let { it.get(java.util.Calendar.HOUR_OF_DAY) * 60 + it.get(java.util.Calendar.MINUTE) },
-            sleepEfficiencyPct = sleepEfficiency,
+            sleepEfficiencyPct = staged?.efficiencyPct ?: sleepEfficiency,
             respiratoryRate = respiratoryRate,
-            totalReadings = readings.size
+            totalReadings = readings.size,
+            sleepStartMillis = restWindow?.first,
+            sleepEndMillis = restWindow?.second,
+            stages = staged
         )
     }
 

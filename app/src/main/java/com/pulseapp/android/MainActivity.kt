@@ -385,8 +385,9 @@ class MainActivity : AppCompatActivity() {
             val consistency = Formulas.sleepConsistency(
                 db.dailyMetricsDao().getLastDays(7).mapNotNull { it.sleepStartMinuteOfDay }
             )
+            val lastNightNeed = sleepPlanner.planForLastNight(db, summary).totalNeedMinutes
             val sleepPerf = summary.sleepMinutes?.let {
-                val hoursVsNeed = (it * 100 / sleepPlan.totalNeedMinutes.coerceAtLeast(1)).coerceAtMost(100)
+                val hoursVsNeed = (it * 100 / lastNightNeed.coerceAtLeast(1)).coerceAtMost(100)
                 Formulas.sleepScore(hoursVsNeed, summary.sleepEfficiencyPct, consistency)
             }
             sleepRing.setValue(

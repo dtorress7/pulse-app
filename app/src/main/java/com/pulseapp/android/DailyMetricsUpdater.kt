@@ -55,11 +55,15 @@ class DailyMetricsUpdater {
         val avgHrv = if (sleepWindowReadings.isNotEmpty()) computeRMSSD(sleepWindowReadings.flatMap { it.rr }) else null
         val vo2Max = restingHr?.let { 15.3 * (hrMax / it) }
         val strain = Formulas.strainOf(dayReadings.map { it.timeMillis to it.bpm }, restingHr, hrMax, sex != "F")
-        val sleepMinutes = sleep?.asleepMinutes
+        // Con movimiento grabado esa noche, el tiempo despierto sale de SleepStager (más fiable que el pulso solo)
+        val staged = sleep?.let {
+            SleepStager.stageNight(csvFile, File(csvFile.parentFile, MotionTracker.FILE_NAME), it.startMillis, it.endMillis)
+        }
+        val sleepMinutes = staged?.asleepMinutes ?: sleep?.asleepMinutes
 
         var sleepStartMinute: Int? = null
         var sleepEndMinute: Int? = null
-        val sleepEfficiency: Int? = sleep?.efficiencyPct
+        val sleepEfficiency: Int? = staged?.efficiencyPct ?: sleep?.efficiencyPct
         if (sleep != null) {
             val startCal = Calendar.getInstance().apply { timeInMillis = sleep.startMillis }
             val endCal = Calendar.getInstance().apply { timeInMillis = sleep.endMillis }

@@ -38,6 +38,22 @@ class SleepPlanner {
         }
     }
 
+    /**
+     * Necesidad de la noche que acabas de dormir: usa el esfuerzo de AYER (el de hoy apenas ha empezado por la mañana).
+     * Si la última noche terminó hace más de 20 h, es la de esta noche.
+     */
+    suspend fun planForLastNight(db: AppDatabase, summary: DailySummary): SleepPlan {
+        val end = summary.sleepEndMillis
+        val justSlept = end != null && System.currentTimeMillis() - end < 20 * 3_600_000L
+        var strain: Double? = summary.strain
+        if (justSlept) {
+            val cal = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -1) }
+            val key = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(cal.time)
+            db.dailyMetricsDao().getByDate(key)?.strain?.let { strain = it }
+        }
+        return computeTonightPlan(db, strain)
+    }
+
     suspend fun computeTonightPlan(db: AppDatabase, todayStrain: Double?, wakeUpHour: Int = 7, wakeUpMinute: Int = 30): SleepPlan {
         val strainMinutes = todayStrain?.let { Formulas.sleepNeedFromStrain(it) } ?: 0
 
