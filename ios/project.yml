@@ -1,0 +1,39 @@
+name: PulseApp
+options:
+  bundleIdPrefix: com.pulseapp
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  PulseApp:
+    type: application
+    platform: iOS
+    sources:
+      - path: PulseApp
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.pulseapp.ios
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        TARGETED_DEVICE_FAMILY: "1"
+    info:
+      path: Config/Info.plist
+      properties:
+        CFBundleDisplayName: PulseApp
+        UILaunchScreen: {}
+        UIUserInterfaceStyle: Dark
+        NSBluetoothAlwaysUsageDescription: "PulseApp se conecta por Bluetooth a tu WHOOP para leer tu pulso y tu historial."
+        UIBackgroundModes: [bluetooth-central]
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UIAppFonts:
+          - BarlowCondensed-Bold.ttf
+          - BarlowCondensed-SemiBold.ttf
+          - BarlowCondensed-Medium.ttf
