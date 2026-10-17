@@ -32,14 +32,28 @@ class BaselineProvider {
         private const val MIN_LN_HRV_SD = 0.08
         private const val MIN_RHR_SD = 1.5
         private const val MIN_RESP_SD = 0.4
+
+        /**
+         * Desde el 17/10 la VFC sale del sueño profundo y la respiración del análisis espectral (valores más altos
+         * y en la escala de WHOOP). Los días guardados antes con el método viejo no entran en esas dos medias
+         * para no mezclar escalas (hasta tener 3 noches nuevas se usa la referencia 86 ms).
+         */
+        const val NEW_METHOD_SINCE = "2026-10-17"
     }
 
-    suspend fun compute(db: AppDatabase): PersonalBaseline? {
+    suspend fun compute(db: AppDatabase): PersonalBaseline? = computeFrom(db.dailyMetricsDao().getLastDays(LOOKBACK_DAYS))
+
+    /**
+     * Línea base con los días que se le pasan (de más reciente a más antiguo, como getLastDays).
+     * Para un día pasado D se le pasan los días anteriores a D: así su recuperación sale igual que la habría dado ese día.
+     */
+    fun computeFrom(lastDaysNewestFirst: List<com.pulseapp.android.data.DailyMetrics>): PersonalBaseline? {
         // Solo noches de verdad (≥ 3 h dormido): un día sin noche registrada no debe mover tu media
-        val days = db.dailyMetricsDao().getLastDays(LOOKBACK_DAYS).filter { (it.sleepMinutes ?: 0) >= 180 }
-        val validHrv = days.mapNotNull { it.avgHrv?.takeIf { v -> v > 0 } }
+        val days = lastDaysNewestFirst.take(LOOKBACK_DAYS).filter { (it.sleepMinutes ?: 0) >= 180 }
+        val newMethod = days.filter { it.date >= NEW_METHOD_SINCE }
+        val validHrv = newMethod.mapNotNull { it.avgHrv?.takeIf { v -> v > 0 } }
         val validRhr = days.mapNotNull { it.restingHr?.toDouble() }
-        val validResp = days.mapNotNull { it.respiratoryRate?.takeIf { r -> r in 8.0..25.0 } }
+        val validResp = newMethod.mapNotNull { it.respiratoryRate?.takeIf { r -> r in 8.0..25.0 } }
 
         if (validHrv.size < MIN_DAYS_REQUIRED || validRhr.size < MIN_DAYS_REQUIRED) {
             return null

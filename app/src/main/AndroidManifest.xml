@@ -54,6 +54,9 @@
         <activity
             android:name=".HealthActivity"
             android:exported="false" />
+        <activity
+            android:name=".ActivityDetailActivity"
+            android:exported="false" />
 
         <service
             android:name=".BleForegroundService"

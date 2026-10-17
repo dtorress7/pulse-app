@@ -16,6 +16,9 @@ interface ActivitySessionDao {
     @Query("SELECT * FROM activity_sessions ORDER BY startMillis DESC")
     suspend fun getAll(): List<ActivitySession>
 
+    @androidx.room.Delete
+    suspend fun delete(session: ActivitySession)
+
     @Query("SELECT * FROM activity_sessions WHERE id = :id LIMIT 1")
     suspend fun getById(id: Long): ActivitySession?
 }

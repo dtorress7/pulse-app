@@ -156,6 +156,15 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
 - Pendiente de diseño: hipnograma de 4 fases en Sueño (cuando exista el clasificador), EditSession y la pantalla experimental.
 - Firma: `app/debug.keystore` fijo (contraseña `android`) para que cada APK se instale encima sin perder datos.
 
+## Método de calibración con WHOOP (acordado 17/10)
+- Objetivo: que PulseApp dé lo mismo que WHOOP SIN que el usuario tenga que mandar datos. No ajustar para que "una noche" cuadre.
+- Cada noche que manda (hr_log, motion_minutes, capturas de WHOOP) se guarda como referencia; todo cambio se valida contra TODAS
+  las noches a la vez (error medio por métrica) y solo se acepta si mejora el conjunto. Se cambian reglas generales, no casos.
+- No sacar versión cada día: juntar ~7–10 noches variadas (descanso, deporte, acostarse tarde, desvelos) y hacer UNA ronda grande.
+- Criterio para dar por cerrado: errores medios dentro de lo que WHOOP varía de por sí (aprox. horas ±10 min, fases ±15 min,
+  VFC ±5 ms, FC reposo ±1, recuperación ±5 puntos). Después: igualar el aspecto/pantallas a la app de WHOOP.
+- Noches de referencia hasta ahora: 15→16 (deporte la víspera), 16→17 (deporte la víspera). 14→15 sin movimiento.
+
 ## Pendiente (en orden)
 1. Ajustar el contador de pasos con una prueba de 100 pasos contados.
 2. ~~Orden de parar el IMU~~ HECHO: 106 `[0,0]` (ver Acelerómetro).
@@ -168,3 +177,28 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
 - `ios/PulseApp/Core` es el port 1:1 del núcleo Kotlin (verificado numéricamente contra Kotlin con datos reales). No tocar fórmulas sin cambiarlas también en Android.
 - Mismas reglas: nunca enviar opcodes 25, 29, 32, 36, 37, 38, 45, 99; no perder datos.
 - Los CSV usan hora LOCAL "yyyy-MM-ddTHH:mm:ss" (igual que Android).
+
+## Aspecto WHOOP (17/10, Android; iOS pendiente)
+Copiado de capturas reales de la app de WHOOP del usuario (Inicio entero, Monitor de salud, Monitor de estrés, menú "+", detalle de Pickleball).
+- `MainActivity` (Inicio): cabecera (perfil, racha 🔥 = días seguidos con ≥1 h de pulso, píldora "< HOY >" que navega a días pasados,
+  pulsera con punto verde/ámbar/gris → Mi WHOOP), marca PULSE, 3 anillos finos (`CircularRingView.strokeRatio/numberRatio/suffixRatio`),
+  tarjetas Monitor de salud (DENTRO DEL RANGO x/y métricas) y Monitor de estrés, "Mi día" con "+" (menú: agregar/iniciar actividad, Mi WHOOP),
+  Perspectiva diaria (texto propio, `Insight`), Actividades de hoy (píldoras), El sueño de esta noche (hora de dormir + hora de despertar EDITABLE,
+  `SleepPlanner.wakeMinute`), Mi panel de control (16 filas con valor, tendencia y media de 30 días; PERSONALIZAR oculta filas) y "Más" (ajustes).
+  Cabecera fija con anillos pequeños al bajar.
+- Todos los números de Inicio salen de `HomeDataLoader.load(dayOffset)` (`HomeData.kt`): hoy en directo con las fórmulas de siempre; días pasados
+  recalculados con lo guardado (recuperación con la línea base de los días ANTERIORES, `BaselineProvider.computeFrom`). Zonas semanales con
+  `ZoneDayCache` (una pasada por hr_log.csv, caché `zone_days.csv` solo de días cerrados hace ≥3 días). Zonas = % FC máx de la app (no las de WHOOP).
+- `HealthActivity` = Monitor de salud (pulso en directo + zona, respiración/FCR/VFC con etiqueta "dentro de / elevado > / baja <", temp sin datos).
+- `StressDetailActivity` = Día total / Sin actividad / Sueño frente a un día habitual a la misma hora (`StressBreakdown`).
+- `ActivityDetailActivity` (nuevo): esfuerzo y pasos vs media del deporte, gráfica de pulso, zonas con segundos y rango típico, estadísticas clave.
+  Menú ··· = editar / eliminar (`ActivitySessionDao.delete`). Tipos: añadido "Pickleball".
+- Vistas nuevas en `ui/WhoopViews.kt`; piezas por código en `WhoopUi.kt` (objeto `W`); colores `w_*` en colors.xml; estilos TitleW/HeadingW/ButtonW.
+- Comprobado 17/10 con datos reales: compila, recursos enlazan con aapt2, y las gráficas se dibujaron a PNG con un "lienzo" Java2D
+  (ver abajo). Estrés del sueño 16→17: 7:20/0:35/0:05 (WHOOP 7:39/0:19/0:00).
+- Pendiente de aspecto: Sueño, Recuperación, Esfuerzo y Sobre mí siguen con el diseño anterior; iOS sin portar.
+
+## Herramientas de comprobación (en el contenedor de Claude, no van en la app)
+- Recursos: `/tmp/claude-0/rescheck/run.sh` (aapt2 de PyPI `aapt2==0.2.1` + stubs de Material3 → R.java real).
+- Kotlin: `/tmp/claude-0/rescheck/kt.sh` (kotlinc + android.jar + stubs de /home/claude/check/stubs + coroutines).
+- Dibujo de vistas a PNG: `/tmp/claude-0/shim` (clases android.graphics/View falsas sobre Java2D) + `h/Render.kt`.

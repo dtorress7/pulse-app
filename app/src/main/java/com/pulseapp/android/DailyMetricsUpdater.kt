@@ -47,33 +47,37 @@ class DailyMetricsUpdater {
         }.timeInMillis
         val nightReadings = allReadings.filter { it.timeMillis in (dayStart - 6 * 3_600_000L)..(dayStart + 14 * 3_600_000L) }
         val sleep = SleepDetector.detect(nightReadings.map { it.timeMillis to it.bpm })
-        val sleepWindowReadings = if (sleep != null) {
-            nightReadings.filter { it.timeMillis in sleep.startMillis..sleep.endMillis }
-        } else emptyList()
-
-        val restingHr = if (sleepWindowReadings.isNotEmpty()) findRestingHr(sleepWindowReadings) else null
-        val avgHrv = if (sleepWindowReadings.isNotEmpty()) computeRMSSD(sleepWindowReadings.flatMap { it.rr }) else null
-        val vo2Max = restingHr?.let { 15.3 * (hrMax / it) }
-        val strain = Formulas.strainOf(dayReadings.map { it.timeMillis to it.bpm }, restingHr, hrMax, sex != "F")
         // Con movimiento grabado esa noche, el tiempo despierto sale de SleepStager (más fiable que el pulso solo)
+        // y la ventana se recorta a cuando estabas dormido (17/10)
         val staged = sleep?.let {
             SleepStager.stageNight(csvFile, File(csvFile.parentFile, MotionTracker.FILE_NAME), it.startMillis, it.endMillis)
         }
+        val window = staged?.let { it.startMillis to it.endMillis - 1 } ?: sleep?.let { it.startMillis to it.endMillis }
+        val sleepWindowReadings = if (window != null) {
+            nightReadings.filter { it.timeMillis in window.first..window.second }
+        } else emptyList()
+
+        val restingHr = if (sleepWindowReadings.isNotEmpty()) findRestingHr(sleepWindowReadings) else null
+        // VFC: con fases, la de los tramos de sueño profundo (como WHOOP); ver NightMetrics
+        val avgHrv = if (sleepWindowReadings.isNotEmpty()) {
+            NightMetrics.hrv(sleepWindowReadings.map { it.timeMillis to it.rr }, staged)
+        } else null
+        val vo2Max = restingHr?.let { 15.3 * (hrMax / it) }
+        val strain = Formulas.strainOf(dayReadings.map { it.timeMillis to it.bpm }, restingHr, hrMax, sex != "F")
         val sleepMinutes = staged?.asleepMinutes ?: sleep?.asleepMinutes
 
         var sleepStartMinute: Int? = null
         var sleepEndMinute: Int? = null
         val sleepEfficiency: Int? = staged?.efficiencyPct ?: sleep?.efficiencyPct
-        if (sleep != null) {
-            val startCal = Calendar.getInstance().apply { timeInMillis = sleep.startMillis }
-            val endCal = Calendar.getInstance().apply { timeInMillis = sleep.endMillis }
+        if (window != null) {
+            val startCal = Calendar.getInstance().apply { timeInMillis = window.first }
+            val endCal = Calendar.getInstance().apply { timeInMillis = window.second }
             sleepStartMinute = startCal.get(Calendar.HOUR_OF_DAY) * 60 + startCal.get(Calendar.MINUTE)
             sleepEndMinute = endCal.get(Calendar.HOUR_OF_DAY) * 60 + endCal.get(Calendar.MINUTE)
         }
         val respiratoryRate = if (sleepWindowReadings.isNotEmpty()) {
             RespiratoryRateCalculator().estimate(sleepWindowReadings.flatMap { it.rr })
         } else null
-        
 
         val avgHr = dayReadings.map { it.bpm }.average()
         val durationMinutes = dayReadings.size / 60.0

@@ -116,7 +116,7 @@ class ActivitiesListActivity : AppCompatActivity() {
             isClickable = true
             isFocusable = true
             setOnClickListener {
-                startActivity(Intent(ctx, EditSessionActivity::class.java).putExtra(EditSessionActivity.EXTRA_SESSION_ID, s.id))
+                startActivity(Intent(ctx, ActivityDetailActivity::class.java).putExtra(ActivityDetailActivity.EXTRA_SESSION_ID, s.id))
             }
 
             // Cabecera: icono, nombre, horario y esfuerzo

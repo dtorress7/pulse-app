@@ -47,7 +47,8 @@ class SleepDetailActivity : AppCompatActivity() {
             }
 
             // Misma fórmula que Inicio (base + esfuerzo + deuda)
-            val plan = SleepPlanner().computeTonightPlan(db, summary.strain)
+            val wake = SleepPlanner.wakeMinute(this@SleepDetailActivity)
+            val plan = SleepPlanner().computeTonightPlan(db, summary.strain, wake / 60, wake % 60)
             // Lo que necesitabas la noche que acabas de dormir (con el esfuerzo de ayer), como WHOOP
             val need = SleepPlanner().planForLastNight(db, summary).totalNeedMinutes
             val slept = summary.sleepMinutes
@@ -118,7 +119,7 @@ class SleepDetailActivity : AppCompatActivity() {
                 }
                 t(R.id.bedWindowText).text = "${shift(-15)} – ${shift(15)}"
                 t(R.id.bedTimeText).text = bed
-                t(R.id.plannerNote).text = "Con ese horario cubres tus ${Ui.hm(need)} y despiertas a las 07:30."
+                t(R.id.plannerNote).text = "Con ese horario cubres tus ${Ui.hm(need)} y despiertas a las %02d:%02d.".format(wake / 60, wake % 60)
             }
 
             // Eficiencia y consistencia

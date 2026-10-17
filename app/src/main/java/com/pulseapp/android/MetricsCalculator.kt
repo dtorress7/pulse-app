@@ -61,25 +61,29 @@ class MetricsCalculator(ageYears: Int, private val male: Boolean = true) {
         val cycleReadings = readings.filter { it.timeMillis >= cycleStart }
         val avgHr = cycleReadings.takeIf { it.isNotEmpty() }?.map { it.bpm }?.average()?.toInt()
 
+        // Con movimiento grabado esa noche, las fases (y el tiempo despierto) salen de SleepStager.
+        // La ventana de las fases ya viene recortada: empieza al dormirse y acaba al despertar (17/10).
+        val staged = sleep?.let { SleepStager.stageNight(file, motionFile, it.startMillis, it.endMillis) }
+        val window = staged?.let { it.startMillis to it.endMillis - 1 } ?: restWindow
+
         // FC en reposo y VFC SOLO con la ventana de sueño (igual que WHOOP)
-        val sleepReadings = if (restWindow != null) {
-            readings.filter { it.timeMillis in restWindow.first..restWindow.second }
+        val sleepReadings = if (window != null) {
+            readings.filter { it.timeMillis in window.first..window.second }
         } else emptyList()
         // Sin noche registrada no hay FC en reposo real (de día sale ~15 lpm más alta y hunde el esfuerzo): se deja vacía
         val restingHr = if (sleepReadings.isNotEmpty()) findRestingHr(sleepReadings) else null
-        val avgHrv = if (sleepReadings.isNotEmpty()) computeRMSSD(sleepReadings.flatMap { it.rr }) else null
+        // VFC: con fases, la de los tramos de sueño profundo (como WHOOP); ver NightMetrics
+        val avgHrv = if (sleepReadings.isNotEmpty()) NightMetrics.hrv(sleepReadings.map { it.timeMillis to it.rr }, staged) else null
         val vo2Max = restingHr?.let { 15.3 * (hrMax / it) }
         val strain = computeStrain(cycleReadings, restingHr)
 
-        val calStart = restWindow?.first?.let { java.util.Calendar.getInstance().apply { timeInMillis = it } }
-        val calEnd = restWindow?.second?.let { java.util.Calendar.getInstance().apply { timeInMillis = it } }
+        val calStart = window?.first?.let { java.util.Calendar.getInstance().apply { timeInMillis = it } }
+        val calEnd = window?.second?.let { java.util.Calendar.getInstance().apply { timeInMillis = it } }
         val sleepEfficiency = sleep?.efficiencyPct
         val respiratoryRate = if (sleepReadings.isNotEmpty()) {
             RespiratoryRateCalculator().estimate(sleepReadings.flatMap { it.rr })
         } else null
 
-        // Con movimiento grabado esa noche, las fases (y el tiempo despierto) salen de SleepStager
-        val staged = sleep?.let { SleepStager.stageNight(file, motionFile, it.startMillis, it.endMillis) }
         val timeInBedMinutes = staged?.minutes ?: sleep?.inBedMinutes
         val awakeMinutes = staged?.awakeMinutes ?: sleep?.awakeMinutes
         val actualSleepMinutes = staged?.asleepMinutes ?: sleep?.asleepMinutes
@@ -93,15 +97,15 @@ class MetricsCalculator(ageYears: Int, private val male: Boolean = true) {
             sleepMinutes = actualSleepMinutes,
             timeInBedMinutes = timeInBedMinutes,
             awakeMinutes = awakeMinutes,
-            sleepStart = restWindow?.first?.let { sdf.format(Date(it)) },
-            sleepEnd = restWindow?.second?.let { sdf.format(Date(it)) },
+            sleepStart = window?.first?.let { sdf.format(Date(it)) },
+            sleepEnd = window?.second?.let { sdf.format(Date(it)) },
             sleepStartMinuteOfDay = calStart?.let { it.get(java.util.Calendar.HOUR_OF_DAY) * 60 + it.get(java.util.Calendar.MINUTE) },
             sleepEndMinuteOfDay = calEnd?.let { it.get(java.util.Calendar.HOUR_OF_DAY) * 60 + it.get(java.util.Calendar.MINUTE) },
             sleepEfficiencyPct = staged?.efficiencyPct ?: sleepEfficiency,
             respiratoryRate = respiratoryRate,
             totalReadings = readings.size,
-            sleepStartMillis = restWindow?.first,
-            sleepEndMillis = restWindow?.second,
+            sleepStartMillis = window?.first,
+            sleepEndMillis = window?.second,
             stages = staged
         )
     }

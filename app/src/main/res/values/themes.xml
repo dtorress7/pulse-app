@@ -96,4 +96,35 @@
         <item name="android:focusable">true</item>
         <item name="android:background">?android:attr/selectableItemBackgroundBorderless</item>
     </style>
+
+    <!-- ===== Estilo WHOOP (17/10) ===== -->
+    <!-- Título de tarjeta: mayúsculas condensadas en blanco ("MONITOR DE SALUD") -->
+    <style name="TitleW">
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textSize">14.5sp</item>
+        <item name="android:textAllCaps">true</item>
+        <item name="android:letterSpacing">0.14</item>
+        <item name="android:fontFamily">@font/barlow_condensed_bold</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <!-- Título de sección grande ("Mi día", "Mi panel de control") -->
+    <style name="HeadingW">
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textSize">27sp</item>
+        <item name="android:fontFamily">@font/archivo_medium</item>
+        <item name="android:letterSpacing">-0.01</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <!-- Botón de tarjeta ("AGREGAR ACTIVIDAD") -->
+    <style name="ButtonW">
+        <item name="android:layout_height">52dp</item>
+        <item name="android:background">@drawable/bg_row_w</item>
+        <item name="android:gravity">center</item>
+        <item name="android:orientation">horizontal</item>
+        <item name="android:clickable">true</item>
+        <item name="android:focusable">true</item>
+        <item name="android:foreground">?android:attr/selectableItemBackground</item>
+    </style>
 </resources>

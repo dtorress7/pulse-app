@@ -13,8 +13,10 @@ import kotlin.math.sqrt
  * Se ejecuta SOLO sobre la ventana que ya detectó [SleepDetector] y SOLO si esa noche hay movimiento
  * (motion_minutes.csv, "Movimiento y pasos" activado). Sin movimiento no se inventan fases.
  *
- * Calibrado con dos noches de WHOOP (14→15 y 15→16/10): totales dentro de ±5 min en profundo y REM
- * y despierto 34 vs 33 min en la noche con movimiento. Es una versión inicial: se afinará con más noches.
+ * Calibrado con WHOOP (15→16 y 16→17/10, las dos noches con movimiento). 17/10: REM más fácil al final de la
+ * noche (umbral −0,4 → 0,0 según avanza; antes −0,3 fijo daba 76 min de REM frente a 131 de WHOOP) y la noche
+ * empieza en el primer tramo de ≥15 min dormido y acaba en el último minuto dormido (antes contaba como
+ * "despierto" el rato en la cama antes de dormirse: 1:05 frente a 0:15 de WHOOP).
  *
  * 1) DESPIERTO. Un minuto es "agitado" si hay movimiento (≥10 s moviéndose o pasos) y el pulso sube ≥6 lpm sobre su
  *    base local (percentil 33 de ±20 min), o hay movimiento fuerte (≥30 s), o el pulso sube ≥15 lpm con giro/cambio
@@ -24,8 +26,9 @@ import kotlin.math.sqrt
  *    de alrededor (así se quita la subida natural de VFC y la bajada de pulso a lo largo de la noche):
  *      - PROFUNDO: VFC (RMSSD de 7 min, en logaritmo) por encima de la mediana local y pulso ≥0,5 lpm por debajo
  *        de la local. El umbral de VFC sube un poco hacia el final de la noche (más profundo al principio).
- *      - REM: VFC ≥0,3 (log) por debajo de la local y pulso igual o por encima de la local. No hay REM en los
- *        primeros 45 min ni profundo en los últimos 45 min.
+ *      - REM: VFC por debajo de la local (≥0,4 al principio, ≥0,2 a mitad, ≥0 al final: el REM se alarga al
+ *        final de la noche) y pulso igual o por encima de la local. No hay REM en los primeros 45 min ni
+ *        profundo en los últimos 45 min.
  *      - LIGERO: todo lo demás. Los tramos de profundo/REM de menos de 4 min pasan a ligero.
  */
 object SleepStager {
@@ -50,13 +53,16 @@ object SleepStager {
     private const val DEEP_HRV = 0.0
     private const val DEEP_HRV_SLOPE = 0.3
     private const val DEEP_HR = -0.5
-    private const val REM_HRV = -0.3
+    private const val REM_HRV = -0.2
+    private const val REM_HRV_SLOPE = 0.4
     private const val REM_HR = 0.0
     private const val REM_NO_FIRST_MIN = 45
     private const val DEEP_NO_LAST_MIN = 45
     private const val MIN_RUN = 4
 
     private const val MIN_WINDOW_MINUTES = 90
+    /** La noche empieza en el primer tramo de al menos estos minutos sin despertar. */
+    private const val ONSET_RUN = 15
     private const val MIN_MOTION_COVERAGE = 0.6
 
     class Result(val startMinute: Long, val stages: IntArray) {
@@ -259,7 +265,7 @@ object SleepStager {
             val prog = i.toDouble() / maxOf(1, n - 1)
             val deepThr = DEEP_HRV + DEEP_HRV_SLOPE * (prog - 0.5)
             if (xl[i] >= deepThr && xh[i] <= DEEP_HR && i <= n - DEEP_NO_LAST_MIN) st[i] = DEEP
-            else if (xl[i] <= REM_HRV && xh[i] >= REM_HR && i >= REM_NO_FIRST_MIN) st[i] = REM
+            else if (xl[i] <= REM_HRV + REM_HRV_SLOPE * (prog - 0.5) && xh[i] >= REM_HR && i >= REM_NO_FIRST_MIN) st[i] = REM
         }
         // Tramos cortos de profundo/REM → ligero
         var i = 0
@@ -269,7 +275,27 @@ object SleepStager {
             if ((st[i] == DEEP || st[i] == REM) && j - i < MIN_RUN) for (k in i until j) st[k] = LIGHT
             i = j
         }
-        return Result(m0, st)
+        // Recorte: fuera el rato en la cama antes de dormirse y después de despertarse
+        val (a, b) = trimBounds(st)
+        return Result(m0 + a, st.copyOfRange(a, b))
+    }
+
+    /** [inicio, fin) de la noche: del primer tramo de ≥[ONSET_RUN] min sin despertar al último minuto dormido. */
+    fun trimBounds(st: IntArray): Pair<Int, Int> {
+        val n = st.size
+        var start = -1
+        var i = 0
+        while (i < n) {
+            if (st[i] == AWAKE) { i++; continue }
+            var j = i
+            while (j < n && st[j] != AWAKE) j++
+            if (j - i >= ONSET_RUN) { start = i; break }
+            i = j
+        }
+        if (start < 0) return 0 to n
+        var end = n
+        while (end > start && st[end - 1] == AWAKE) end--
+        return start to end
     }
 
     private fun median(v: List<Double>): Double {

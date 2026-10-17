@@ -64,6 +64,49 @@ class StressCalculator {
         return StressSummary(current?.score, level, current?.minuteOfDay, series)
     }
 
+    /** Lecturas del archivo desde [sinceMillis] (para calcular el estrés de días anteriores con una sola lectura). */
+    class Sample(val timeMillis: Long, val bpm: Int, val rr: List<Double>)
+
+    fun loadSamples(file: File, sinceMillis: Long): List<Sample> {
+        if (!file.exists()) return emptyList()
+        // Las líneas empiezan por la fecha local "yyyy-MM-dd": las de días anteriores se saltan sin convertir la hora (rápido)
+        val minKey = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(sinceMillis - 86_400_000L))
+        val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
+        val out = ArrayList<Sample>()
+        file.forEachLine { line ->
+            if (line.length < 20 || line[10] != 'T') return@forEachLine
+            if (line < minKey) return@forEachLine   // "2026-10-14T…" < "2026-10-15"; "2026-10-15T…" no
+            val parts = splitCsvLine(line)
+            if (parts.size < 2) return@forEachLine
+            try {
+                val time = sdf.parse(parts[0])?.time ?: return@forEachLine
+                if (time < sinceMillis) return@forEachLine
+                val bpm = parts[1].toIntOrNull() ?: return@forEachLine
+                if (bpm <= 0 || bpm > 250) return@forEachLine
+                val rr = if (parts.size > 2) parts[2].split("|").mapNotNull { it.replace(',', '.').toDoubleOrNull() }.filter { it in 300.0..2000.0 }
+                else emptyList()
+                out.add(Sample(time, bpm, rr))
+            } catch (e: Exception) { }
+        }
+        return out.sortedBy { it.timeMillis }.distinctBy { it.timeMillis / 1000 }
+    }
+
+    /** Serie de estrés (un punto cada 5 min) entre [from] y [to] con la misma fórmula que [analyze]. */
+    fun seriesBetween(samples: List<Sample>, from: Long, to: Long, restingHr: Int?, baseline: PersonalBaseline?): List<StressPoint> {
+        val baselineRhr = baseline?.avgRestingHr ?: Formulas.FALLBACK_RHR
+        val baselineHrv = baseline?.avgHrv ?: Formulas.FALLBACK_HRV
+        val windowMillis = 5 * 60 * 1000L
+        return samples.filter { it.timeMillis in from until to }
+            .groupBy { it.timeMillis / windowMillis }.entries.sortedBy { it.key }
+            .filter { it.value.size >= 30 }
+            .map { (windowKey, w) ->
+                val score = computeScore(w.map { it.bpm }.average(), computeRMSSD(w.flatMap { it.rr }), baselineRhr, baselineHrv)
+                val t = windowKey * windowMillis
+                val cal = Calendar.getInstance().apply { timeInMillis = t }
+                StressPoint(cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE), score, t)
+            }
+    }
+
     private fun computeScore(avgHr: Double, windowHrv: Double?, baselineRhr: Double, baselineHrv: Double): Float {
         val hrUp = ((avgHr - baselineRhr) / baselineRhr).coerceAtLeast(0.0)
         val hrvDown = if (windowHrv != null && windowHrv > 0) ln(baselineHrv / windowHrv).coerceAtLeast(0.0) else hrUp

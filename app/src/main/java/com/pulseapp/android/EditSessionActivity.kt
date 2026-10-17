@@ -20,7 +20,7 @@ class EditSessionActivity : AppCompatActivity() {
         const val EXTRA_SESSION_ID = "session_id"
     }
 
-    private val types = arrayOf("Fútbol", "Pádel", "Entrenamiento funcional", "Entrenamiento de fuerza", "Otro", "Sin clasificar")
+    private val types = arrayOf("Fútbol", "Pádel", "Pickleball", "Entrenamiento funcional", "Entrenamiento de fuerza", "Otro", "Sin clasificar")
     private var selectedType: String = "Sin clasificar"
     private var startCal = Calendar.getInstance()
     private var endCal = Calendar.getInstance()

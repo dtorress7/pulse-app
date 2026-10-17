@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Monitor de salud con el aspecto de WHOOP (17/10): pulso en directo + señales de la noche frente a tu rango habitual. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/background">
+    android:background="@drawable/bg_screen_whoop">
 
     <ScrollView
         android:layout_width="match_parent"
@@ -14,93 +15,187 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingStart="20dp"
-            android:paddingTop="24dp"
-            android:paddingEnd="20dp">
+            android:paddingStart="16dp"
+            android:paddingTop="10dp"
+            android:paddingEnd="16dp">
 
-            <TextView style="@style/LargeTitle" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Salud" />
-            <TextView style="@style/RowText" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="Señales medidas durante el sueño" android:textColor="@color/text_secondary" android:textSize="14sp" />
+            <include layout="@layout/include_detail_header" />
 
-            <!-- Estado general -->
-            <LinearLayout
+            <!-- Frecuencia cardíaca en directo -->
+            <FrameLayout
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
-                android:background="@drawable/bg_card"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:padding="18dp">
+                android:layout_height="236dp"
+                android:layout_marginTop="12dp">
 
-                <ImageView
-                    android:id="@+id/statusIcon"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
-                    android:background="@drawable/bg_icon_recovery_round"
-                    android:contentDescription="@null"
-                    android:padding="12dp"
-                    android:src="@drawable/ic_check"
-                    android:tint="@color/recovery_green" />
+                <com.pulseapp.android.ui.LiveHrLineView
+                    android:id="@+id/liveLine"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent" />
 
-                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_marginStart="16dp" android:layout_weight="1" android:orientation="vertical">
-                    <TextView android:id="@+id/statusTitle" style="@style/StatNumber" android:layout_width="wrap_content" android:layout_height="wrap_content" android:letterSpacing="0.04" android:text="--" android:textAllCaps="true" android:textColor="@color/recovery_green" android:textSize="22sp" />
-                    <TextView android:id="@+id/statusSub" style="@style/Caption" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:text="" android:textSize="13sp" />
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:background="#B31C2327"
+                    android:orientation="vertical"
+                    android:paddingTop="6dp"
+                    android:paddingEnd="18dp">
+
+                    <TextView
+                        style="@style/TitleW"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Frecuencia cardíaca"
+                        android:textSize="16sp" />
+
+                    <ImageView
+                        android:layout_width="30dp"
+                        android:layout_height="30dp"
+                        android:layout_marginTop="14dp"
+                        android:contentDescription="@null"
+                        android:src="@drawable/ic_heart_filled"
+                        android:tint="@color/strain_blue" />
+
+                    <TextView
+                        android:id="@+id/liveBpmText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:fontFamily="@font/barlow_condensed_bold"
+                        android:includeFontPadding="false"
+                        android:text="--"
+                        android:textColor="@color/text_primary"
+                        android:textSize="56sp" />
+
+                    <TextView
+                        style="@style/TitleW"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="LPM"
+                        android:textColor="@color/text_secondary" />
+
+                    <TextView
+                        android:id="@+id/liveZoneText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="14dp"
+                        android:fontFamily="@font/archivo"
+                        android:text=""
+                        android:textColor="@color/text_secondary"
+                        android:textSize="17sp" />
+
+                    <LinearLayout
+                        android:id="@+id/zoneSegments"
+                        android:layout_width="wrap_content"
+                        android:layout_height="4dp"
+                        android:layout_marginTop="12dp"
+                        android:orientation="horizontal" />
                 </LinearLayout>
-            </LinearLayout>
+            </FrameLayout>
 
-            <!-- Señales vitales (2 x 2, se rellena por código) -->
+            <TextView
+                android:id="@+id/liveStatusText"
+                style="@style/Caption"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="" />
+
+            <!-- Señales de la noche (2 columnas, se rellena en HealthActivity) -->
             <LinearLayout
                 android:id="@+id/vitalsGrid"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
+                android:layout_marginTop="16dp"
                 android:orientation="vertical" />
 
-            <!-- Pasos, calorías, VO2 máx -->
+            <TextView
+                android:id="@+id/vitalsNote"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:fontFamily="@font/archivo"
+                android:lineSpacingExtra="3dp"
+                android:text=""
+                android:textColor="@color/text_secondary"
+                android:textSize="14sp" />
+
+            <!-- Hoy -->
+            <TextView
+                style="@style/HeadingW"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="30dp"
+                android:text="Hoy" />
+
             <LinearLayout
                 android:id="@+id/extrasList"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:background="@drawable/bg_card"
+                android:layout_marginTop="14dp"
                 android:orientation="vertical" />
 
-            <!-- Mini monitor de estrés -->
+            <!-- Monitor de estrés -->
             <LinearLayout
                 android:id="@+id/stressCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:background="@drawable/bg_card_elevated"
+                android:layout_marginTop="4dp"
+                android:background="@drawable/bg_card_w"
                 android:clickable="true"
                 android:focusable="true"
                 android:foreground="?android:attr/selectableItemBackground"
                 android:orientation="vertical"
                 android:padding="16dp">
 
-                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical">
-                    <TextView style="@style/TitleLabel" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Monitor de estrés" android:textSize="13sp" />
-                    <TextView android:id="@+id/stressLevelText" style="@style/TitleLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginEnd="8dp" android:text="" />
-                    <TextView android:id="@+id/stressScoreText" style="@style/StatNumber" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginEnd="6dp" android:text="--" android:textSize="20sp" />
-                    <ImageView android:layout_width="16dp" android:layout_height="16dp" android:contentDescription="@null" android:src="@drawable/ic_chevron_right" android:tint="@color/text_secondary" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        style="@style/TitleW"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Monitor de estrés" />
+
+                    <TextView
+                        android:id="@+id/stressLevelText"
+                        style="@style/TitleW"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text=""
+                        android:textSize="16sp" />
+
+                    <TextView
+                        android:id="@+id/stressScoreText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="12dp"
+                        android:fontFamily="@font/barlow_condensed_bold"
+                        android:text="--"
+                        android:textColor="@color/text_primary"
+                        android:textSize="24sp" />
+
+                    <ImageView
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:layout_marginStart="8dp"
+                        android:contentDescription="@null"
+                        android:src="@drawable/ic_chevron_right"
+                        android:tint="@color/text_secondary" />
                 </LinearLayout>
 
-                <com.pulseapp.android.ui.StressChartView
+                <com.pulseapp.android.ui.StressDayChartView
                     android:id="@+id/stressChart"
                     android:layout_width="match_parent"
-                    android:layout_height="72dp"
-                    android:layout_marginTop="10dp" />
+                    android:layout_height="220dp"
+                    android:layout_marginTop="12dp" />
             </LinearLayout>
-
-            <TextView
-                style="@style/Caption"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="4dp"
-                android:layout_marginTop="14dp"
-                android:layout_marginEnd="4dp"
-                android:text="La saturación de oxígeno (SpO₂) no está disponible: la pulsera solo la calcula dentro de la app oficial. La respiración es experimental." />
         </LinearLayout>
     </ScrollView>
 
     <include layout="@layout/include_tab_bar" />
+
 </FrameLayout>

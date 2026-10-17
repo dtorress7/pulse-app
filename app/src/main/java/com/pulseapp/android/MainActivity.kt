@@ -1,94 +1,77 @@
 package com.pulseapp.android
 
 import android.Manifest
-import android.bluetooth.BluetoothManager
-import android.bluetooth.le.ScanCallback
-import android.bluetooth.le.ScanResult
+import android.app.DatePickerDialog
+import android.app.TimePickerDialog
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.drawable.ColorDrawable
 import android.os.Build
 import android.os.Bundle
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
-import android.widget.ArrayAdapter
+import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.PopupWindow
+import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
-import com.pulseapp.android.data.ActivitySession
 import com.pulseapp.android.data.AppDatabase
 import com.pulseapp.android.ui.CircularRingView
-import kotlinx.coroutines.Dispatchers
+import com.pulseapp.android.ui.StrainRecoveryChartView
+import com.pulseapp.android.ui.StressDayChartView
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.text.NumberFormat
 import java.text.SimpleDateFormat
+import java.time.format.TextStyle
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
+/**
+ * Inicio con el aspecto de la app de WHOOP (17/10): cabecera con racha y día, tres anillos, monitores de salud y estrés,
+ * "Mi día" (perspectiva, actividades, sueño de esta noche) y "Mi panel de control". Los números salen de [HomeDataLoader].
+ */
 class MainActivity : AppCompatActivity() {
-
-    private lateinit var bpmText: TextView
-    private lateinit var statusText: TextView
-    private lateinit var countText: TextView
-    private lateinit var minHrText: TextView
-    private lateinit var avgHrText: TextView
-    private lateinit var hrvText: TextView
-    private lateinit var vo2MaxText: TextView
-    private lateinit var respiratoryRateText: TextView
-    private lateinit var recoveryRing: CircularRingView
-    private lateinit var strainRing: CircularRingView
-    private lateinit var sleepRing: CircularRingView
-    private lateinit var rowScan: LinearLayout
-    private lateinit var rowProfile: LinearLayout
-    private lateinit var rowSummary: LinearLayout
-    private lateinit var rowExport: LinearLayout
-    private lateinit var stressCard: LinearLayout
-    private lateinit var stressUpdatedText: TextView
-    private lateinit var stressLevelText: TextView
-    private lateinit var stressScoreText: TextView
-    private lateinit var stressChart: com.pulseapp.android.ui.StressChartView
-    private lateinit var stepsText: TextView
-    private lateinit var dateText: TextView
-    private lateinit var todayList: LinearLayout
-    private val stressCalculator = StressCalculator()
-    private val calorieCalculator = CalorieCalculator()
-    private val recoveryCalculator = RecoveryCalculator()
-    private val baselineProvider = BaselineProvider()
-    private val sleepPlanner = SleepPlanner()
-    private val activityRecorder = ActivityRecorder()
-    private var activityStartMillis: Long? = null
-    private lateinit var startActivityButton: TextView
-    private lateinit var sleepNeedText: TextView
-    private lateinit var sleepBedtimeText: TextView
-    private lateinit var sleepBreakdownText: TextView
-    private lateinit var caloriesText: TextView
 
     private val db by lazy { AppDatabase.getInstance(this) }
     private val esLocale = Locale("es", "ES")
+    private val activityRecorder = ActivityRecorder()
+    private val baselineProvider = BaselineProvider()
 
-    private val devices = mutableListOf<android.bluetooth.BluetoothDevice>()
-    private lateinit var adapter: ArrayAdapter<String>
+    private lateinit var sleepRing: CircularRingView
+    private lateinit var recoveryRing: CircularRingView
+    private lateinit var strainRing: CircularRingView
+    private lateinit var miniSleep: CircularRingView
+    private lateinit var miniRecovery: CircularRingView
+    private lateinit var miniStrain: CircularRingView
+    private lateinit var statusText: TextView
+    private lateinit var connectionNote: TextView
+    private lateinit var todayList: LinearLayout
+    private lateinit var panelList: LinearLayout
+    private lateinit var stressChartCard: View
+    private lateinit var strainRecoveryCard: View
+
+    private var dayOffset = 0
+    private var activityStartMillis: Long? = null
+    private var lastData: HomeData? = null
+    private var loading = false
+
+    private val types = arrayOf("Fútbol", "Pádel", "Pickleball", "Entrenamiento funcional", "Entrenamiento de fuerza", "Otro")
 
     private val requiredPermissions: Array<String>
         get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            arrayOf(
-                Manifest.permission.BLUETOOTH_SCAN,
-                Manifest.permission.BLUETOOTH_CONNECT,
-                Manifest.permission.POST_NOTIFICATIONS
-            )
+            arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.POST_NOTIFICATIONS)
         } else {
             arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
         }
 
-    private val permissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { results ->
+    private val permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { _ ->
         val btOk = Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
             ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
         if (btOk) {
@@ -102,83 +85,89 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         Formulas.init(this)
         setContentView(R.layout.activity_main)
+        window.statusBarColor = Ui.color(this, R.color.w_bg_top)
 
-        bpmText = findViewById(R.id.bpmText)
-        statusText = findViewById(R.id.statusText)
-        countText = findViewById(R.id.countText)
-        minHrText = findViewById(R.id.minHrText)
-        avgHrText = findViewById(R.id.avgHrText)
-        hrvText = findViewById(R.id.hrvText)
-        vo2MaxText = findViewById(R.id.vo2MaxText)
-        respiratoryRateText = findViewById(R.id.respiratoryRateText)
+        sleepRing = findViewById(R.id.sleepRing)
         recoveryRing = findViewById(R.id.recoveryRing)
         strainRing = findViewById(R.id.strainRing)
-        sleepRing = findViewById(R.id.sleepRing)
-        rowScan = findViewById(R.id.rowScan)
-        rowProfile = findViewById(R.id.rowProfile)
-        rowSummary = findViewById(R.id.rowSummary)
-        rowExport = findViewById(R.id.rowExport)
-        stressCard = findViewById(R.id.stressCard)
-        stressUpdatedText = findViewById(R.id.stressUpdatedText)
-        stressLevelText = findViewById(R.id.stressLevelText)
-        stressScoreText = findViewById(R.id.stressScoreText)
-        stressChart = findViewById(R.id.stressChart)
-        caloriesText = findViewById(R.id.caloriesText)
-        sleepNeedText = findViewById(R.id.sleepNeedText)
-        sleepBedtimeText = findViewById(R.id.sleepBedtimeText)
-        sleepBreakdownText = findViewById(R.id.sleepBreakdownText)
-        stepsText = findViewById(R.id.stepsText)
-        dateText = findViewById(R.id.dateText)
+        miniSleep = findViewById(R.id.miniSleepRing)
+        miniRecovery = findViewById(R.id.miniRecoveryRing)
+        miniStrain = findViewById(R.id.miniStrainRing)
+        statusText = findViewById(R.id.statusText)
+        connectionNote = findViewById(R.id.connectionNote)
         todayList = findViewById(R.id.todayList)
-        startActivityButton = findViewById(R.id.startActivityButton)
+        panelList = findViewById(R.id.panelList)
+        stressChartCard = findViewById(R.id.stressChartCard)
+        strainRecoveryCard = findViewById(R.id.strainRecoveryCard)
 
-        dateText.text = SimpleDateFormat("EEEE, d 'de' MMMM", esLocale).format(Date())
-            .replaceFirstChar { it.uppercase() }
-
-        // Anillos vacíos hasta tener datos (en Inicio la etiqueta va debajo, fuera del anillo)
-        recoveryRing.setValue(0f, "--", "", ContextCompat.getColor(this, R.color.recovery_green))
-        strainRing.setValue(0f, "--", "", ContextCompat.getColor(this, R.color.strain_blue))
-        sleepRing.setValue(0f, "--", "", ContextCompat.getColor(this, R.color.sleep_blue))
+        // Anillos como los de WHOOP: trazo fino, número blanco grande con "%" del mismo color
+        val track = Ui.color(this, R.color.w_track)
+        listOf(sleepRing, recoveryRing, strainRing).forEach {
+            it.strokeRatio = 0.075f; it.numberRatio = 0.30f; it.suffixRatio = 0.56f; it.suffixSameColor = true; it.setTrackColor(track)
+        }
+        listOf(miniSleep, miniRecovery, miniStrain).forEach { it.strokeRatio = 0.14f; it.setTrackColor(track) }
+        sleepRing.setValue(0f, "--", "", Ui.color(this, R.color.w_ring_sleep))
+        recoveryRing.setValue(0f, "--", "", Ui.color(this, R.color.w_recovery_high))
+        strainRing.setValue(0f, "--", "", Ui.color(this, R.color.strain_blue))
 
         val openRecovery = View.OnClickListener { startActivity(Intent(this, RecoveryDetailActivity::class.java)) }
         val openSleep = View.OnClickListener { startActivity(Intent(this, SleepDetailActivity::class.java)) }
         val openActivities = View.OnClickListener { startActivity(Intent(this, ActivitiesListActivity::class.java)) }
         val openProfile = View.OnClickListener { startActivity(Intent(this, ProfileActivity::class.java)) }
+        val openWhoop = View.OnClickListener { startActivity(Intent(this, WhoopExperimentalActivity::class.java)) }
+        val openStress = View.OnClickListener { startActivity(Intent(this, StressDetailActivity::class.java)) }
 
-        recoveryRing.setOnClickListener(openRecovery)
-        sleepRing.setOnClickListener(openSleep)
-        strainRing.setOnClickListener(openActivities)
-        findViewById<View>(R.id.healthCard).setOnClickListener { startActivity(Intent(this, HealthActivity::class.java)) }
-        findViewById<View>(R.id.sleepPlanCard).setOnClickListener(openSleep)
-        findViewById<View>(R.id.activitiesButton).setOnClickListener(openActivities)
+        findViewById<View>(R.id.sleepRingBox).setOnClickListener(openSleep)
+        findViewById<View>(R.id.recoveryRingBox).setOnClickListener(openRecovery)
+        findViewById<View>(R.id.strainRingBox).setOnClickListener(openActivities)
+        findViewById<View>(R.id.miniSleep).setOnClickListener(openSleep)
+        findViewById<View>(R.id.miniRecovery).setOnClickListener(openRecovery)
+        findViewById<View>(R.id.miniStrain).setOnClickListener(openActivities)
         findViewById<View>(R.id.avatarButton).setOnClickListener(openProfile)
-        stressCard.setOnClickListener {
-            startActivity(Intent(this, StressDetailActivity::class.java))
+        findViewById<View>(R.id.bandButton).setOnClickListener(openWhoop)
+        findViewById<View>(R.id.healthCard).setOnClickListener {
+            startActivity(Intent(this, HealthActivity::class.java).putExtra(HealthActivity.EXTRA_FROM_HOME, true))
+        }
+        findViewById<View>(R.id.stressCard).setOnClickListener(openStress)
+        stressChartCard.setOnClickListener(openStress)
+        findViewById<View>(R.id.expandButton).setOnClickListener(openActivities)
+        findViewById<View>(R.id.tonightHeader).setOnClickListener(openSleep)
+        findViewById<View>(R.id.insightCard).setOnClickListener { showInsight() }
+        findViewById<View>(R.id.plusButton).setOnClickListener { showPlusMenu(it as ImageView) }
+        findViewById<View>(R.id.addActivityButton).setOnClickListener { addActivityFlow() }
+        findViewById<View>(R.id.startActivityButton).setOnClickListener { toggleActivityRecording() }
+        findViewById<View>(R.id.editWakeButton).setOnClickListener { editWakeTime() }
+        findViewById<View>(R.id.personalizeButton).setOnClickListener { personalizePanel() }
+        findViewById<View>(R.id.strainRecoveryInfo).setOnClickListener {
+            androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Esfuerzo y recuperación")
+                .setMessage("En azul, el esfuerzo de cada día (0–21, escala de la izquierda). En círculos, la recuperación de esa mañana " +
+                    "(0–100 %, a la derecha): verde ≥ 67 %, amarillo 34–66 %, rojo < 34 %.")
+                .setPositiveButton("Cerrar", null)
+                .show()
+        }
+        findViewById<View>(R.id.streakPill).setOnClickListener {
+            Toast.makeText(this, "Días seguidos llevando la pulsera", Toast.LENGTH_SHORT).show()
         }
 
+        findViewById<View>(R.id.prevDayButton).setOnClickListener { if (dayOffset > -60) { dayOffset--; refresh() } }
+        findViewById<View>(R.id.nextDayButton).setOnClickListener { if (dayOffset < 0) { dayOffset++; refresh() } }
+        findViewById<View>(R.id.dayLabel).setOnClickListener { if (dayOffset != 0) { dayOffset = 0; refresh() } }
+
+        findViewById<View>(R.id.rowExport).setOnClickListener { exportCsv() }
+        findViewById<View>(R.id.rowWhoopExperimental).setOnClickListener(openWhoop)
+        findViewById<View>(R.id.rowScan).setOnClickListener(openWhoop)
+        findViewById<View>(R.id.rowSummary).setOnClickListener { showSummaryDialog() }
+        findViewById<View>(R.id.rowProfile).setOnClickListener(openProfile)
+
+        setupStickyHeader()
         Ui.setupTabBar(this, Ui.Tab.HOME)
-        findViewById<View>(R.id.prevDayButton).setOnClickListener {
-            Toast.makeText(this, "Ver días anteriores: próximamente", Toast.LENGTH_SHORT).show()
-        }
-
-        rowExport.setOnClickListener { exportCsv() }
-        findViewById<View>(R.id.rowWhoopExperimental).setOnClickListener {
-            startActivity(Intent(this, WhoopExperimentalActivity::class.java))
-        }
-        rowSummary.setOnClickListener { showSummary(showDialog = true) }
-        rowProfile.setOnClickListener(openProfile)
-        startActivityButton.setOnClickListener { toggleActivityRecording() }
-
-        adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, mutableListOf())
 
         // La conexión es la WHOOP vinculada (modo propietario). El modo Bluetooth estándar ya no se usa.
-        rowScan.setOnClickListener { startActivity(Intent(this, WhoopExperimentalActivity::class.java)) }
         stopService(Intent(this, BleForegroundService::class.java))
-
         WhoopBackgroundService.onActivitySaved = { message ->
             runOnUiThread { Toast.makeText(this, message, Toast.LENGTH_LONG).show() }
         }
-
         // Si hay una WHOOP vinculada, se conecta sola al abrir la app (como la app de WHOOP)
         if (WhoopBackgroundService.findBondedWhoop(this) != null) {
             if (requiredPermissions.all { ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED }) {
@@ -193,7 +182,7 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         restoreActivityButton()
         checkSetupComplete()
-        showSummary(showDialog = false)
+        refresh()
         liveHandler.post(liveTicker)
     }
 
@@ -202,38 +191,356 @@ class MainActivity : AppCompatActivity() {
         liveHandler.removeCallbacks(liveTicker)
     }
 
-    private val liveHandler = android.os.Handler(android.os.Looper.getMainLooper())
-    private var lastSummaryRefresh = 0L
+    // ---------------------------------------------------------------- directo
 
-    /** Pulso y estado en directo desde el servicio de la WHOOP; los anillos se recalculan cada minuto. */
+    private val liveHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var lastRefresh = 0L
+
+    /** Estado de la pulsera cada 2 s (punto verde/ámbar/gris); los datos se recalculan cada minuto. */
     private val liveTicker = object : Runnable {
         override fun run() {
             val now = System.currentTimeMillis()
+            val bonded = WhoopBackgroundService.findBondedWhoop(this@MainActivity) != null
             val live = WhoopBackgroundService.lastBpmTime > now - 15_000
-            val bpm = WhoopBackgroundService.lastBpm
-            if (live && bpm != null) bpmText.text = bpm.toString()
-            statusText.text = when {
-                WhoopBackgroundService.findBondedWhoop(this@MainActivity) == null -> "Vincula tu WHOOP en \"Mi WHOOP\""
+            val state = when {
+                !bonded -> "Vincula tu WHOOP"
                 !WhoopBackgroundService.isRunning -> "WHOOP desconectada"
                 else -> WhoopBackgroundService.state
             }
-            val total = WhoopBackgroundService.liveCount + WhoopBackgroundService.historyCount
-            if (total > 0) countText.text = "$total lecturas recibidas en esta conexión"
-            if (now - lastSummaryRefresh > 60_000) {
-                lastSummaryRefresh = now
-                if (now - resumedAt > 5_000) showSummary(showDialog = false)
+            statusText.text = state
+            val dotColor = when {
+                live -> R.color.w_mint
+                bonded && WhoopBackgroundService.isRunning -> R.color.alert_amber
+                else -> R.color.text_secondary
             }
+            (findViewById<View>(R.id.bandDot).background.mutate() as? android.graphics.drawable.GradientDrawable)
+                ?.setColor(Ui.color(this@MainActivity, dotColor))
+            connectionNote.visibility = if (live) View.GONE else View.VISIBLE
+            connectionNote.text = when {
+                !bonded -> "Toca la pulsera de arriba a la derecha para vincular tu WHOOP"
+                !WhoopBackgroundService.isRunning -> "WHOOP desconectada · toca la pulsera para conectar"
+                else -> "Esperando pulso de la WHOOP…"
+            }
+            if (dayOffset == 0 && now - lastRefresh > 60_000) refresh()
             liveHandler.postDelayed(this, 2000)
         }
     }
-    private val resumedAt = System.currentTimeMillis()
+
+    // ---------------------------------------------------------------- datos
+
+    private fun refresh() {
+        if (loading) return
+        loading = true
+        lastRefresh = System.currentTimeMillis()
+        updateDayLabel()
+        val offset = dayOffset
+        lifecycleScope.launch {
+            try {
+                val data = HomeDataLoader(this@MainActivity).load(offset)
+                if (offset == dayOffset) render(data)
+            } catch (e: Exception) {
+                Toast.makeText(this@MainActivity, "Error al calcular Inicio: ${e.message}", Toast.LENGTH_LONG).show()
+            } finally {
+                loading = false
+                if (offset != dayOffset) refresh()
+            }
+        }
+    }
+
+    private fun updateDayLabel() {
+        val label = findViewById<TextView>(R.id.dayLabel)
+        val date = java.time.LocalDate.now().plusDays(dayOffset.toLong())
+        label.text = when (dayOffset) {
+            0 -> "HOY"
+            -1 -> "AYER"
+            else -> date.dayOfWeek.getDisplayName(TextStyle.SHORT, esLocale).uppercase(esLocale).trimEnd('.') + ". " + date.dayOfMonth
+        }
+        findViewById<View>(R.id.nextDayButton).alpha = if (dayOffset < 0) 1f else 0.35f
+    }
+
+    private fun render(d: HomeData) {
+        lastData = d
+        val ctx = this
+        findViewById<TextView>(R.id.streakText).text = d.streak.toString()
+
+        // Anillos
+        val day = d.day
+        val sleepColor = Ui.color(ctx, R.color.w_ring_sleep)
+        val recColor = Ui.color(ctx, day.recovery?.let { W.recoveryColor(it) } ?: R.color.w_recovery_high)
+        val strainColor = Ui.color(ctx, R.color.strain_blue)
+        sleepRing.setValue((day.sleepScore ?: 0) / 100f, day.sleepScore?.let { "$it%" } ?: "--", "", sleepColor)
+        recoveryRing.setValue((day.recovery ?: 0) / 100f, day.recovery?.let { "$it%" } ?: "--", "", recColor)
+        strainRing.setValue(((day.strain ?: 0.0) / 21.0).toFloat(), day.strain?.let { Ui.comma(it) } ?: "--", "", strainColor)
+        miniSleep.setValue((day.sleepScore ?: 0) / 100f, "", "", sleepColor)
+        miniRecovery.setValue((day.recovery ?: 0) / 100f, "", "", recColor)
+        miniStrain.setValue(((day.strain ?: 0.0) / 21.0).toFloat(), "", "", strainColor)
+
+        // Monitor de salud
+        val healthText = findViewById<TextView>(R.id.healthStatusText)
+        val healthIcon = findViewById<ImageView>(R.id.healthIcon)
+        val healthBox = findViewById<View>(R.id.healthIconBox)
+        val healthCount = findViewById<TextView>(R.id.healthCountText)
+        when {
+            d.healthTotal == 0 -> {
+                healthText.text = "CALIBRANDO"
+                healthText.setTextColor(Ui.color(ctx, R.color.text_primary))
+                healthIcon.setImageResource(R.drawable.ic_pulse)
+                healthIcon.setColorFilter(Ui.color(ctx, R.color.text_secondary))
+                healthBox.background = W.rounded(ctx, R.color.w_row, 8f)
+                healthCount.text = "Necesita ${BaselineProvider.MIN_DAYS_REQUIRED} noches"
+            }
+            d.healthOk == d.healthTotal -> {
+                healthText.text = "DENTRO\nDEL RANGO"
+                healthText.setTextColor(Ui.color(ctx, R.color.w_mint))
+                healthIcon.setImageResource(R.drawable.ic_check)
+                healthIcon.setColorFilter(Ui.color(ctx, R.color.w_mint))
+                healthBox.background = W.rounded(ctx, R.color.w_mint_bg, 8f)
+                healthCount.text = "${d.healthOk}/${d.healthTotal} métricas"
+            }
+            else -> {
+                healthText.text = "FUERA\nDEL RANGO"
+                healthText.setTextColor(Ui.color(ctx, R.color.alert_amber))
+                healthIcon.setImageResource(R.drawable.ic_info)
+                healthIcon.setColorFilter(Ui.color(ctx, R.color.alert_amber))
+                healthBox.background = W.rounded(ctx, R.color.w_stress_high_dim, 8f)
+                healthCount.text = "${d.healthOk}/${d.healthTotal} métricas"
+            }
+        }
+
+        // Monitor de estrés (tarjeta pequeña y tarjeta con gráfica)
+        val levelColor = W.stressColor(d.stressLevel)
+        val score = d.stressScore?.let { Ui.comma(it.toDouble()) } ?: "--"
+        val time = d.stressMinute?.let { "%02d:%02d".format(it / 60, it % 60) } ?: ""
+        findViewById<TextView>(R.id.stressScoreBox).apply {
+            text = score
+            setTextColor(Ui.color(ctx, levelColor))
+            background = W.rounded(ctx, when (d.stressLevel) {
+                "ALTO" -> R.color.w_stress_high_dim
+                "MEDIO" -> R.color.w_mint_bg
+                else -> R.color.w_low_blue_bg
+            }, 8f)
+        }
+        findViewById<TextView>(R.id.stressLevelText).apply {
+            text = if (d.stressScore != null) d.stressLevel else "SIN DATOS"
+            setTextColor(Ui.color(ctx, if (d.stressScore != null) levelColor else R.color.text_secondary))
+        }
+        findViewById<TextView>(R.id.stressTimeText).text = time
+        stressChartCard.findViewById<TextView>(R.id.stressUpdatedText).text =
+            if (d.stressScore == null) "Sin datos todavía" else "Última actualización a la(s) $time"
+        stressChartCard.findViewById<TextView>(R.id.stressChartLevel).apply {
+            text = if (d.stressScore != null) d.stressLevel else ""
+            setTextColor(Ui.color(ctx, levelColor))
+        }
+        stressChartCard.findViewById<TextView>(R.id.stressChartScore).text = score
+        stressChartCard.findViewById<StressDayChartView>(R.id.stressDayChart)
+            .setData(d.stressSeries, d.stressFrom, d.stressTo, d.sleepFromMillis, d.sleepToMillis, d.isToday)
+
+        // Mi día
+        findViewById<TextView>(R.id.activitiesTitle).text = if (d.isToday) "ACTIVIDADES DE HOY" else "ACTIVIDADES DEL DÍA"
+        findViewById<View>(R.id.startActivityButton).visibility = if (d.isToday) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.tonightCard).visibility = if (d.isToday) View.VISIBLE else View.GONE
+        fillActivities(d)
+        findViewById<TextView>(R.id.bedtimeText).text = d.bedtime ?: "--:--"
+        findViewById<TextView>(R.id.wakeText).text = "%02d:%02d".format(d.wakeMinute / 60, d.wakeMinute % 60)
+
+        // Panel
+        fillPanel(d)
+    }
+
+    private fun fillActivities(d: HomeData) {
+        todayList.removeAllViews()
+        val timeFmt = SimpleDateFormat("H:mm", esLocale)
+        val day = d.day
+        val from = d.sleepFromMillis
+        val to = d.sleepToMillis
+        if (day.sleepMinutes != null && from != null && to != null) {
+            val row = W.activityRow(this, R.color.w_ring_sleep, R.drawable.ic_moon_filled, Ui.hm(day.sleepMinutes), "Sueño",
+                timeFmt.format(Date(from)), timeFmt.format(Date(to)))
+            row.setOnClickListener { startActivity(Intent(this, SleepDetailActivity::class.java)) }
+            todayList.addView(row)
+        }
+        d.sessions.forEach { s ->
+            val row = W.activityRow(this, R.color.strain_blue, W.sportIcon(s.type), Ui.comma(s.strain), s.type,
+                timeFmt.format(Date(s.startMillis)), timeFmt.format(Date(s.endMillis)))
+            row.setOnClickListener {
+                startActivity(Intent(this, ActivityDetailActivity::class.java).putExtra(ActivityDetailActivity.EXTRA_SESSION_ID, s.id))
+            }
+            todayList.addView(row)
+        }
+        if (todayList.childCount == 0) {
+            todayList.addView(W.body(this, if (d.isToday) "Aún no hay actividades hoy." else "No hay actividades ese día.", 14f).apply {
+                setPadding(0, 0, 0, Ui.dp(this@MainActivity, 12f))
+            })
+        }
+    }
+
+    private fun fillPanel(d: HomeData) {
+        panelList.removeAllViews()
+        val hidden = PanelKeys.hidden(this)
+        val rows = d.panel.associateBy { it.key }
+        PanelKeys.ALL.forEach { (key, _) ->
+            if (key in hidden) return@forEach
+            when (key) {
+                PanelKeys.STRESS -> addCard(stressChartCard)
+                PanelKeys.STRAIN_RECOVERY -> {
+                    val chart = strainRecoveryCard.findViewById<StrainRecoveryChartView>(R.id.strainRecoveryChart)
+                    chart.setDays(d.week.map {
+                        StrainRecoveryChartView.Day(
+                            it.date.dayOfWeek.getDisplayName(TextStyle.SHORT, esLocale).lowercase(esLocale).trimEnd('.') + ".",
+                            it.date.dayOfMonth.toString(), it.strain, it.recovery
+                        )
+                    })
+                    addCard(strainRecoveryCard)
+                }
+                else -> rows[key]?.let { panelList.addView(W.panelRow(this, it)) }
+            }
+        }
+    }
+
+    private fun addCard(card: View) {
+        (card.parent as? ViewGroup)?.removeView(card)
+        card.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+            bottomMargin = Ui.dp(this@MainActivity, 12f)
+        }
+        panelList.addView(card)
+    }
+
+    // ---------------------------------------------------------------- cabecera fija
+
+    private fun setupStickyHeader() {
+        val scroll = findViewById<ScrollView>(R.id.mainScroll)
+        val sticky = findViewById<View>(R.id.stickyHeader)
+        val rings = findViewById<View>(R.id.ringsRow)
+        scroll.viewTreeObserver.addOnScrollChangedListener {
+            val show = scroll.scrollY > rings.top + rings.height - Ui.dp(this, 20f)
+            if (show && sticky.visibility != View.VISIBLE) {
+                sticky.visibility = View.VISIBLE
+                sticky.animate().alpha(1f).setDuration(150).start()
+            } else if (!show && sticky.visibility == View.VISIBLE && sticky.alpha == 1f) {
+                sticky.animate().alpha(0f).setDuration(120).withEndAction { sticky.visibility = View.GONE }.start()
+            }
+        }
+    }
+
+    // ---------------------------------------------------------------- acciones
+
+    private fun showInsight() {
+        val d = lastData ?: return
+        val title = if (d.isToday) "Perspectiva diaria" else "Perspectiva del ${d.date.dayOfMonth}/${d.date.monthValue}"
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle(title)
+            .setMessage(d.insight)
+            .setPositiveButton("Cerrar", null)
+            .show()
+    }
+
+    /** Menú del "+" (como WHOOP): agregar o iniciar actividad. El botón se convierte en una X mientras está abierto. */
+    private fun showPlusMenu(anchor: ImageView) {
+        val ctx = this
+        val menu = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundResource(R.drawable.bg_popup_w)
+            val p = Ui.dp(ctx, 10f)
+            setPadding(p, p, p, p)
+            elevation = Ui.dp(ctx, 12f).toFloat()
+        }
+        val popup = PopupWindow(menu, Ui.dp(ctx, 290f), ViewGroup.LayoutParams.WRAP_CONTENT, true)
+        fun item(icon: Int, text: String, action: () -> Unit) {
+            menu.addView(LinearLayout(ctx).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(Ui.dp(ctx, 14f), Ui.dp(ctx, 18f), Ui.dp(ctx, 14f), Ui.dp(ctx, 18f))
+                background = ContextCompat.getDrawable(ctx, android.R.drawable.list_selector_background)?.mutate()?.apply { alpha = 40 }
+                isClickable = true
+                addView(W.icon(ctx, icon, 26f, R.color.text_primary))
+                addView(W.title(ctx, text, 15.5f).apply { setPadding(Ui.dp(ctx, 18f), 0, 0, 0) })
+                setOnClickListener { popup.dismiss(); action() }
+            })
+        }
+        item(R.drawable.ic_plus, "Agregar actividad") { addActivityFlow() }
+        if (dayOffset == 0) {
+            item(R.drawable.ic_stopwatch, if (activityStartMillis == null) "Iniciar actividad" else "Detener actividad") { toggleActivityRecording() }
+        }
+        item(R.drawable.ic_band, "Mi WHOOP") { startActivity(Intent(ctx, WhoopExperimentalActivity::class.java)) }
+        popup.setBackgroundDrawable(ColorDrawable(android.graphics.Color.TRANSPARENT))
+        popup.elevation = Ui.dp(ctx, 12f).toFloat()
+        anchor.setImageResource(R.drawable.ic_close)
+        anchor.setBackgroundResource(R.drawable.bg_plus_dark)
+        anchor.setColorFilter(Ui.color(ctx, R.color.text_primary))
+        popup.setOnDismissListener {
+            anchor.setImageResource(R.drawable.ic_plus)
+            anchor.setBackgroundResource(R.drawable.bg_plus_white)
+            anchor.setColorFilter(android.graphics.Color.parseColor("#FF0F1519"))
+        }
+        // Se abre ENCIMA del botón, alineado a su derecha (si no cabe, debajo)
+        val width = Ui.dp(ctx, 290f)
+        menu.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY), View.MeasureSpec.UNSPECIFIED)
+        val loc = IntArray(2)
+        anchor.getLocationInWindow(loc)
+        val x = loc[0] + anchor.width - width
+        var y = loc[1] - menu.measuredHeight - Ui.dp(ctx, 10f)
+        if (y < Ui.dp(ctx, 40f)) y = loc[1] + anchor.height + Ui.dp(ctx, 10f)
+        popup.showAtLocation(anchor, Gravity.NO_GRAVITY, x, y)
+    }
+
+    /** Agregar actividad a mano: tipo → día → hora de inicio → hora de fin (se calcula con el pulso guardado). */
+    private fun addActivityFlow() {
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("¿Qué actividad?")
+            .setItems(types) { _, index ->
+                val type = types[index]
+                val cal = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, dayOffset) }
+                DatePickerDialog(this, { _, y, m, dd ->
+                    cal.set(y, m, dd)
+                    TimePickerDialog(this, { _, h1, m1 ->
+                        val start = (cal.clone() as Calendar).apply {
+                            set(Calendar.HOUR_OF_DAY, h1); set(Calendar.MINUTE, m1); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+                        }
+                        TimePickerDialog(this, { _, h2, m2 ->
+                            val end = (start.clone() as Calendar).apply { set(Calendar.HOUR_OF_DAY, h2); set(Calendar.MINUTE, m2) }
+                            if (end.timeInMillis <= start.timeInMillis) end.add(Calendar.DAY_OF_YEAR, 1)
+                            if (end.timeInMillis > System.currentTimeMillis()) {
+                                Toast.makeText(this, "La hora de fin no puede ser futura", Toast.LENGTH_LONG).show()
+                                return@TimePickerDialog
+                            }
+                            saveActivitySession(start.timeInMillis, end.timeInMillis, type, autoDetected = false)
+                        }, (h1 + 1) % 24, m1, true).apply { setTitle("Hora de fin") }.show()
+                    }, cal.get(Calendar.HOUR_OF_DAY), 0, true).apply { setTitle("Hora de inicio") }.show()
+                }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show()
+            }
+            .show()
+    }
+
+    private fun editWakeTime() {
+        val current = SleepPlanner.wakeMinute(this)
+        TimePickerDialog(this, { _, h, m ->
+            SleepPlanner.setWakeMinute(this, h * 60 + m)
+            refresh()
+        }, current / 60, current % 60, true).apply { setTitle("Hora de despertar") }.show()
+    }
+
+    private fun personalizePanel() {
+        val names = PanelKeys.ALL.map { it.second }.toTypedArray()
+        val hidden = PanelKeys.hidden(this).toMutableSet()
+        val checked = PanelKeys.ALL.map { it.first !in hidden }.toBooleanArray()
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Mi panel de control")
+            .setMultiChoiceItems(names, checked) { _, which, isChecked -> checked[which] = isChecked }
+            .setPositiveButton("Guardar") { _, _ ->
+                PanelKeys.setHidden(this, PanelKeys.ALL.filterIndexed { i, _ -> !checked[i] }.map { it.first }.toSet())
+                lastData?.let { fillPanel(it) }
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
+    }
+
+    // ---------------------------------------------------------------- perfil obligatorio
 
     private var setupDialogShown = false
 
     /**
      * Como WHOOP: sin saber quién lleva la pulsera no se puede calcular bien. Fecha de nacimiento, peso,
-     * altura y sexo son obligatorios (FC máx y zonas, esfuerzo, calorías, VO₂ máx, necesidad de sueño).
-     * Después, si ya hay pulsera, se pregunta una vez quién se queda el historial.
+     * altura y sexo son obligatorios. Después, si ya hay pulsera, se pregunta una vez quién se queda el historial.
      */
     private fun checkSetupComplete() {
         if (setupDialogShown) return
@@ -258,239 +565,21 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // ---------------------------------------------------------------- grabar actividad
+
     private fun restoreActivityButton() {
         val start = ActivityState.manualStart(this)
         activityStartMillis = start
         BleForegroundService.externalRecordingInProgress = start != null
+        val text = findViewById<TextView>(R.id.startActivityText)
+        val button = findViewById<View>(R.id.startActivityButton)
         if (start != null) {
-            startActivityButton.setBackgroundResource(R.drawable.bg_button_recording)
-            startActivityButton.setTextColor(ContextCompat.getColor(this, R.color.text_primary))
             val min = (System.currentTimeMillis() - start) / 60000
-            startActivityButton.text = "Detener actividad · ${min} min"
+            text.text = "DETENER · $min MIN"
+            button.background = W.rounded(this, R.color.alert_red, 12f)
         } else {
-            startActivityButton.setBackgroundResource(R.drawable.bg_button_primary)
-            startActivityButton.setTextColor(ContextCompat.getColor(this, R.color.text_on_accent))
-            startActivityButton.text = "Iniciar actividad"
-        }
-    }
-
-    private fun hm(minutes: Int): String = "%d:%02d".format(minutes / 60, minutes % 60)
-    private fun comma(value: Double, decimals: Int = 1): String =
-        "%.${decimals}f".format(Locale.US, value).replace('.', ',')
-
-    private fun showSummary(showDialog: Boolean) {
-        lifecycleScope.launch {
-            val profile = db.userProfileDao().getOnce()
-            val baseline = baselineProvider.compute(db)
-            if (profile == null) {
-                statusText.text = "Rellena \"Sobre mí\" para un cálculo preciso"
-            }
-            val age = profile?.ageYears() ?: 30 // valor por defecto si aún no hay perfil
-            val metricsCalculator = MetricsCalculator(ageYears = age, male = profile?.sex != "F")
-            val file = java.io.File(getExternalFilesDir(null), "hr_log.csv")
-            val summary = withContext(Dispatchers.IO) { metricsCalculator.analyze(file) }
-            minHrText.text = summary.restingHr?.let { "$it" } ?: "--"
-            avgHrText.text = summary.avgHr?.let { "$it" } ?: "--"
-
-            // VO2max: fijo, solo se recalcula los martes (o si nunca se ha calculado)
-            val today = Calendar.getInstance()
-            val isTuesday = today.get(Calendar.DAY_OF_WEEK) == Calendar.TUESDAY
-            val todayKey = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(today.time)
-
-            val stableVo2Max: Double? = if (profile != null && (isTuesday || profile.vo2Max == null) && summary.vo2Max != null) {
-                db.userProfileDao().save(profile.copy(vo2Max = summary.vo2Max, vo2MaxUpdatedDate = todayKey))
-                summary.vo2Max
-            } else {
-                profile?.vo2Max ?: summary.vo2Max
-            }
-            vo2MaxText.text = stableVo2Max?.let { "%.0f".format(it) } ?: "--"
-            respiratoryRateText.text = summary.respiratoryRate?.let { comma(it) } ?: "--"
-
-            val todayStartMillis = (today.clone() as Calendar).apply {
-                set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
-            }.timeInMillis
-            val todaySessions = db.activitySessionDao().getAll().filter { it.startMillis >= todayStartMillis }
-
-            if (profile != null) {
-                val elapsedMinutesToday = today.get(Calendar.HOUR_OF_DAY) * 60.0 + today.get(Calendar.MINUTE)
-                val activityKcalToday = todaySessions.sumOf { it.caloriesKcal }
-                val kcal = calorieCalculator.estimateDailyTotal(
-                    elapsedMinutesToday, activityKcalToday, age, profile.weightKg, profile.heightCm, profile.sex
-                )
-                caloriesText.text = NumberFormat.getIntegerInstance(esLocale).format(kcal.toLong())
-            } else {
-                caloriesText.text = "--"
-            }
-
-            // Pasos de hoy: en directo si el acelerómetro está activo, si no desde motion_minutes.csv
-            val steps = withContext(Dispatchers.IO) { Ui.stepsToday(this@MainActivity) }
-            stepsText.text = if (steps > 0) NumberFormat.getIntegerInstance(esLocale).format(steps) else "--"
-
-            val stressSummary = withContext(Dispatchers.IO) { stressCalculator.analyze(file, summary.restingHr, baseline) }
-            val sleepPlan = sleepPlanner.computeTonightPlan(db, summary.strain)
-            sleepNeedText.text = hm(sleepPlan.totalNeedMinutes)
-            sleepBedtimeText.text = sleepPlan.suggestedBedtime?.let { "Acuéstate a las $it para despertar a las 7:30" }
-                ?: "Acuéstate a las --"
-            sleepBreakdownText.text = "Base %s, esfuerzo +%s, deuda +%s".format(
-                hm(sleepPlan.baselineMinutes), hm(sleepPlan.strainAdjustmentMinutes), hm(sleepPlan.debtAdjustmentMinutes)
-            )
-
-            stressScoreText.text = stressSummary.currentScore?.let { comma(it.toDouble()) } ?: "--"
-            stressLevelText.text = stressSummary.level
-            stressLevelText.setTextColor(
-                ContextCompat.getColor(this@MainActivity, when (stressSummary.level) {
-                    "ALTO" -> R.color.alert_amber
-                    "MEDIO" -> R.color.recovery_green
-                    else -> R.color.strain_blue
-                })
-            )
-            val updated = stressSummary.lastUpdateMinute?.let {
-                "Última actualización a las %02d:%02d".format(it / 60, it % 60)
-            } ?: "Sin datos todavía"
-            stressUpdatedText.text = if (baseline == null) {
-                "$updated\nSin línea base aún (${BaselineProvider.MIN_DAYS_REQUIRED}+ días)"
-            } else updated
-            stressChart.setSeries(stressSummary.series)
-            stressChart.setSleepWindow(summary.sleepStartMinuteOfDay, summary.sleepEndMinuteOfDay)
-            stressChart.setActivities(todaySessions.map { session ->
-                val s = Calendar.getInstance().apply { timeInMillis = session.startMillis }
-                val e = Calendar.getInstance().apply { timeInMillis = session.endMillis }
-                com.pulseapp.android.ui.ActivityPeriod(
-                    startMinute = s.get(Calendar.HOUR_OF_DAY) * 60 + s.get(Calendar.MINUTE),
-                    endMinute = e.get(Calendar.HOUR_OF_DAY) * 60 + e.get(Calendar.MINUTE)
-                )
-            })
-
-            // Anillos
-            val recoveryScore = recoveryCalculator.calculate(
-                summary.avgHrv, summary.restingHr, summary.sleepMinutes,
-                sleepPlan.totalNeedMinutes, summary.sleepEfficiencyPct, baseline, summary.respiratoryRate
-            )
-            val recoveryColor = when {
-                recoveryScore >= 67 -> R.color.recovery_green
-                recoveryScore >= 34 -> R.color.alert_amber
-                else -> R.color.alert_red
-            }
-            recoveryRing.setValue(
-                recoveryScore / 100f, "$recoveryScore%", "",
-                ContextCompat.getColor(this@MainActivity, recoveryColor)
-            )
-
-            strainRing.setValue(
-                (summary.strain / 21.0).toFloat(), comma(summary.strain), "",
-                ContextCompat.getColor(this@MainActivity, R.color.strain_blue)
-            )
-
-            // Sueño como WHOOP: horas vs necesidad + eficiencia + regularidad (Formulas.sleepScore)
-            val consistency = Formulas.sleepConsistency(
-                db.dailyMetricsDao().getLastDays(7).mapNotNull { it.sleepStartMinuteOfDay }
-            )
-            val lastNightNeed = sleepPlanner.planForLastNight(db, summary).totalNeedMinutes
-            val sleepPerf = summary.sleepMinutes?.let {
-                val hoursVsNeed = (it * 100 / lastNightNeed.coerceAtLeast(1)).coerceAtMost(100)
-                Formulas.sleepScore(hoursVsNeed, summary.sleepEfficiencyPct, consistency)
-            }
-            sleepRing.setValue(
-                (sleepPerf ?: 0) / 100f,
-                sleepPerf?.let { "$it%" } ?: "--", "",
-                ContextCompat.getColor(this@MainActivity, R.color.sleep_blue)
-            )
-
-            fillTodayList(summary, todaySessions)
-
-            if (showDialog) {
-                val message = buildString {
-                    if (profile == null) {
-                        append("Sin perfil guardado, usando edad estimada de $age años.\n\n")
-                    }
-                    append("Lecturas analizadas: ${summary.totalReadings}\n\n")
-                    append("FC en reposo: ${summary.restingHr?.let { "$it lpm" } ?: "sin datos suficientes"}\n")
-                    append("VFC (RMSSD): ${summary.avgHrv?.let { "%.0f ms".format(it) } ?: "sin RR registrados"}\n")
-                    append("VO2máx estimado: ${summary.vo2Max?.let { comma(it) } ?: "--"}\n")
-                    append("Esfuerzo (0-21): ${comma(summary.strain)}\n\n")
-                    if (summary.sleepMinutes != null) {
-                        append("Dormido: ${hm(summary.sleepMinutes)}\n")
-                        append("De ${summary.sleepStart} a ${summary.sleepEnd}\n")
-                    } else {
-                        append("No se detectó ningún periodo de descanso largo (mínimo 90 min) todavía.\n")
-                    }
-                }
-                androidx.appcompat.app.AlertDialog.Builder(this@MainActivity)
-                    .setTitle("Resumen")
-                    .setMessage(message)
-                    .setPositiveButton("Cerrar", null)
-                    .show()
-            }
-        }
-    }
-
-    /** Lista "Mi día": el sueño de anoche y las actividades de hoy, estilo lista agrupada de iOS. */
-    private fun fillTodayList(summary: DailySummary, sessions: List<ActivitySession>) {
-        todayList.removeAllViews()
-        val inflater = LayoutInflater.from(this)
-        val timeFmt = SimpleDateFormat("HH:mm", esLocale)
-        var rows = 0
-
-        fun addDivider() {
-            val d = View(this)
-            val lp = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1 * resources.displayMetrics.density).toInt().coerceAtLeast(1))
-            lp.marginStart = (64 * resources.displayMetrics.density).toInt()
-            d.layoutParams = lp
-            d.setBackgroundColor(ContextCompat.getColor(this, R.color.hairline))
-            todayList.addView(d)
-        }
-
-        val slept = summary.sleepMinutes
-        val start = summary.sleepStartMinuteOfDay
-        val end = summary.sleepEndMinuteOfDay
-        if (slept != null && start != null && end != null) {
-            val row = inflater.inflate(R.layout.item_day_activity, todayList, false)
-            row.findViewById<ImageView>(R.id.itemIcon).apply {
-                setBackgroundResource(R.drawable.bg_icon_sleep)
-                setImageResource(R.drawable.ic_moon)
-                setColorFilter(ContextCompat.getColor(this@MainActivity, R.color.sleep_blue))
-            }
-            row.findViewById<TextView>(R.id.itemName).text = "Sueño"
-            row.findViewById<TextView>(R.id.itemTime).text =
-                "%02d:%02d – %02d:%02d".format(start / 60, start % 60, end / 60, end % 60)
-            row.findViewById<TextView>(R.id.itemValue).apply {
-                text = hm(slept)
-                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.sleep_blue))
-            }
-            row.findViewById<TextView>(R.id.itemSub).text = "dormido"
-            row.setOnClickListener { startActivity(Intent(this, SleepDetailActivity::class.java)) }
-            todayList.addView(row)
-            rows++
-        }
-
-        sessions.sortedBy { it.startMillis }.forEach { session ->
-            if (rows > 0) addDivider()
-            val row = inflater.inflate(R.layout.item_day_activity, todayList, false)
-            row.findViewById<ImageView>(R.id.itemIcon).setColorFilter(ContextCompat.getColor(this, R.color.strain_blue))
-            row.findViewById<TextView>(R.id.itemName).text = session.type
-            val range = "${timeFmt.format(Date(session.startMillis))} – ${timeFmt.format(Date(session.endMillis))}"
-            row.findViewById<TextView>(R.id.itemTime).text = if (session.autoDetected) "Detectada · $range" else range
-            row.findViewById<TextView>(R.id.itemValue).apply {
-                text = comma(session.strain)
-                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.strain_blue))
-            }
-            row.findViewById<TextView>(R.id.itemSub).text = "%.0f kcal".format(session.caloriesKcal)
-            row.setOnClickListener {
-                startActivity(Intent(this, EditSessionActivity::class.java).putExtra(EditSessionActivity.EXTRA_SESSION_ID, session.id))
-            }
-            todayList.addView(row)
-            rows++
-        }
-
-        if (rows == 0) {
-            val empty = TextView(this).apply {
-                text = "Aún no hay actividades hoy. Pulsa «Iniciar actividad» para grabar una."
-                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_secondary))
-                textSize = 13f
-                val pad = (16 * resources.displayMetrics.density).toInt()
-                setPadding(pad, pad, pad, pad)
-            }
-            todayList.addView(empty)
+            text.text = "INICIAR ACTIVIDAD"
+            button.setBackgroundResource(R.drawable.bg_row_w)
         }
     }
 
@@ -500,29 +589,19 @@ class MainActivity : AppCompatActivity() {
             activityStartMillis = System.currentTimeMillis()
             ActivityState.setManualStart(this, activityStartMillis)
             BleForegroundService.externalRecordingInProgress = true
-            startActivityButton.setBackgroundResource(R.drawable.bg_button_recording)
-            startActivityButton.setTextColor(ContextCompat.getColor(this, R.color.text_primary))
-            startActivityButton.text = "Detener actividad"
+            restoreActivityButton()
             Toast.makeText(this, "Actividad iniciada", Toast.LENGTH_SHORT).show()
         } else {
             val end = System.currentTimeMillis()
             activityStartMillis = null
             ActivityState.setManualStart(this, null)
             BleForegroundService.externalRecordingInProgress = false
-            startActivityButton.setBackgroundResource(R.drawable.bg_button_primary)
-            startActivityButton.setTextColor(ContextCompat.getColor(this, R.color.text_on_accent))
-            startActivityButton.text = "Iniciar actividad"
-
-            val types = arrayOf("Fútbol", "Pádel", "Entrenamiento funcional", "Entrenamiento de fuerza", "Otro")
+            restoreActivityButton()
             androidx.appcompat.app.AlertDialog.Builder(this)
                 .setTitle("¿Qué actividad ha sido?")
-                .setItems(types) { _, index ->
-                    saveActivitySession(start, end, types[index], autoDetected = false)
-                }
-                .setOnCancelListener {
-                    // Si cancela, se guarda igualmente como "Sin clasificar" para no perder el registro
-                    saveActivitySession(start, end, "Sin clasificar", autoDetected = false)
-                }
+                .setItems(types) { _, index -> saveActivitySession(start, end, types[index], autoDetected = false) }
+                // Si cancela, se guarda igualmente como "Sin clasificar" para no perder el registro
+                .setOnCancelListener { saveActivitySession(start, end, "Sin clasificar", autoDetected = false) }
                 .show()
         }
     }
@@ -541,100 +620,56 @@ class MainActivity : AppCompatActivity() {
                 restingHr = baselineProvider.compute(db)?.avgRestingHr?.toInt()
             )
             if (session == null) {
-                Toast.makeText(this@MainActivity, "No hay suficientes datos de pulso en esta sesión", Toast.LENGTH_LONG).show()
+                Toast.makeText(this@MainActivity, "No hay suficientes datos de pulso en esa franja", Toast.LENGTH_LONG).show()
                 return@launch
             }
             Formulas.updateObservedHrMax(this@MainActivity, session.maxHr)
-            db.activitySessionDao().save(session)
-
-            val durationMin = ((end - start) / 60000).toInt()
-            val message = "Tipo: $type\n" +
-                    "Duración: ${durationMin} min\n" +
-                    "FC media: ${session.avgHr} lpm · FC máx: ${session.maxHr} lpm\n" +
-                    "Esfuerzo: ${comma(session.strain)}\n" +
-                    "Calorías: %.0f kcal\n\n".format(session.caloriesKcal) +
-                    "Zona 0: ${session.minutesZone0} min\n" +
-                    "Zona 1: ${session.minutesZone1} min\n" +
-                    "Zona 2: ${session.minutesZone2} min\n" +
-                    "Zona 3: ${session.minutesZone3} min\n" +
-                    "Zona 4: ${session.minutesZone4} min\n" +
-                    "Zona 5: ${session.minutesZone5} min"
-
-            androidx.appcompat.app.AlertDialog.Builder(this@MainActivity)
-                .setTitle("Actividad guardada")
-                .setMessage(message)
-                .setPositiveButton("Cerrar", null)
-                .show()
-            showSummary(showDialog = false)
+            val id = db.activitySessionDao().save(session)
+            refresh()
+            startActivity(Intent(this@MainActivity, ActivityDetailActivity::class.java).putExtra(ActivityDetailActivity.EXTRA_SESSION_ID, id))
         }
+    }
+
+    // ---------------------------------------------------------------- otros
+
+    private fun showSummaryDialog() {
+        val d = lastData ?: return
+        val s = d.summary
+        val day = d.day
+        val message = buildString {
+            if (d.profileMissing) append("Sin perfil guardado, usando edad estimada de 30 años.\n\n")
+            if (s != null) append("Lecturas analizadas: ${s.totalReadings}\n\n")
+            append("FC en reposo: ${day.rhr?.let { "$it lpm" } ?: "sin datos suficientes"}\n")
+            append("VFC (RMSSD): ${day.hrv?.let { "%.0f ms".format(it) } ?: "sin RR registrados"}\n")
+            append("Respiración: ${day.resp?.let { Ui.comma(it) + " rpm" } ?: "--"}\n")
+            append("VO2máx: ${day.vo2?.let { "%.0f".format(it) } ?: "--"}\n")
+            append("Esfuerzo (0-21): ${day.strain?.let { Ui.comma(it) } ?: "--"}\n\n")
+            if (day.sleepMinutes != null) {
+                append("Dormido: ${Ui.hm(day.sleepMinutes)}\n")
+                if (s?.sleepStart != null) append("De ${s.sleepStart} a ${s.sleepEnd}\n")
+            } else {
+                append("No se detectó ningún periodo de descanso largo (mínimo 90 min).\n")
+            }
+        }
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Resumen")
+            .setMessage(message)
+            .setPositiveButton("Cerrar", null)
+            .show()
     }
 
     private fun exportCsv() {
         val file = java.io.File(getExternalFilesDir(null), "hr_log.csv")
         if (!file.exists()) {
-            statusText.text = "Aún no hay datos guardados"
+            Toast.makeText(this, "Aún no hay datos guardados", Toast.LENGTH_SHORT).show()
             return
         }
-        val uri = androidx.core.content.FileProvider.getUriForFile(
-            this, "$packageName.fileprovider", file
-        )
+        val uri = androidx.core.content.FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "text/csv"
             putExtra(Intent.EXTRA_STREAM, uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         startActivity(Intent.createChooser(intent, "Compartir hr_log.csv"))
-    }
-
-    private var scanDialog: androidx.appcompat.app.AlertDialog? = null
-
-    private fun startScan() {
-        devices.clear()
-        adapter.clear()
-        statusText.text = "Buscando dispositivos..."
-
-        scanDialog = androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("Dispositivos cercanos")
-            .setAdapter(adapter) { _, position ->
-                val device = devices[position]
-                connectAndStartService(device.address)
-                scanDialog?.dismiss()
-            }
-            .setNegativeButton("Cancelar", null)
-            .show()
-
-        val bluetoothManager = getSystemService(BluetoothManager::class.java)
-        val scanner = bluetoothManager.adapter.bluetoothLeScanner
-
-        val callback = object : ScanCallback() {
-            override fun onScanResult(callbackType: Int, result: ScanResult) {
-                val device = result.device
-                if (devices.none { it.address == device.address }) {
-                    devices.add(device)
-                    val label = if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
-                        device.name ?: device.address
-                    } else {
-                        device.address
-                    }
-                    runOnUiThread { adapter.add(label) }
-                }
-            }
-        }
-
-        try {
-            scanner.startScan(callback)
-            android.os.Handler(mainLooper).postDelayed({
-                scanner.stopScan(callback)
-            }, 8000)
-        } catch (e: SecurityException) {
-            statusText.text = "Faltan permisos de Bluetooth"
-        }
-    }
-
-    private fun connectAndStartService(address: String) {
-        val intent = Intent(this, BleForegroundService::class.java)
-        intent.putExtra(BleForegroundService.EXTRA_DEVICE_ADDRESS, address)
-        ContextCompat.startForegroundService(this, intent)
-        statusText.text = "Conectando a $address..."
     }
 }

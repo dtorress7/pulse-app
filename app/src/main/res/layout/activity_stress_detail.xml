@@ -1,175 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- Monitor de estrés con el aspecto de WHOOP (17/10): Día total, Sin actividad y Sueño frente a un día habitual. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/background">
+    android:background="@drawable/bg_screen_whoop">
 
-    <LinearLayout
+    <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:paddingStart="20dp"
-        android:paddingTop="16dp"
-        android:paddingEnd="20dp"
+        android:layout_height="match_parent"
+        android:clipToPadding="false"
         android:paddingBottom="40dp">
 
-        <include layout="@layout/include_detail_header" />
-
-        <!-- Medidor -->
         <LinearLayout
+            android:id="@+id/stressContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:background="@drawable/bg_card_elevated"
-            android:gravity="center_horizontal"
             android:orientation="vertical"
-            android:paddingTop="22dp"
-            android:paddingBottom="20dp">
+            android:paddingStart="16dp"
+            android:paddingTop="10dp"
+            android:paddingEnd="16dp">
 
-            <com.pulseapp.android.ui.SemicircularGaugeView
-                android:id="@+id/gauge"
-                android:layout_width="260dp"
-                android:layout_height="150dp" />
+            <include layout="@layout/include_detail_header" />
 
-            <TextView
-                android:id="@+id/detailScoreText"
-                style="@style/BigNumber"
-                android:layout_width="wrap_content"
+            <LinearLayout
+                android:id="@+id/stressCards"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="-46dp"
-                android:text="--"
-                android:textSize="56sp" />
-
-            <TextView
-                android:id="@+id/detailLevelText"
-                style="@style/TitleLabel"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:text="--"
-                android:textSize="14sp" />
-
-            <TextView
-                android:id="@+id/detailTimeText"
-                style="@style/Caption"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:text="" />
+                android:layout_marginTop="8dp"
+                android:orientation="vertical" />
         </LinearLayout>
-
-        <!-- Gráfica del día -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:background="@drawable/bg_card"
-            android:orientation="vertical"
-            android:padding="18dp">
-
-            <TextView style="@style/TitleLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Hoy" android:textSize="13sp" />
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="170dp"
-                android:layout_marginTop="12dp"
-                android:orientation="horizontal">
-
-                <LinearLayout
-                    android:layout_width="26dp"
-                    android:layout_height="match_parent"
-                    android:orientation="vertical">
-                    <TextView style="@style/TitleLabel" android:layout_width="wrap_content" android:layout_height="0dp" android:layout_weight="1" android:gravity="top" android:letterSpacing="0" android:text="3,0" android:textSize="10sp" />
-                    <TextView style="@style/TitleLabel" android:layout_width="wrap_content" android:layout_height="0dp" android:layout_weight="1" android:gravity="center_vertical" android:letterSpacing="0" android:text="2,0" android:textSize="10sp" />
-                    <TextView style="@style/TitleLabel" android:layout_width="wrap_content" android:layout_height="0dp" android:layout_weight="1" android:gravity="center_vertical" android:letterSpacing="0" android:text="1,0" android:textSize="10sp" />
-                    <TextView style="@style/TitleLabel" android:layout_width="wrap_content" android:layout_height="0dp" android:layout_weight="1" android:gravity="bottom" android:letterSpacing="0" android:text="0,0" android:textSize="10sp" />
-                </LinearLayout>
-
-                <com.pulseapp.android.ui.StressChartView
-                    android:id="@+id/fullDayChart"
-                    android:layout_width="0dp"
-                    android:layout_height="match_parent"
-                    android:layout_weight="1" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="26dp"
-                android:layout_marginTop="6dp"
-                android:orientation="horizontal">
-                <TextView style="@style/TitleLabel" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:letterSpacing="0" android:text="0 h" android:textSize="10sp" />
-                <TextView style="@style/TitleLabel" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:letterSpacing="0" android:text="6 h" android:textSize="10sp" />
-                <TextView style="@style/TitleLabel" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:letterSpacing="0" android:text="12 h" android:textSize="10sp" />
-                <TextView style="@style/TitleLabel" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:letterSpacing="0" android:text="18 h" android:textSize="10sp" />
-            </LinearLayout>
-
-            <TextView
-                android:id="@+id/interpretiveText"
-                style="@style/RowText"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
-                android:text=""
-                android:textColor="@color/text_secondary"
-                android:textSize="14sp" />
-        </LinearLayout>
-
-        <!-- Día total -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:background="@drawable/bg_card"
-            android:orientation="vertical"
-            android:padding="18dp">
-
-            <TextView style="@style/TitleLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Día total" android:textSize="13sp" />
-
-            <LinearLayout
-                android:id="@+id/stressBar"
-                android:layout_width="match_parent"
-                android:layout_height="8dp"
-                android:layout_marginTop="16dp"
-                android:orientation="horizontal" />
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:orientation="horizontal">
-
-                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
-                    <TextView android:id="@+id/lowTimeText" style="@style/StatNumber" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="--" android:textSize="26sp" />
-                    <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:gravity="center_vertical">
-                        <View android:layout_width="8dp" android:layout_height="8dp" android:background="@drawable/bg_dot_blue" />
-                        <TextView style="@style/TitleLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="6dp" android:text="Bajo" android:textSize="11sp" />
-                    </LinearLayout>
-                </LinearLayout>
-
-                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
-                    <TextView android:id="@+id/mediumTimeText" style="@style/StatNumber" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="--" android:textSize="26sp" />
-                    <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:gravity="center_vertical">
-                        <View android:layout_width="8dp" android:layout_height="8dp" android:background="@drawable/bg_dot_green" />
-                        <TextView style="@style/TitleLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="6dp" android:text="Medio" android:textSize="11sp" />
-                    </LinearLayout>
-                </LinearLayout>
-
-                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
-                    <TextView android:id="@+id/highTimeText" style="@style/StatNumber" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="--" android:textSize="26sp" />
-                    <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:gravity="center_vertical">
-                        <View android:layout_width="8dp" android:layout_height="8dp" android:background="@drawable/bg_dot_amber" />
-                        <TextView style="@style/TitleLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="6dp" android:text="Alto" android:textSize="11sp" />
-                    </LinearLayout>
-                </LinearLayout>
-            </LinearLayout>
-
-            <TextView
-                style="@style/Caption"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
-                android:text="El estrés se calcula cada 5 minutos comparando tu pulso y tu VFC con tus valores de reposo. Durante el sueño y las actividades es normal que cambie." />
-        </LinearLayout>
-    </LinearLayout>
-</ScrollView>
+    </ScrollView>
+</FrameLayout>

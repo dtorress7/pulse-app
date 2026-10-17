@@ -60,6 +60,24 @@ class CircularRingView @JvmOverloads constructor(
 
     private val rect = RectF()
 
+    /** Grosor del trazo respecto al tamaño (WHOOP usa un anillo más fino que el rediseño anterior). */
+    var strokeRatio: Float = 0.105f
+        set(v) { field = v; invalidate() }
+
+    /** Si es true el sufijo (%) va del mismo color que el número, como en WHOOP. */
+    var suffixSameColor: Boolean = false
+        set(v) { field = v; suffixPaint.color = if (v) valuePaint.color else ContextCompat.getColor(context, R.color.text_secondary); invalidate() }
+
+    /** Tamaño del número respecto al anillo (0 = el de siempre). */
+    var numberRatio: Float = 0f
+        set(v) { field = v; invalidate() }
+
+    /** Tamaño del sufijo (%) respecto al número. */
+    var suffixRatio: Float = 0.46f
+        set(v) { field = v; invalidate() }
+
+    fun setTrackColor(color: Int) { trackPaint.color = color; invalidate() }
+
     fun setValue(progress0to1: Float, valueText: String, labelText: String, ringColor: Int) {
         this.progress = progress0to1.coerceIn(0f, 1f)
         this.valueText = valueText
@@ -72,7 +90,7 @@ class CircularRingView @JvmOverloads constructor(
         super.onDraw(canvas)
         val size = min(width, height).toFloat()
         if (size <= 0f) return
-        val stroke = size * 0.105f
+        val stroke = size * strokeRatio
         trackPaint.strokeWidth = stroke
         progressPaint.strokeWidth = stroke
 
@@ -83,14 +101,15 @@ class CircularRingView @JvmOverloads constructor(
 
         canvas.drawArc(rect, 0f, 360f, false, trackPaint)
         if (progress > 0f) canvas.drawArc(rect, -90f, 360f * progress, false, progressPaint)
+        if (valueText.isEmpty()) return // anillo pequeño sin número (cabecera fija de Inicio)
 
         // Separa el número del sufijo (% o similar) para dibujarlo más pequeño
         val number = valueText.trimEnd('%')
         val suffix = if (valueText.endsWith("%")) "%" else ""
         val hasLabel = labelText.isNotBlank()
 
-        valuePaint.textSize = size * (if (hasLabel) 0.27f else 0.31f)
-        suffixPaint.textSize = valuePaint.textSize * 0.46f
+        valuePaint.textSize = size * (if (numberRatio > 0f) numberRatio else if (hasLabel) 0.27f else 0.31f)
+        suffixPaint.textSize = valuePaint.textSize * suffixRatio
         labelPaint.textSize = size * 0.095f
 
         val numberWidth = valuePaint.measureText(number)

@@ -27,6 +27,25 @@ class SleepPlanner {
 
     companion object {
         const val BASELINE_MINUTES = 7 * 60 + 50 // 7h50 (adulto 18–64, ajustado a tu histórico de WHOOP)
+        private const val PREFS = "pulseapp_sleep"
+
+        /** Hora de despertar elegida en Inicio ("Editar hora de despertar"), en minutos del día. Por defecto 7:30. */
+        fun wakeMinute(ctx: android.content.Context): Int =
+            ctx.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).getInt("wake_minute", 7 * 60 + 30)
+
+        fun setWakeMinute(ctx: android.content.Context, minuteOfDay: Int) =
+            ctx.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).edit().putInt("wake_minute", minuteOfDay).apply()
+
+        /** Deuda de sueño acumulada con decaimiento ×0,7 por día, de la noche más antigua a la más reciente. */
+        fun debtFrom(sleepMinutesOldestFirst: List<Int?>, base: Int): Int {
+            var debt = 0
+            sleepMinutesOldestFirst.forEach { slept ->
+                if (slept == null) return@forEach
+                val diff = base - slept
+                debt = if (diff > 0) (debt * 0.7 + diff).toInt() else (debt * 0.7).toInt()
+            }
+            return debt.coerceAtLeast(0)
+        }
 
         /** Sueño base según la edad (recomendaciones de la National Sleep Foundation / AASM). */
         fun baselineForAge(age: Int?): Int = when {
@@ -77,20 +96,9 @@ class SleepPlanner {
     }
 
     private suspend fun computeAccumulatedDebt(db: AppDatabase, base: Int): Int {
+        // Recorre del más antiguo al más reciente, con decaimiento (cada día la deuda anterior pesa un 70 %)
         val lastDays = db.dailyMetricsDao().getLastDays(7)
-        var debt = 0
-        // Recorre del más antiguo al más reciente, con decaimiento (los días viejos pesan menos)
-        lastDays.sortedBy { it.date }.forEachIndexed { index, day ->
-            val slept = day.sleepMinutes ?: return@forEachIndexed
-            val diff = base - slept
-            if (diff > 0) {
-                val decay = 0.7 // cada día que pasa, la deuda anterior pesa un 70% menos
-                debt = (debt * decay + diff).toInt()
-            } else {
-                debt = (debt * 0.7).toInt() // si dormiste bien, la deuda decae igualmente
-            }
-        }
-        return debt.coerceAtLeast(0)
+        return debtFrom(lastDays.sortedBy { it.date }.map { it.sleepMinutes }, base)
     }
 
     private fun computeSuggestedBedtime(needMinutes: Int, wakeUpHour: Int, wakeUpMinute: Int): String {

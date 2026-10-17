@@ -37,4 +37,36 @@
     <color name="sleep_tint">#298FB3D2</color>
     <color name="strain_tint">#2E02A9F7</color>
     <color name="recovery_tint">#2400F88A</color>
+
+    <!-- Estilo WHOOP (Inicio, monitores y detalle de actividad, 17/10) -->
+    <color name="w_bg_top">#283237</color>
+    <color name="w_bg_mid">#1C2327</color>
+    <color name="w_bg_bottom">#12171A</color>
+    <color name="w_card">#2A3237</color>
+    <color name="w_row">#3A4348</color>
+    <color name="w_track">#3A4247</color>
+    <color name="w_recovery_high">#16EC06</color>
+    <color name="w_ring_sleep">#7BA1C3</color>
+    <color name="w_mint">#2CE5A3</color>
+    <color name="w_mint_bg">#1F4A40</color>
+    <color name="w_low_blue">#64A8EA</color>
+    <color name="w_low_blue_bg">#2B4A66</color>
+    <color name="w_trend_amber">#F5A524</color>
+    <color name="w_chip">#3A4247</color>
+    <color name="w_popup_top">#33365A</color>
+    <color name="w_popup_bottom">#262A44</color>
+    <color name="w_insight_start">#8C7D6C</color>
+    <color name="w_insight_end">#3B4954</color>
+    <color name="w_stress_line_low">#38C6D9</color>
+    <color name="w_stress_line_high">#A9E36B</color>
+    <color name="w_zone0">#F4F5F6</color>
+    <color name="w_zone1">#B7CBD9</color>
+    <color name="w_zone2">#58A8E6</color>
+    <color name="w_zone3">#2CE5A3</color>
+    <color name="w_zone4">#F7A400</color>
+    <color name="w_zone5">#FF5A3C</color>
+    <color name="w_stress_mid_dim">#178A63</color>
+    <color name="w_stress_low_dim">#3D5E80</color>
+    <color name="w_stress_high_dim">#8A6420</color>
+    <color name="w_text_dim">#6F767B</color>
 </resources>

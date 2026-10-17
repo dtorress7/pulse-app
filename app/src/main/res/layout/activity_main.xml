@@ -1,10 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Inicio con el aspecto de la app de WHOOP (17/10). Las filas del panel y la lista de actividades se crean en MainActivity. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/background">
+    android:background="@drawable/bg_screen_whoop">
 
     <ScrollView
+        android:id="@+id/mainScroll"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:clipToPadding="false"
@@ -14,619 +16,941 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingStart="20dp"
-            android:paddingEnd="20dp"
-            android:paddingTop="16dp">
+            android:paddingStart="16dp"
+            android:paddingTop="10dp"
+            android:paddingEnd="16dp">
 
-            <!-- Cabecera: Sobre mí + flechas de día -->
-            <LinearLayout
+            <!-- Cabecera: perfil + racha · día · pulsera -->
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="48dp">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:layout_gravity="start"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <ImageView
+                        android:id="@+id/avatarButton"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="@drawable/bg_avatar_w"
+                        android:clickable="true"
+                        android:contentDescription="Sobre mí"
+                        android:focusable="true"
+                        android:padding="8dp"
+                        android:src="@drawable/ic_person"
+                        android:tint="@color/text_primary" />
+
+                    <LinearLayout
+                        android:id="@+id/streakPill"
+                        android:layout_width="wrap_content"
+                        android:layout_height="40dp"
+                        android:layout_marginStart="2dp"
+                        android:background="@drawable/bg_pill_w"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingStart="10dp"
+                        android:paddingEnd="14dp">
+
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:contentDescription="Racha"
+                            android:src="@drawable/ic_flame"
+                            android:tint="@color/w_zone5" />
+
+                        <TextView
+                            android:id="@+id/streakText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:fontFamily="@font/barlow_condensed_bold"
+                            android:text="0"
+                            android:textColor="@color/text_primary"
+                            android:textSize="18sp" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="40dp"
+                    android:layout_gravity="center"
+                    android:background="@drawable/bg_pill_w"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:padding="2dp">
+
+                    <ImageView
+                        android:id="@+id/prevDayButton"
+                        android:layout_width="36dp"
+                        android:layout_height="36dp"
+                        android:background="?android:attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="Día anterior"
+                        android:padding="9dp"
+                        android:src="@drawable/ic_chevron_left"
+                        android:tint="@color/text_primary" />
+
+                    <TextView
+                        android:id="@+id/dayLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="36dp"
+                        android:background="@drawable/bg_pill_selected_w"
+                        android:fontFamily="@font/barlow_condensed_bold"
+                        android:gravity="center"
+                        android:letterSpacing="0.12"
+                        android:minWidth="76dp"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp"
+                        android:text="HOY"
+                        android:textColor="@color/text_primary"
+                        android:textSize="15sp" />
+
+                    <ImageView
+                        android:id="@+id/nextDayButton"
+                        android:layout_width="36dp"
+                        android:layout_height="36dp"
+                        android:alpha="0.35"
+                        android:background="?android:attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="Día siguiente"
+                        android:padding="9dp"
+                        android:src="@drawable/ic_chevron_right"
+                        android:tint="@color/text_primary" />
+                </LinearLayout>
+
+                <FrameLayout
+                    android:id="@+id/bandButton"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:layout_gravity="end|center_vertical"
+                    android:background="?android:attr/selectableItemBackgroundBorderless"
+                    android:clickable="true"
+                    android:contentDescription="Mi WHOOP"
+                    android:focusable="true">
+
+                    <ImageView
+                        android:layout_width="30dp"
+                        android:layout_height="30dp"
+                        android:layout_gravity="center"
+                        android:contentDescription="@null"
+                        android:src="@drawable/ic_band"
+                        android:tint="@color/text_primary" />
+
+                    <View
+                        android:id="@+id/bandDot"
+                        android:layout_width="11dp"
+                        android:layout_height="11dp"
+                        android:layout_gravity="top|end"
+                        android:layout_marginTop="5dp"
+                        android:layout_marginEnd="6dp"
+                        android:background="@drawable/bg_status_dot" />
+                </FrameLayout>
+            </FrameLayout>
+
+            <!-- Marca -->
+            <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
+                android:layout_marginTop="18dp"
+                android:fontFamily="@font/barlow_condensed_medium"
+                android:gravity="center"
+                android:letterSpacing="0.32"
+                android:text="PULSE"
+                android:textColor="@color/text_primary"
+                android:textSize="24sp" />
 
-                <ImageView
-                    android:id="@+id/avatarButton"
-                    android:layout_width="36dp"
-                    android:layout_height="36dp"
-                    android:background="@drawable/bg_circle_button"
-                    android:contentDescription="Sobre mí"
-                    android:padding="8dp"
-                    android:src="@drawable/ic_person"
-                    android:tint="@color/text_primary" />
-
-                <View
-                    android:layout_width="0dp"
-                    android:layout_height="1dp"
-                    android:layout_weight="1" />
-
-                <ImageView
-                    android:id="@+id/prevDayButton"
-                    android:layout_width="36dp"
-                    android:layout_height="36dp"
-                    android:background="@drawable/bg_circle_button"
-                    android:contentDescription="Día anterior"
-                    android:padding="9dp"
-                    android:src="@drawable/ic_chevron_left"
-                    android:tint="@color/text_primary" />
-
-                <ImageView
-                    android:id="@+id/nextDayButton"
-                    android:layout_width="36dp"
-                    android:layout_height="36dp"
-                    android:layout_marginStart="8dp"
-                    android:alpha="0.35"
-                    android:background="@drawable/bg_circle_button"
-                    android:contentDescription="Día siguiente"
-                    android:padding="9dp"
-                    android:src="@drawable/ic_chevron_right"
-                    android:tint="@color/text_primary" />
-            </LinearLayout>
-
-            <!-- Título grande -->
+            <!-- Aviso de conexión (solo si no llega pulso) -->
             <TextView
-                style="@style/LargeTitle"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
-                android:text="Hoy" />
-
-            <TextView
-                android:id="@+id/dateText"
-                style="@style/RowText"
-                android:layout_width="wrap_content"
+                android:id="@+id/connectionNote"
+                style="@style/Caption"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
+                android:gravity="center"
                 android:text=""
-                android:textColor="@color/text_secondary"
-                android:textSize="14sp" />
+                android:visibility="gone" />
 
-            <!-- Tres anillos: Sueño, Recuperación, Esfuerzo -->
+            <!-- Tres anillos -->
             <LinearLayout
+                android:id="@+id/ringsRow"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
+                android:layout_marginTop="22dp"
                 android:orientation="horizontal">
 
                 <LinearLayout
+                    android:id="@+id/sleepRingBox"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
+                    android:background="?android:attr/selectableItemBackgroundBorderless"
+                    android:clickable="true"
+                    android:focusable="true"
                     android:gravity="center_horizontal"
                     android:orientation="vertical">
 
                     <com.pulseapp.android.ui.CircularRingView
                         android:id="@+id/sleepRing"
-                        android:layout_width="104dp"
-                        android:layout_height="104dp" />
+                        android:layout_width="100dp"
+                        android:layout_height="100dp" />
 
                     <TextView
-                        style="@style/TitleLabel"
+                        style="@style/TitleW"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
-                        android:text="Sueño" />
+                        android:layout_marginTop="14dp"
+                        android:drawableEnd="@drawable/ic_chevron_right"
+                        android:drawablePadding="2dp"
+                        android:drawableTint="@color/text_secondary"
+                        android:text="Sueño"
+                        android:textSize="15sp" />
                 </LinearLayout>
 
                 <LinearLayout
+                    android:id="@+id/recoveryRingBox"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
+                    android:layout_weight="1.2"
+                    android:background="?android:attr/selectableItemBackgroundBorderless"
+                    android:clickable="true"
+                    android:focusable="true"
                     android:gravity="center_horizontal"
                     android:orientation="vertical">
 
                     <com.pulseapp.android.ui.CircularRingView
                         android:id="@+id/recoveryRing"
-                        android:layout_width="104dp"
-                        android:layout_height="104dp" />
+                        android:layout_width="100dp"
+                        android:layout_height="100dp" />
 
                     <TextView
-                        style="@style/TitleLabel"
+                        style="@style/TitleW"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
-                        android:text="Recuperación" />
+                        android:layout_marginTop="14dp"
+                        android:drawableEnd="@drawable/ic_chevron_right"
+                        android:drawablePadding="2dp"
+                        android:drawableTint="@color/text_secondary"
+                        android:text="Recuperación"
+                        android:textSize="15sp" />
                 </LinearLayout>
 
                 <LinearLayout
+                    android:id="@+id/strainRingBox"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
+                    android:background="?android:attr/selectableItemBackgroundBorderless"
+                    android:clickable="true"
+                    android:focusable="true"
                     android:gravity="center_horizontal"
                     android:orientation="vertical">
 
                     <com.pulseapp.android.ui.CircularRingView
                         android:id="@+id/strainRing"
-                        android:layout_width="104dp"
-                        android:layout_height="104dp" />
+                        android:layout_width="100dp"
+                        android:layout_height="100dp" />
 
                     <TextView
-                        style="@style/TitleLabel"
+                        style="@style/TitleW"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
-                        android:text="Esfuerzo" />
+                        android:layout_marginTop="14dp"
+                        android:drawableEnd="@drawable/ic_chevron_right"
+                        android:drawablePadding="2dp"
+                        android:drawableTint="@color/text_secondary"
+                        android:text="Esfuerzo"
+                        android:textSize="15sp" />
                 </LinearLayout>
             </LinearLayout>
 
-            <!-- Calorías y pasos -->
+            <!-- Monitor de salud · Monitor de estrés -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
+                android:layout_marginTop="28dp"
+                android:baselineAligned="false"
                 android:orientation="horizontal">
 
                 <LinearLayout
+                    android:id="@+id/healthCard"
                     android:layout_width="0dp"
-                    android:layout_height="wrap_content"
+                    android:layout_height="match_parent"
                     android:layout_marginEnd="6dp"
                     android:layout_weight="1"
-                    android:background="@drawable/bg_card"
+                    android:background="@drawable/bg_card_w"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:foreground="?android:attr/selectableItemBackground"
+                    android:minHeight="118dp"
                     android:orientation="vertical"
                     android:padding="16dp">
 
-                    <TextView
-                        style="@style/TitleLabel"
-                        android:layout_width="wrap_content"
+                    <LinearLayout
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Calorías" />
+                        android:gravity="center_vertical">
 
-                    <TextView
-                        android:id="@+id/caloriesText"
-                        style="@style/StatNumber"
-                        android:layout_width="wrap_content"
+                        <TextView
+                            style="@style/TitleW"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:lineSpacingExtra="4dp"
+                            android:text="Monitor de salud" />
+
+                        <ImageView
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
+                            android:contentDescription="@null"
+                            android:src="@drawable/ic_chevron_right"
+                            android:tint="@color/text_secondary" />
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="1dp"
+                        android:layout_height="0dp"
+                        android:layout_weight="1"
+                        android:minHeight="12dp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
-                        android:text="--" />
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <FrameLayout
+                            android:id="@+id/healthIconBox"
+                            android:layout_width="40dp"
+                            android:layout_height="40dp">
+
+                            <ImageView
+                                android:id="@+id/healthIcon"
+                                android:layout_width="20dp"
+                                android:layout_height="20dp"
+                                android:layout_gravity="center"
+                                android:contentDescription="@null"
+                                android:src="@drawable/ic_check"
+                                android:tint="@color/w_mint" />
+                        </FrameLayout>
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="14dp"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:id="@+id/healthStatusText"
+                                style="@style/TitleW"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:lineSpacingExtra="3dp"
+                                android:text="Calibrando"
+                                android:textColor="@color/w_mint" />
+
+                            <TextView
+                                android:id="@+id/healthCountText"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="4dp"
+                                android:fontFamily="@font/archivo"
+                                android:text=""
+                                android:textColor="@color/text_secondary"
+                                android:textSize="14sp" />
+                        </LinearLayout>
+                    </LinearLayout>
                 </LinearLayout>
 
                 <LinearLayout
+                    android:id="@+id/stressCard"
                     android:layout_width="0dp"
-                    android:layout_height="wrap_content"
+                    android:layout_height="match_parent"
                     android:layout_marginStart="6dp"
                     android:layout_weight="1"
-                    android:background="@drawable/bg_card"
+                    android:background="@drawable/bg_card_w"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:foreground="?android:attr/selectableItemBackground"
+                    android:minHeight="118dp"
                     android:orientation="vertical"
                     android:padding="16dp">
 
-                    <TextView
-                        style="@style/TitleLabel"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Pasos" />
-
-                    <TextView
-                        android:id="@+id/stepsText"
-                        style="@style/StatNumber"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
-                        android:text="--" />
-                </LinearLayout>
-            </LinearLayout>
-
-            <!-- Pulso en directo -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:background="@drawable/bg_card"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <TextView
-                    style="@style/TitleLabel"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:textSize="13sp"
-                    android:text="Pulso en directo" />
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:gravity="bottom"
-                    android:orientation="horizontal">
-
-                    <TextView
-                        android:id="@+id/bpmText"
-                        style="@style/BigNumber"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="--"
-                        android:textSize="44sp" />
-
-                    <TextView
-                        style="@style/Caption"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="6dp"
-                        android:layout_marginBottom="4dp"
-                        android:layout_weight="1"
-                        android:text="lpm" />
-
                     <LinearLayout
-                        android:layout_width="wrap_content"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:gravity="end"
-                        android:orientation="vertical">
+                        android:gravity="center_vertical">
 
                         <TextView
-                            style="@style/TitleLabel"
-                            android:layout_width="wrap_content"
+                            style="@style/TitleW"
+                            android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:textSize="11sp"
-                            android:text="FC media" />
+                            android:layout_weight="1"
+                            android:lineSpacingExtra="4dp"
+                            android:text="Monitor\nde estrés" />
 
-                        <TextView
-                            android:id="@+id/avgHrText"
-                            style="@style/StatNumber"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="6dp"
-                            android:text="--"
-                            android:textSize="24sp" />
-                    </LinearLayout>
-                </LinearLayout>
-
-                <TextView
-                    android:id="@+id/statusText"
-                    style="@style/Caption"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:text="Desconectado" />
-
-                <TextView
-                    android:id="@+id/countText"
-                    style="@style/Caption"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="0 lecturas guardadas" />
-            </LinearLayout>
-
-            <!-- Monitor de salud -->
-            <LinearLayout
-                android:id="@+id/healthCard"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:background="@drawable/bg_card"
-                android:clickable="true"
-                android:focusable="true"
-                android:foreground="?android:attr/selectableItemBackground"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical">
-
-                    <TextView
-                        style="@style/TitleLabel"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:textSize="13sp"
-                        android:text="Monitor de salud" />
-
-                    <ImageView
-                        android:layout_width="16dp"
-                        android:layout_height="16dp"
-                        android:contentDescription="@null"
-                        android:src="@drawable/ic_chevron_right"
-                        android:tint="@color/text_secondary" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="14dp"
-                    android:orientation="horizontal">
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-
-                        <TextView
-                            style="@style/TitleLabel"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:textSize="11sp"
-                            android:text="VFC (ms)" />
-
-                        <TextView
-                            android:id="@+id/hrvText"
-                            style="@style/StatNumber"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="6dp"
-                            android:text="--"
-                            android:textColor="@color/recovery_green"
-                            android:textSize="28sp" />
+                        <ImageView
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
+                            android:contentDescription="@null"
+                            android:src="@drawable/ic_chevron_right"
+                            android:tint="@color/text_secondary" />
                     </LinearLayout>
 
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
+                    <View
+                        android:layout_width="1dp"
+                        android:layout_height="0dp"
                         android:layout_weight="1"
-                        android:orientation="vertical">
-
-                        <TextView
-                            style="@style/TitleLabel"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:textSize="11sp"
-                            android:text="FC reposo (lpm)" />
-
-                        <TextView
-                            android:id="@+id/minHrText"
-                            style="@style/StatNumber"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="6dp"
-                            android:text="--"
-                            android:textSize="28sp" />
-                    </LinearLayout>
-                </LinearLayout>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:orientation="horizontal">
+                        android:minHeight="12dp" />
 
                     <LinearLayout
-                        android:layout_width="0dp"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
 
                         <TextView
-                            style="@style/TitleLabel"
+                            android:id="@+id/stressScoreBox"
                             android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:textSize="11sp"
-                            android:text="Respiración" />
-
-                        <TextView
-                            android:id="@+id/respiratoryRateText"
-                            style="@style/StatNumber"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="6dp"
+                            android:layout_height="40dp"
+                            android:fontFamily="@font/barlow_condensed_bold"
+                            android:gravity="center"
+                            android:minWidth="40dp"
+                            android:paddingStart="6dp"
+                            android:paddingEnd="6dp"
                             android:text="--"
-                            android:textColor="@color/sleep_blue"
-                            android:textSize="28sp" />
-                    </LinearLayout>
+                            android:textColor="@color/w_low_blue"
+                            android:textSize="19sp" />
 
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-
-                        <TextView
-                            style="@style/TitleLabel"
-                            android:layout_width="wrap_content"
+                        <LinearLayout
+                            android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:textSize="11sp"
-                            android:text="VO₂ máx" />
+                            android:layout_marginStart="14dp"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
 
-                        <TextView
-                            android:id="@+id/vo2MaxText"
-                            style="@style/StatNumber"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="6dp"
-                            android:text="--"
-                            android:textColor="@color/strain_blue"
-                            android:textSize="28sp" />
+                            <TextView
+                                android:id="@+id/stressLevelText"
+                                style="@style/TitleW"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="--"
+                                android:textColor="@color/w_low_blue" />
+
+                            <TextView
+                                android:id="@+id/stressTimeText"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="4dp"
+                                android:fontFamily="@font/archivo"
+                                android:text=""
+                                android:textColor="@color/text_secondary"
+                                android:textSize="14sp" />
+                        </LinearLayout>
                     </LinearLayout>
                 </LinearLayout>
-            </LinearLayout>
-
-            <!-- Monitor de estrés -->
-            <LinearLayout
-                android:id="@+id/stressCard"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:background="@drawable/bg_card_elevated"
-                android:clickable="true"
-                android:focusable="true"
-                android:foreground="?android:attr/selectableItemBackground"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical">
-
-                    <TextView
-                        style="@style/TitleLabel"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:textSize="13sp"
-                        android:text="Monitor de estrés" />
-
-                    <ImageView
-                        android:layout_width="16dp"
-                        android:layout_height="16dp"
-                        android:contentDescription="@null"
-                        android:src="@drawable/ic_chevron_right"
-                        android:tint="@color/text_secondary" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:layout_marginBottom="10dp"
-                    android:gravity="center_vertical">
-
-                    <TextView
-                        android:id="@+id/stressUpdatedText"
-                        style="@style/Caption"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="Sin datos todavía" />
-
-                    <TextView
-                        android:id="@+id/stressLevelText"
-                        style="@style/TitleLabel"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
-                        android:layout_marginEnd="8dp"
-                        android:text="--" />
-
-                    <TextView
-                        android:id="@+id/stressScoreText"
-                        style="@style/StatNumber"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="--"
-                        android:textSize="22sp" />
-                </LinearLayout>
-
-                <com.pulseapp.android.ui.StressChartView
-                    android:id="@+id/stressChart"
-                    android:layout_width="match_parent"
-                    android:layout_height="120dp" />
-            </LinearLayout>
-
-            <!-- Esta noche (planificador) -->
-            <LinearLayout
-                android:id="@+id/sleepPlanCard"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:background="@drawable/bg_card"
-                android:clickable="true"
-                android:focusable="true"
-                android:foreground="?android:attr/selectableItemBackground"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical">
-
-                    <TextView
-                        style="@style/TitleLabel"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:textSize="13sp"
-                        android:text="Esta noche" />
-
-                    <ImageView
-                        android:layout_width="16dp"
-                        android:layout_height="16dp"
-                        android:contentDescription="@null"
-                        android:src="@drawable/ic_chevron_right"
-                        android:tint="@color/text_secondary" />
-                </LinearLayout>
-
-                <TextView
-                    style="@style/Caption"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:text="Necesitas dormir" />
-
-                <TextView
-                    android:id="@+id/sleepNeedText"
-                    style="@style/StatNumber"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:text="--"
-                    android:textColor="@color/sleep_blue"
-                    android:textSize="34sp" />
-
-                <TextView
-                    android:id="@+id/sleepBedtimeText"
-                    style="@style/RowText"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="Acuéstate a las --" />
-
-                <TextView
-                    android:id="@+id/sleepBreakdownText"
-                    style="@style/Caption"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="" />
             </LinearLayout>
 
             <!-- Mi día -->
-            <TextView
-                style="@style/SectionTitle"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="28dp"
-                android:text="Mi día" />
-
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
+                android:layout_marginTop="34dp"
+                android:gravity="center_vertical"
                 android:orientation="horizontal">
 
                 <TextView
-                    android:id="@+id/activitiesButton"
-                    style="@style/PillButton"
+                    style="@style/HeadingW"
                     android:layout_width="0dp"
-                    android:layout_marginEnd="6dp"
+                    android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:background="@drawable/bg_button_secondary"
-                    android:text="Ver actividades"
-                    android:textColor="@color/text_primary" />
+                    android:text="Mi día" />
 
-                <TextView
-                    android:id="@+id/startActivityButton"
-                    style="@style/PillButton"
-                    android:layout_width="0dp"
-                    android:layout_marginStart="6dp"
-                    android:layout_weight="1"
-                    android:background="@drawable/bg_button_primary"
-                    android:text="Iniciar actividad"
-                    android:textColor="@color/text_on_accent" />
+                <ImageView
+                    android:id="@+id/plusButton"
+                    android:layout_width="52dp"
+                    android:layout_height="52dp"
+                    android:background="@drawable/bg_plus_white"
+                    android:clickable="true"
+                    android:contentDescription="Añadir"
+                    android:focusable="true"
+                    android:padding="14dp"
+                    android:src="@drawable/ic_plus"
+                    android:tint="#FF0F1519" />
             </LinearLayout>
 
             <LinearLayout
-                android:id="@+id/todayList"
+                android:id="@+id/insightCard"
+                android:layout_width="match_parent"
+                android:layout_height="58dp"
+                android:layout_marginTop="18dp"
+                android:background="@drawable/bg_insight_w"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?android:attr/selectableItemBackground"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="16dp"
+                android:paddingEnd="14dp">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_sun"
+                    android:tint="@color/text_primary" />
+
+                <TextView
+                    android:id="@+id/insightTitle"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="14dp"
+                    android:layout_weight="1"
+                    android:fontFamily="@font/archivo_medium"
+                    android:text="Perspectiva diaria"
+                    android:textColor="@color/text_primary"
+                    android:textSize="17sp" />
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_chevron_right"
+                    android:tint="@color/text_primary" />
+            </LinearLayout>
+
+            <!-- Actividades de hoy -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:background="@drawable/bg_card"
-                android:orientation="vertical" />
+                android:layout_marginTop="16dp"
+                android:background="@drawable/bg_card_w"
+                android:orientation="vertical"
+                android:padding="16dp">
 
-            <!-- Ajustes (lista agrupada) -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:id="@+id/activitiesTitle"
+                        style="@style/TitleW"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Actividades de hoy" />
+
+                    <ImageView
+                        android:id="@+id/expandButton"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:background="?android:attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="Ver todas"
+                        android:src="@drawable/ic_expand"
+                        android:tint="@color/text_secondary" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/todayList"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:orientation="vertical" />
+
+                <LinearLayout
+                    android:id="@+id/activityButtons"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:orientation="horizontal">
+
+                    <LinearLayout
+                        android:id="@+id/addActivityButton"
+                        style="@style/ButtonW"
+                        android:layout_width="0dp"
+                        android:layout_marginEnd="6dp"
+                        android:layout_weight="1">
+
+                        <ImageView
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
+                            android:contentDescription="@null"
+                            android:src="@drawable/ic_plus"
+                            android:tint="@color/text_primary" />
+
+                        <TextView
+                            style="@style/TitleW"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="10dp"
+                            android:text="Agregar actividad"
+                            android:textSize="13.5sp" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/startActivityButton"
+                        style="@style/ButtonW"
+                        android:layout_width="0dp"
+                        android:layout_marginStart="6dp"
+                        android:layout_weight="1">
+
+                        <ImageView
+                            android:id="@+id/startActivityIcon"
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
+                            android:contentDescription="@null"
+                            android:src="@drawable/ic_stopwatch"
+                            android:tint="@color/text_primary" />
+
+                        <TextView
+                            android:id="@+id/startActivityText"
+                            style="@style/TitleW"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="10dp"
+                            android:text="Iniciar actividad"
+                            android:textSize="13.5sp" />
+                    </LinearLayout>
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- El sueño de esta noche -->
+            <LinearLayout
+                android:id="@+id/tonightCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:background="@drawable/bg_card_w"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <LinearLayout
+                    android:id="@+id/tonightHeader"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="?android:attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        style="@style/TitleW"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="El sueño de esta noche" />
+
+                    <ImageView
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:contentDescription="@null"
+                        android:src="@drawable/ic_chevron_right"
+                        android:tint="@color/text_secondary" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="20dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="center_horizontal"
+                        android:orientation="vertical">
+
+                        <LinearLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical">
+
+                            <ImageView
+                                android:layout_width="26dp"
+                                android:layout_height="26dp"
+                                android:contentDescription="@null"
+                                android:src="@drawable/ic_sunset"
+                                android:tint="@color/text_secondary" />
+
+                            <TextView
+                                android:id="@+id/bedtimeText"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="8dp"
+                                android:fontFamily="@font/barlow_condensed_bold"
+                                android:text="--:--"
+                                android:textColor="@color/text_primary"
+                                android:textSize="32sp" />
+                        </LinearLayout>
+
+                        <TextView
+                            style="@style/TitleW"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:gravity="center"
+                            android:lineSpacingExtra="4dp"
+                            android:text="Hora de dormir\nrecomendada"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="13sp" />
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="44dp"
+                        android:layout_height="2dp"
+                        android:layout_marginBottom="30dp"
+                        android:background="@drawable/bg_dash_line"
+                        android:layerType="software" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="center_horizontal"
+                        android:orientation="vertical">
+
+                        <LinearLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical">
+
+                            <ImageView
+                                android:layout_width="26dp"
+                                android:layout_height="26dp"
+                                android:contentDescription="@null"
+                                android:src="@drawable/ic_band"
+                                android:tint="@color/text_secondary" />
+
+                            <TextView
+                                android:id="@+id/wakeText"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="8dp"
+                                android:fontFamily="@font/barlow_condensed_bold"
+                                android:text="07:30"
+                                android:textColor="@color/text_primary"
+                                android:textSize="32sp" />
+                        </LinearLayout>
+
+                        <TextView
+                            android:id="@+id/needText"
+                            style="@style/TitleW"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:gravity="center"
+                            android:lineSpacingExtra="4dp"
+                            android:text="Hora de\ndespertar"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="13sp" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/editWakeButton"
+                    style="@style/ButtonW"
+                    android:layout_width="match_parent"
+                    android:layout_marginTop="20dp">
+
+                    <ImageView
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:contentDescription="@null"
+                        android:src="@drawable/ic_pencil"
+                        android:tint="@color/text_primary" />
+
+                    <TextView
+                        style="@style/TitleW"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="10dp"
+                        android:text="Editar hora de despertar"
+                        android:textSize="13.5sp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Mi panel de control -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="34dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    style="@style/HeadingW"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Mi panel de control" />
+
+                <LinearLayout
+                    android:id="@+id/personalizeButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="40dp"
+                    android:background="?android:attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        style="@style/TitleW"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Personalizar"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="13.5sp" />
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_marginStart="8dp"
+                        android:contentDescription="@null"
+                        android:src="@drawable/ic_pencil"
+                        android:tint="@color/text_secondary" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/panelList"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:orientation="vertical">
+
+                <!-- Monitor de estrés con la gráfica del día (MainActivity lo coloca en su sitio del panel) -->
+                <LinearLayout
+                    android:id="@+id/stressChartCard"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/bg_card_w"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:foreground="?android:attr/selectableItemBackground"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical">
+
+                        <TextView
+                            style="@style/TitleW"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Monitor de estrés" />
+
+                        <ImageView
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
+                            android:contentDescription="@null"
+                            android:src="@drawable/ic_chevron_right"
+                            android:tint="@color/text_secondary" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="20dp"
+                        android:gravity="center_vertical">
+
+                        <TextView
+                            android:id="@+id/stressUpdatedText"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:fontFamily="@font/archivo"
+                            android:text=""
+                            android:textColor="@color/text_secondary"
+                            android:textSize="15sp" />
+
+                        <TextView
+                            android:id="@+id/stressChartLevel"
+                            style="@style/TitleW"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text=""
+                            android:textColor="@color/w_low_blue"
+                            android:textSize="16sp" />
+
+                        <TextView
+                            android:id="@+id/stressChartScore"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="14dp"
+                            android:fontFamily="@font/barlow_condensed_bold"
+                            android:text="--"
+                            android:textColor="@color/text_primary"
+                            android:textSize="24sp" />
+                    </LinearLayout>
+
+                    <com.pulseapp.android.ui.StressDayChartView
+                        android:id="@+id/stressDayChart"
+                        android:layout_width="match_parent"
+                        android:layout_height="250dp"
+                        android:layout_marginTop="8dp" />
+                </LinearLayout>
+
+                <!-- Esfuerzo y recuperación (7 días) -->
+                <LinearLayout
+                    android:id="@+id/strainRecoveryCard"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/bg_card_w"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical">
+
+                        <TextView
+                            style="@style/TitleW"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Esfuerzo y recuperación" />
+
+                        <ImageView
+                            android:id="@+id/strainRecoveryInfo"
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:background="?android:attr/selectableItemBackgroundBorderless"
+                            android:contentDescription="Información"
+                            android:src="@drawable/ic_info"
+                            android:tint="@color/text_secondary" />
+                    </LinearLayout>
+
+                    <com.pulseapp.android.ui.StrainRecoveryChartView
+                        android:id="@+id/strainRecoveryChart"
+                        android:layout_width="match_parent"
+                        android:layout_height="300dp"
+                        android:layout_marginTop="18dp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Más (conexión, perfil y exportar: lo que en WHOOP está en el menú) -->
             <TextView
-                style="@style/TitleLabel"
+                style="@style/HeadingW"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="16dp"
-                android:layout_marginTop="28dp"
-                android:layout_marginBottom="8dp"
-                android:text="Ajustes" />
+                android:layout_marginTop="34dp"
+                android:text="Más" />
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="@drawable/bg_card"
+                android:layout_marginTop="14dp"
+                android:background="@drawable/bg_card_w"
                 android:orientation="vertical">
 
                 <LinearLayout
@@ -638,20 +962,33 @@
                     android:focusable="true"
                     android:gravity="center_vertical"
                     android:paddingStart="16dp"
-                    android:paddingTop="14dp"
+                    android:paddingTop="16dp"
                     android:paddingEnd="16dp"
-                    android:paddingBottom="14dp">
+                    android:paddingBottom="16dp">
 
                     <TextView
-                        style="@style/RowText"
+                        style="@style/TitleW"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="Mi WHOOP · conexión" />
 
+                    <TextView
+                        android:id="@+id/statusText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="8dp"
+                        android:ellipsize="end"
+                        android:fontFamily="@font/archivo"
+                        android:maxWidth="150dp"
+                        android:maxLines="1"
+                        android:text=""
+                        android:textColor="@color/text_secondary"
+                        android:textSize="12sp" />
+
                     <ImageView
-                        android:layout_width="14dp"
-                        android:layout_height="14dp"
+                        android:layout_width="16dp"
+                        android:layout_height="16dp"
                         android:contentDescription="@null"
                         android:src="@drawable/ic_chevron_right"
                         android:tint="@color/text_secondary" />
@@ -672,20 +1009,20 @@
                     android:focusable="true"
                     android:gravity="center_vertical"
                     android:paddingStart="16dp"
-                    android:paddingTop="14dp"
+                    android:paddingTop="16dp"
                     android:paddingEnd="16dp"
-                    android:paddingBottom="14dp">
+                    android:paddingBottom="16dp">
 
                     <TextView
-                        style="@style/RowText"
+                        style="@style/TitleW"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="Sobre mí" />
 
                     <ImageView
-                        android:layout_width="14dp"
-                        android:layout_height="14dp"
+                        android:layout_width="16dp"
+                        android:layout_height="16dp"
                         android:contentDescription="@null"
                         android:src="@drawable/ic_chevron_right"
                         android:tint="@color/text_secondary" />
@@ -706,20 +1043,20 @@
                     android:focusable="true"
                     android:gravity="center_vertical"
                     android:paddingStart="16dp"
-                    android:paddingTop="14dp"
+                    android:paddingTop="16dp"
                     android:paddingEnd="16dp"
-                    android:paddingBottom="14dp">
+                    android:paddingBottom="16dp">
 
                     <TextView
-                        style="@style/RowText"
+                        style="@style/TitleW"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="Resumen detallado" />
 
                     <ImageView
-                        android:layout_width="14dp"
-                        android:layout_height="14dp"
+                        android:layout_width="16dp"
+                        android:layout_height="16dp"
                         android:contentDescription="@null"
                         android:src="@drawable/ic_chevron_right"
                         android:tint="@color/text_secondary" />
@@ -740,20 +1077,20 @@
                     android:focusable="true"
                     android:gravity="center_vertical"
                     android:paddingStart="16dp"
-                    android:paddingTop="14dp"
+                    android:paddingTop="16dp"
                     android:paddingEnd="16dp"
-                    android:paddingBottom="14dp">
+                    android:paddingBottom="16dp">
 
                     <TextView
-                        style="@style/RowText"
+                        style="@style/TitleW"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="Exportar CSV" />
 
                     <ImageView
-                        android:layout_width="14dp"
-                        android:layout_height="14dp"
+                        android:layout_width="16dp"
+                        android:layout_height="16dp"
                         android:contentDescription="@null"
                         android:src="@drawable/ic_chevron_right"
                         android:tint="@color/text_secondary" />
@@ -774,12 +1111,12 @@
                     android:focusable="true"
                     android:gravity="center_vertical"
                     android:paddingStart="16dp"
-                    android:paddingTop="14dp"
+                    android:paddingTop="16dp"
                     android:paddingEnd="16dp"
-                    android:paddingBottom="14dp">
+                    android:paddingBottom="16dp">
 
                     <TextView
-                        style="@style/RowText"
+                        style="@style/TitleW"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
@@ -787,8 +1124,8 @@
                         android:textColor="@color/text_secondary" />
 
                     <ImageView
-                        android:layout_width="14dp"
-                        android:layout_height="14dp"
+                        android:layout_width="16dp"
+                        android:layout_height="16dp"
                         android:contentDescription="@null"
                         android:src="@drawable/ic_chevron_right"
                         android:tint="@color/text_secondary" />
@@ -796,6 +1133,87 @@
             </LinearLayout>
         </LinearLayout>
     </ScrollView>
+
+    <!-- Cabecera fija al bajar: anillos pequeños, como en WHOOP -->
+    <LinearLayout
+        android:id="@+id/stickyHeader"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:alpha="0"
+        android:background="@drawable/bg_sticky_w"
+        android:elevation="6dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="16dp"
+        android:paddingTop="12dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="12dp"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:id="@+id/miniSleep"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:orientation="horizontal">
+
+            <com.pulseapp.android.ui.CircularRingView
+                android:id="@+id/miniSleepRing"
+                android:layout_width="26dp"
+                android:layout_height="26dp" />
+
+            <TextView
+                style="@style/TitleW"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="10dp"
+                android:text="Sueño" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/miniRecovery"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1.3"
+            android:gravity="center"
+            android:orientation="horizontal">
+
+            <com.pulseapp.android.ui.CircularRingView
+                android:id="@+id/miniRecoveryRing"
+                android:layout_width="26dp"
+                android:layout_height="26dp" />
+
+            <TextView
+                style="@style/TitleW"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="10dp"
+                android:text="Recuperación" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/miniStrain"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:orientation="horizontal">
+
+            <com.pulseapp.android.ui.CircularRingView
+                android:id="@+id/miniStrainRing"
+                android:layout_width="26dp"
+                android:layout_height="26dp" />
+
+            <TextView
+                style="@style/TitleW"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="10dp"
+                android:text="Esfuerzo" />
+        </LinearLayout>
+    </LinearLayout>
 
     <include layout="@layout/include_tab_bar" />
 
