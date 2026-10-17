@@ -26,6 +26,13 @@ struct DailyMetrics: Codable, Equatable {
     var sleepEndMinuteOfDay: Int? = nil
     var sleepEfficiencyPct: Int? = nil
     var respiratoryRate: Double? = nil
+    // Fases de esa noche (17/10, como la base de datos v9 de Android). Vacías en noches sin movimiento o guardadas antes.
+    var lightMinutes: Int? = nil
+    var deepMinutes: Int? = nil
+    var remMinutes: Int? = nil
+    var awakeMinutes: Int? = nil
+    var wakeEpisodes: Int? = nil
+    var latencyMinutes: Int? = nil
 }
 
 struct ActivitySession: Codable, Equatable, Identifiable {
@@ -82,6 +89,8 @@ struct DailySummary {
     var totalReadings: Int
     var sleepStartMillis: Int64? = nil
     var sleepEndMillis: Int64? = nil
+    /// Inicio de la ventana de descanso antes del recorte de las fases (para la latencia del sueño).
+    var restStartMillis: Int64? = nil
     /// Fases minuto a minuto (solo si esa noche hay movimiento grabado).
     var stages: SleepStager.Result? = nil
 

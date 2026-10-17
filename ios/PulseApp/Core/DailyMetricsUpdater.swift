@@ -52,10 +52,17 @@ enum DailyMetricsUpdater {
         let calories = CalorieCalculator.exerciseCalories(avgHr: avgHr, durationMinutes: durationMinutes,
                                                           ageYears: ageYears, weightKg: weightKg, sex: sex)
 
+        var latency: Int? = nil
+        if let st = staged, let sl = sleep { latency = max(Int((st.startMillis - sl.startMillis) / 60_000), 0) }
+
         store.saveDay(DailyMetrics(date: yesterdayKey, restingHr: restingHr, avgHrv: avgHrv, sleepMinutes: sleepMinutes,
                                    strain: strain, vo2Max: vo2, caloriesKcal: calories,
                                    sleepStartMinuteOfDay: startMinute, sleepEndMinuteOfDay: endMinute,
-                                   sleepEfficiencyPct: efficiency, respiratoryRate: resp))
+                                   sleepEfficiencyPct: efficiency, respiratoryRate: resp,
+                                   lightMinutes: staged?.lightMinutes, deepMinutes: staged?.deepMinutes,
+                                   remMinutes: staged?.remMinutes, awakeMinutes: staged?.awakeMinutes,
+                                   wakeEpisodes: staged?.awakenings,
+                                   latencyMinutes: latency))
     }
 }
 

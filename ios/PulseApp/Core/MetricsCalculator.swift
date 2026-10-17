@@ -72,6 +72,7 @@ struct MetricsCalculator {
         summary.respiratoryRate = respiratoryRate
         summary.totalReadings = totalReadings
         summary.stages = staged
+        summary.restStartMillis = sleep?.startMillis
         return summary
     }
 
@@ -115,6 +116,25 @@ enum SleepPlanner {
         if a < 18 { return 9 * 60 }
         if a >= 65 { return 7 * 60 + 30 }
         return baselineMinutes
+    }
+
+    // Hora de despertar elegida en Inicio ("El sueño de esta noche"), 7:30 si no se ha cambiado
+    private static let wakeKey = "pulseapp_wake_minute"
+    static func wakeMinute() -> Int {
+        let v = UserDefaults.standard.object(forKey: wakeKey) as? Int
+        return v ?? (7 * 60 + 30)
+    }
+    static func setWakeMinute(_ m: Int) { UserDefaults.standard.set(m, forKey: wakeKey) }
+
+    /// Deuda de sueño acumulada con decaimiento ×0,7 por día, de la noche más antigua a la más reciente.
+    static func debtFrom(_ sleepMinutesOldestFirst: [Int?], base: Int) -> Int {
+        var debt = 0
+        for slept in sleepMinutesOldestFirst {
+            guard let s = slept else { continue }
+            let diff = base - s
+            if diff > 0 { debt = Int(Double(debt) * 0.7 + Double(diff)) } else { debt = Int(Double(debt) * 0.7) }
+        }
+        return max(debt, 0)
     }
 
     /// Necesidad de la noche que acabas de dormir: usa el esfuerzo de AYER (el de hoy apenas ha empezado).

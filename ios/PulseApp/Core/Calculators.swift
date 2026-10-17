@@ -12,9 +12,20 @@ enum BaselineProvider {
     private static let minRhrSd = 1.5
     private static let minRespSd = 0.4
 
+    /// VFC y respiración solo de noches calculadas con el método del 17/10 (VFC del sueño profundo, respiración espectral),
+    /// igual que Android: las anteriores tienen otra escala y desplazarían tu media.
+    static let newMethodSince = "2026-10-17"
+
     static func compute(store: AppStore) -> PersonalBaseline? {
-        let days = store.lastDays(lookbackDays).filter { ($0.sleepMinutes ?? 0) >= 180 }
-        let validHrv = days.compactMap { d -> Double? in
+        return computeFrom(store.lastDays(lookbackDays))
+    }
+
+    /// Línea base con los días que se le pasan (de más reciente a más antiguo, como lastDays).
+    /// Para un día pasado D se le pasan los días anteriores a D: así su recuperación sale igual que la habría dado ese día.
+    static func computeFrom(_ lastDaysNewestFirst: [DailyMetrics]) -> PersonalBaseline? {
+        let days = Array(lastDaysNewestFirst.prefix(lookbackDays)).filter { ($0.sleepMinutes ?? 0) >= 180 }
+        let newMethod = days.filter { $0.date >= newMethodSince }
+        let validHrv = newMethod.compactMap { d -> Double? in
             if let v = d.avgHrv, v > 0 { return v }
             return nil
         }
@@ -22,7 +33,7 @@ enum BaselineProvider {
             if let v = d.restingHr { return Double(v) }
             return nil
         }
-        let validResp = days.compactMap { d -> Double? in
+        let validResp = newMethod.compactMap { d -> Double? in
             if let r = d.respiratoryRate, r >= 8.0, r <= 25.0 { return r }
             return nil
         }
@@ -252,6 +263,29 @@ enum StressCalculator {
         var level = "ALTO"
         if current == nil || current!.score < 1 { level = "BAJO" } else if current!.score < 2 { level = "MEDIO" }
         return StressSummary(currentScore: current?.score, level: level, lastUpdateMinute: current?.minuteOfDay, series: series)
+    }
+
+    /// Serie de estrés (un punto cada 5 min) entre [from] y [to) con la misma fórmula que [analyze].
+    static func seriesBetween(_ readings: [HrReading], from: Int64, to: Int64, baseline: PersonalBaseline?) -> [StressPoint] {
+        let baselineRhr = baseline?.avgRestingHr ?? Formulas.fallbackRhr
+        let baselineHrv = baseline?.avgHrv ?? Formulas.fallbackHrv
+        let windowMillis: Int64 = 5 * 60 * 1000
+        var groups = [Int64: [HrReading]]()
+        for r in readings where r.timeMillis >= from && r.timeMillis < to {
+            groups[r.timeMillis / windowMillis, default: []].append(r)
+        }
+        var series = [StressPoint]()
+        for key in groups.keys.sorted() {
+            guard let w = groups[key], w.count >= 30 else { continue }
+            var hrSum = 0.0
+            var rr = [Double]()
+            for r in w { hrSum += Double(r.bpm); rr.append(contentsOf: r.rr) }
+            let score = computeScore(avgHr: hrSum / Double(w.count), windowHrv: computeRMSSD(rr),
+                                     baselineRhr: baselineRhr, baselineHrv: baselineHrv)
+            let t = key * windowMillis
+            series.append(StressPoint(minuteOfDay: TimeUtil.minuteOfDay(t), score: score, timeMillis: t))
+        }
+        return series
     }
 
     private static func computeScore(avgHr: Double, windowHrv: Double?, baselineRhr: Double, baselineHrv: Double) -> Float {

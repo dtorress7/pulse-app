@@ -24,7 +24,9 @@ targets:
       path: Config/Info.plist
       properties:
         CFBundleDisplayName: PulseApp
-        UILaunchScreen: {}
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+          UIImageName: LaunchLogo
         UIUserInterfaceStyle: Dark
         NSBluetoothAlwaysUsageDescription: "PulseApp se conecta por Bluetooth a tu WHOOP para leer tu pulso y tu historial."
         UIBackgroundModes: [bluetooth-central]

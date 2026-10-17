@@ -31,6 +31,13 @@ jobs:
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
             build 2>&1 | tee build.log
 
+      - name: Mostrar errores de compilación
+        if: failure()
+        run: |
+          grep -E "error:" build.log | sort -u | head -40 > errs.txt || true
+          # Cada aviso agrupa 4 errores (GitHub enseña como mucho 10 avisos por paso)
+          awk '{ m = m $0 "%0A" } NR % 4 == 0 { print "::error::" m; m = "" } END { if (m != "") print "::error::" m }' errs.txt
+
       - name: Empaquetar .ipa
         run: |
           mkdir -p Payload

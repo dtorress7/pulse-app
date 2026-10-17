@@ -101,6 +101,13 @@ final class AppStore {
         write(sessions, to: sessionsURL)
     }
 
+    /// Borra el registro de una actividad (el pulso guardado no se toca).
+    func deleteSession(id: Int64) {
+        lock.lock(); defer { lock.unlock() }
+        sessions.removeAll { $0.id == id }
+        write(sessions, to: sessionsURL)
+    }
+
     /// Más reciente primero.
     func allSessions() -> [ActivitySession] {
         lock.lock(); defer { lock.unlock() }
