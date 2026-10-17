@@ -3,7 +3,7 @@ import SwiftUI
 
 // MARK: - Raíz con pestañas
 
-enum AppTab { case home, health, sleep, strain }
+enum AppTab { case home, health, sleep, strain, community }
 
 /// Pestañas con la barra flotante de WHOOP (Inicio · Salud · Sueño · Esfuerzo + botón Coach), igual que Android.
 struct RootView: View {
@@ -37,6 +37,8 @@ struct RootView: View {
                         StrainDetailView(dayOffset: 0, showBack: false, path: $strainPath)
                             .navigationDestination(for: Route.self) { r in RouteView(route: r, path: $strainPath) }
                     }
+                case .community:
+                    CommunityView()
                 }
             }
             tabBar
@@ -60,6 +62,7 @@ struct RootView: View {
                 tabItem(.health, "heart.text.square", "Salud")
                 tabItem(.sleep, "moon", "Sueño")
                 tabItem(.strain, "flame", "Esfuerzo")
+                tabItem(.community, "person.3", "Equipos")
             }
             .frame(height: 64)
             .background(Theme.tabBar)
@@ -84,7 +87,7 @@ struct RootView: View {
                 case .health: healthPath = []
                 case .sleep: sleepPath = []
                 case .strain: strainPath = []
-                case .home: break
+                case .home, .community: break
                 }
             }
             tab = t

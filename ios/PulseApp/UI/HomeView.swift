@@ -141,6 +141,7 @@ struct HomeView: View {
         lastRefresh = Date()
         HomeStore.shared.load(offset, maxAge: force ? 0 : 50) { d in
             if loadingOffset == offset { loadingOffset = nil }
+            if d.isToday { CommunitySync.upload(d) }
             if offset == dayOffset {
                 data = d
                 hideLoading()
