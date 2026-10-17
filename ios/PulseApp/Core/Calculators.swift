@@ -110,37 +110,109 @@ enum CalorieCalculator {
 
 /// Frecuencia respiratoria (rpm) desde los RR de la noche (arritmia sinusal respiratoria): media móvil de 5,
 /// picos locales = ciclos, distancia media entre picos. Aproximación práctica (aparcada en Android también).
+/// Frecuencia respiratoria por la arritmia sinusal respiratoria, método espectral (17/10, igual que Android):
+/// tramos de 2 min de latidos → RR remuestreado a 4 Hz, sin media ni tendencia, ventana de Hann → frecuencia con
+/// más energía entre 0,1 y 0,5 Hz. Mediana de los tramos (≥10). Antes daba 8 rpm frente a 13,1 de WHOOP.
 enum RespiratoryRateCalculator {
-    static func estimate(_ rr: [Double]) -> Double? {
-        if rr.count < 30 { return nil }
-        let smoothed = movingAverage(rr, 5)
-        if smoothed.count < 10 { return nil }
-        var peaks = [Int]()
-        for i in 2..<(smoothed.count - 2) {
-            if smoothed[i] > smoothed[i - 1] && smoothed[i] > smoothed[i - 2] &&
-                smoothed[i] > smoothed[i + 1] && smoothed[i] > smoothed[i + 2] { peaks.append(i) }
+    private static let segmentSeconds = 120.0
+    private static let fs = 4.0
+
+    static func estimate(_ input: [Double]) -> Double? {
+        let rr = input.filter { $0 >= 300 && $0 <= 2000 }
+        if rr.count < 200 { return nil }
+        var estimates = [Double]()
+        var i = 0
+        let n = rr.count
+        while i < n {
+            var j = i
+            var acc = 0.0
+            while j < n && acc < segmentSeconds { acc += rr[j] / 1000.0; j += 1 }
+            if acc < segmentSeconds * 0.9 { break }
+            if let r = segmentRate(Array(rr[i..<j])) { estimates.append(r) }
+            i = j
         }
-        if peaks.count < 3 { return nil }
-        var gaps = [Double]()
-        for i in 1..<peaks.count { gaps.append(Double(peaks[i] - peaks[i - 1])) }
-        let avgGap = gaps.reduce(0, +) / Double(gaps.count)
-        let avgBeatSec = rr.reduce(0, +) / Double(rr.count) / 1000.0
-        let cycle = avgGap * avgBeatSec
-        if cycle <= 0 { return nil }
-        let bpm = 60.0 / cycle
-        return (bpm >= 8.0 && bpm <= 25.0) ? bpm : nil
+        if estimates.count < 10 { return nil }
+        estimates.sort()
+        let m = estimates.count
+        let median = m % 2 == 1 ? estimates[m / 2] : (estimates[m / 2 - 1] + estimates[m / 2]) / 2.0
+        return (median >= 8.0 && median <= 25.0) ? median : nil
     }
 
-    private static func movingAverage(_ v: [Double], _ w: Int) -> [Double] {
-        if v.count < w { return v }
-        var out = [Double]()
-        var sum = 0.0
-        for i in 0..<v.count {
-            sum += v[i]
-            if i >= w { sum -= v[i - w] }
-            if i >= w - 1 { out.append(sum / Double(w)) }
+    private static func segmentRate(_ seg: [Double]) -> Double? {
+        var ok = [seg[0]]
+        var bad = 0
+        for k in 1..<seg.count {
+            if abs(seg[k] - ok[ok.count - 1]) <= 0.2 * ok[ok.count - 1] { ok.append(seg[k]) } else { bad += 1 }
         }
-        return out
+        if Double(bad) > Double(seg.count) * 0.1 || ok.count < 4 { return nil }
+        var t = [Double](repeating: 0, count: ok.count)
+        var acc = 0.0
+        for k in 0..<ok.count { acc += ok[k] / 1000.0; t[k] = acc }
+        let m = Int((t[t.count - 1] - t[0]) * fs)
+        if m < 64 { return nil }
+        var y = [Double](repeating: 0, count: m)
+        var p = 0
+        for q in 0..<m {
+            let tt = t[0] + Double(q) / fs
+            while p < t.count - 2 && t[p + 1] < tt { p += 1 }
+            let f = min(max((tt - t[p]) / (t[p + 1] - t[p]), 0.0), 1.0)
+            y[q] = ok[p] + (ok[p + 1] - ok[p]) * f
+        }
+        let mean = y.reduce(0, +) / Double(m)
+        let mx = Double(m - 1) / 2.0
+        var num = 0.0, den = 0.0
+        for q in 0..<m { num += (Double(q) - mx) * (y[q] - mean); den += (Double(q) - mx) * (Double(q) - mx) }
+        let slope = num / den
+        for q in 0..<m {
+            y[q] = (y[q] - mean - slope * (Double(q) - mx)) * (0.5 - 0.5 * cos(2 * Double.pi * Double(q) / Double(m - 1)))
+        }
+        var bestF = 0.0, bestP = -1.0, total = 0.0
+        var step = 0
+        while true {
+            let f = 0.1 + Double(step) * 0.005
+            if f > 0.5 + 1e-9 { break }
+            let w = 2 * Double.pi * f / fs
+            var re = 0.0, im = 0.0
+            for q in 0..<m { re += y[q] * cos(w * Double(q)); im += y[q] * sin(w * Double(q)) }
+            let pw = re * re + im * im
+            total += pw
+            if pw > bestP { bestP = pw; bestF = f }
+            step += 1
+        }
+        return (total > 0 && bestP / total > 0.05) ? bestF * 60.0 : nil
+    }
+}
+
+/// VFC de la noche como WHOOP (17/10): con fases (≥20 min de profundo), media de los RMSSD de los tramos de
+/// sueño profundo ponderada por su duración; si no, toda la ventana. Tus 2 noches: 87 / 104 ms (WHOOP 80 / 108)
+/// frente a 70 / 87 de toda la noche.
+enum NightMetrics {
+    private static let minDeepMinutes = 20
+
+    static func hrv(_ readings: [HrReading], staged: SleepStager.Result?) -> Double? {
+        let whole = MetricsCalculator.computeRMSSD(readings.flatMap { $0.rr })
+        guard let r = staged, r.deepMinutes >= minDeepMinutes else { return whole }
+        let st = r.stages
+        let n = st.count
+        var perMinute = [[Double]](repeating: [], count: n)
+        for x in readings {
+            let i = Int(x.timeMillis / 60_000 - r.startMinute)
+            if i >= 0 && i < n { perMinute[i].append(contentsOf: x.rr) }
+        }
+        var weighted = 0.0
+        var weight = 0
+        var i = 0
+        while i < n {
+            var j = i
+            while j < n && st[j] == st[i] { j += 1 }
+            if st[i] == SleepStager.deep {
+                var rr = [Double]()
+                for k in i..<j { rr.append(contentsOf: perMinute[k]) }
+                if let v = MetricsCalculator.computeRMSSD(rr) { weighted += v * Double(j - i); weight += j - i }
+            }
+            i = j
+        }
+        return weight >= minDeepMinutes ? weighted / Double(weight) : whole
     }
 }
 

@@ -35,7 +35,7 @@ Base de datos: versión 8, migraciones 1→8 registradas en `AppDatabase.kt`.
 - `BleForegroundService` (modo estándar 0x180D) — YA NO SE USA; Inicio lo para al abrir.
 - Los parsers de `hr_log.csv` ordenan y quitan duplicados por segundo (el historial llega desordenado).
 - Cálculos: `MetricsCalculator`, `DailyMetricsUpdater`, `RecoveryCalculator`, `BaselineProvider`,
-  `SleepPlanner`, `StressCalculator`, `CalorieCalculator`, `ActivityRecorder`, `RespiratoryRateCalculator` (aparcado).
+  `SleepPlanner`, `StressCalculator`, `CalorieCalculator`, `ActivityRecorder`, `RespiratoryRateCalculator` (espectral desde 17/10), `NightMetrics`.
 - IMU (nuevo, verificado): `WhoopImuReassembler`, `WhoopImuRawStore` (`whoop_imu_raw.txt`),
   `WhoopImuDecoder`, `ImuStepCounter`, `MotionTracker` (`motion_minutes.csv`), `MotionTrackerHolder`.
 
@@ -57,7 +57,9 @@ Peso/altura/edad/sexo → calorías (Mifflin + Keytel). Sexo → TRIMP. Recupera
 - Calificación sueño = 0,281·horas vs necesidad (máx 100) + 0,202·eficiencia + 0,288·regularidad + 19,6 (MAE 1,9).
   Es lo que muestra el anillo de Sueño del inicio. Regularidad = 100 − sd(hora de dormirse, 7 noches)/120·100.
 - FC reposo = mediana de la ventana de sueño (cuadra con WHOOP: 58 vs 57, 59 vs 59).
-- VFC = RMSSD de RR nocturnos, filtrando saltos >20 %.
+- VFC (17/10, `NightMetrics`) = con fases (≥20 min de profundo): media de los RMSSD de los tramos de PROFUNDO ponderada por duración;
+  sin fases, RMSSD de toda la ventana. Filtra saltos >20 %. 15→16: 87 (WHOOP 80); 16→17: 104 (WHOOP 108). Toda la noche daba 70 / 87.
+  `BaselineProvider` solo usa VFC y respiración de días ≥ `NEW_METHOD_SINCE` (2026-10-17) para no mezclar escalas.
 - Sueño (`SleepDetector`, ajustado 15/10 con la noche 14→15 vs WHOOP): 20:00–12:00, medias por minuto suavizadas 3 min,
   umbral 1,30 × media del 10 % más bajo, tolera 30 min por encima, hueco >10 min = desconexión, mínimo 90 min, la última
   ventana. Resultado: 23:20–07:24, 39 min despierto, 91 % (WHOOP 23:17–07:20, 42 min, 92 %). VFC de esa ventana ≈ 69 (WHOOP 69),
@@ -78,16 +80,24 @@ Solo se ejecuta si esa noche hay `motion_minutes.csv` (≥60 % de los minutos de
 - Despierto: minuto agitado = (≥10 s moviéndose o pasos) y pulso ≥ +6 lpm sobre la base local (percentil 33 de ±20 min), o ≥30 s de movimiento,
   o pulso ≥ +15 con giro/cambio de postura. Grupos con huecos ≤2 min, 1 min antes y hasta 2 después; vale si dura ≥3 min o el pulso sube ≥12.
 - Profundo / REM: respecto a la MEDIANA LOCAL de ±45 min (quita la subida circadiana de VFC y la bajada de pulso) de pulso (mediana 5 min) y ln RMSSD
-  (ventana 7 min, ≥40 diferencias RR). Profundo: ΔlnRMSSD ≥ 0,3·(progreso−0,5) y Δpulso ≤ −0,5; REM: ΔlnRMSSD ≤ −0,3 y Δpulso ≥ 0.
+  (ventana 7 min, ≥40 diferencias RR). Profundo: ΔlnRMSSD ≥ 0,3·(progreso−0,5) y Δpulso ≤ −0,5; REM (17/10): ΔlnRMSSD ≤ −0,2 + 0,4·(progreso−0,5) y Δpulso ≥ 0.
   Sin REM en los primeros 45 min ni profundo en los últimos 45. Lejos (±2 min) de un despertar. Tramos <4 min → ligero.
 - Calibración con 2 noches de WHOOP (14→15: despierto 42/ligero 266/profundo 120/REM 54; 15→16: 33/240/126/52, 9 despertares, eficiencia 93 %).
   Resultado 15→16 con movimiento: 34/236/125/52 min, 10 despertares, 92 %. Solo se ajustaron totales: no hay hipnograma minuto a minuto de WHOOP,
   así que la COLOCACIÓN de las fases no está validada. Referencia de tus 155 noches de WHOOP: ligero 298±52, profundo 100±16, REM 86±27, despierto 33±13
   (estas dos noches tuvieron más profundo y menos REM de lo normal, venían de gimnasio/fútbol).
+- Recorte (17/10): la noche empieza en el primer tramo de ≥15 min sin despertar y acaba en el último minuto dormido
+  (`trimBounds`). `MetricsCalculator`/`DailyMetricsUpdater` usan esa ventana para horas, FC reposo, VFC y respiración.
+- Noche 16→17 (3.ª referencia, WHOOP 01:10–09:08: despierto 15 / ligero 206 / profundo 126 / REM 131, 7 despertares, 97 %,
+  VFC 108, FCR 56, resp 13,1, recuperación 86). Antes: 00:22–09:11, 65/264/125/76, 15 despertares, 87 %, VFC 87, resp 8,2, rec. 72.
+  Ahora: 01:11–09:08, 23/204/125/125, 9 despertares, 95 %, VFC 104, FCR 57, resp 12,6, recuperación 87.
+  15→16 con el ajuste: 34/226/126/63 (WHOOP 33/240/126/52).
+- Respiración (17/10): espectral, tramos de 2 min → RR a 4 Hz, sin tendencia, Hann, pico 0,1–0,5 Hz, mediana (≥10 tramos).
+  La media móvil de 5 latidos de antes borraba la respiración (≈4–5 latidos por respiración).
+- Inicio: `hrvText` nunca se rellenaba (VFC salía siempre "–"). Corregido 17/10.
 - `MetricsCalculator.analyze` usa el resultado para tiempo despierto, dormido y eficiencia (si hay fases); `DailyMetricsUpdater` también.
   `SleepDetailActivity` muestra `HypnogramView` + 4 fases. `SleepPlanner.planForLastNight` = necesidad de la noche dormida con el esfuerzo de AYER.
 - Movimiento por noche: ENMO NO sirve parado (el offset de calibración da 0–40 mg según la postura); usar `still_secs`, `gyro_dps` (suelo 1,4) y cambio de gravedad.
-- Pendiente de validar: VFC de WHOOP (80) vs la nuestra (70) esa noche; WHOOP parece tomarla de las fases profundas (RMSSD en profundo 88, en toda la noche 74).
 - AVISO horario: `hr_log.csv` guarda hora LOCAL sin zona; el 25/10/2026 (fin del horario de verano) la hora 02:00–03:00 se repite y esas lecturas se pisan.
 
 ## Protocolo WHOOP 5.0 (lo que funciona)
@@ -151,4 +161,10 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
 2. ~~Orden de parar el IMU~~ HECHO: 106 `[0,0]` (ver Acelerómetro).
 3. ~~Clasificador de sueño en 4 fases~~ HECHO v1 (16/10, ver arriba). Falta validar la colocación con más noches y usar fases en recuperación (VFC en profundo).
 4. Integrar movimiento en Sueño, Recuperación, Strain, actividades automáticas y pasos en el inicio.
-5. Historial de la pulsera con ACK (caso fútbol). 6. Frecuencia respiratoria por análisis espectral. 7. Coach (en espera).
+5. Historial de la pulsera con ACK (caso fútbol). 6. ~~Frecuencia respiratoria por análisis espectral~~ HECHO 17/10. 7. Coach (en espera).
+
+## iOS (carpeta ios/)
+- SwiftUI + CoreBluetooth, iOS 16, proyecto generado con XcodeGen (`ios/project.yml`); .ipa sin firmar vía `.github/workflows/build-ios.yml` (macos-15).
+- `ios/PulseApp/Core` es el port 1:1 del núcleo Kotlin (verificado numéricamente contra Kotlin con datos reales). No tocar fórmulas sin cambiarlas también en Android.
+- Mismas reglas: nunca enviar opcodes 25, 29, 32, 36, 37, 38, 45, 99; no perder datos.
+- Los CSV usan hora LOCAL "yyyy-MM-ddTHH:mm:ss" (igual que Android).

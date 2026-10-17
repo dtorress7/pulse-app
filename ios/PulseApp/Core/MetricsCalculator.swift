@@ -29,24 +29,27 @@ struct MetricsCalculator {
             avgHr = Int(sum / Double(cycleReadings.count))
         }
 
+        // Con movimiento grabado esa noche, las fases (y el tiempo despierto) salen de SleepStager.
+        // La ventana de las fases ya viene recortada: empieza al dormirse y acaba al despertar (17/10).
+        var staged: SleepStager.Result? = nil
+        if let s = sleep {
+            staged = SleepStager.stageNight(hrLog: hrLog, motionFile: motionFile, startMillis: s.startMillis, endMillis: s.endMillis)
+        }
+        let window: (Int64, Int64)? = staged.map { ($0.startMillis, $0.endMillis - 1) } ?? restWindow
+
         // FC en reposo y VFC SOLO con la ventana de sueño (igual que WHOOP)
         var sleepReadings = [HrReading]()
-        if let w = restWindow { sleepReadings = readings.filter { $0.timeMillis >= w.0 && $0.timeMillis <= w.1 } }
+        if let w = window { sleepReadings = readings.filter { $0.timeMillis >= w.0 && $0.timeMillis <= w.1 } }
         // Sin noche registrada no hay FC en reposo real (de día sale ~15 lpm más alta): se deja vacía
         let restingHr: Int? = sleepReadings.isEmpty ? nil : MetricsCalculator.findRestingHr(sleepReadings)
-        let avgHrv: Double? = sleepReadings.isEmpty ? nil : MetricsCalculator.computeRMSSD(sleepReadings.flatMap { $0.rr })
+        // VFC: con fases, la de los tramos de sueño profundo (como WHOOP)
+        let avgHrv: Double? = sleepReadings.isEmpty ? nil : NightMetrics.hrv(sleepReadings, staged: staged)
         var vo2Max: Double? = nil
         if let r = restingHr, r > 0 { vo2Max = 15.3 * (hrMax / Double(r)) }
         let strain = Formulas.strainOf(readings: cycleReadings.map { ($0.timeMillis, $0.bpm) },
                                        restingHr: restingHr, hrMax: hrMax, male: male)
 
         let respiratoryRate: Double? = sleepReadings.isEmpty ? nil : RespiratoryRateCalculator.estimate(sleepReadings.flatMap { $0.rr })
-
-        // Con movimiento grabado esa noche, las fases (y el tiempo despierto) salen de SleepStager
-        var staged: SleepStager.Result? = nil
-        if let s = sleep {
-            staged = SleepStager.stageNight(hrLog: hrLog, motionFile: motionFile, startMillis: s.startMillis, endMillis: s.endMillis)
-        }
 
         var summary = DailySummary.empty()
         summary.restingHr = restingHr
@@ -57,7 +60,7 @@ struct MetricsCalculator {
         summary.sleepMinutes = staged?.asleepMinutes ?? sleep?.asleepMinutes
         summary.timeInBedMinutes = staged?.minutes ?? sleep?.inBedMinutes
         summary.awakeMinutes = staged?.awakeMinutes ?? sleep?.awakeMinutes
-        if let w = restWindow {
+        if let w = window {
             summary.sleepStart = TimeUtil.timestamp(w.0)
             summary.sleepEnd = TimeUtil.timestamp(w.1)
             summary.sleepStartMinuteOfDay = TimeUtil.minuteOfDay(w.0)

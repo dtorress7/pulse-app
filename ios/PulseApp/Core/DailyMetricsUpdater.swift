@@ -20,28 +20,28 @@ enum DailyMetricsUpdater {
         let hrMax = Formulas.hrMax(ageYears: ageYears)
         let nightReadings = all.filter { $0.timeMillis >= nightFrom && $0.timeMillis <= nightTo }
         let sleep = SleepDetector.detect(nightReadings.map { ($0.timeMillis, $0.bpm) })
-        var sleepWindowReadings = [HrReading]()
-        if let s = sleep { sleepWindowReadings = nightReadings.filter { $0.timeMillis >= s.startMillis && $0.timeMillis <= s.endMillis } }
-
-        let restingHr: Int? = sleepWindowReadings.isEmpty ? nil : MetricsCalculator.findRestingHr(sleepWindowReadings)
-        let avgHrv: Double? = sleepWindowReadings.isEmpty ? nil : MetricsCalculator.computeRMSSD(sleepWindowReadings.flatMap { $0.rr })
-        var vo2: Double? = nil
-        if let r = restingHr, r > 0 { vo2 = 15.3 * (hrMax / Double(r)) }
-        let strain = Formulas.strainOf(readings: dayReadings.map { ($0.timeMillis, $0.bpm) }, restingHr: restingHr,
-                                       hrMax: hrMax, male: sex != "F")
-
-        // Con movimiento grabado esa noche, el tiempo despierto sale de SleepStager
+        // Con movimiento grabado esa noche, el tiempo despierto sale de SleepStager y la ventana se recorta (17/10)
         var staged: SleepStager.Result? = nil
         if let s = sleep {
             staged = SleepStager.stageNight(hrLog: hrLog, motionFile: motionFile, startMillis: s.startMillis, endMillis: s.endMillis)
         }
+        let window: (Int64, Int64)? = staged.map { ($0.startMillis, $0.endMillis - 1) } ?? sleep.map { ($0.startMillis, $0.endMillis) }
+        var sleepWindowReadings = [HrReading]()
+        if let w = window { sleepWindowReadings = nightReadings.filter { $0.timeMillis >= w.0 && $0.timeMillis <= w.1 } }
+
+        let restingHr: Int? = sleepWindowReadings.isEmpty ? nil : MetricsCalculator.findRestingHr(sleepWindowReadings)
+        let avgHrv: Double? = sleepWindowReadings.isEmpty ? nil : NightMetrics.hrv(sleepWindowReadings, staged: staged)
+        var vo2: Double? = nil
+        if let r = restingHr, r > 0 { vo2 = 15.3 * (hrMax / Double(r)) }
+        let strain = Formulas.strainOf(readings: dayReadings.map { ($0.timeMillis, $0.bpm) }, restingHr: restingHr,
+                                       hrMax: hrMax, male: sex != "F")
         let sleepMinutes = staged?.asleepMinutes ?? sleep?.asleepMinutes
         let efficiency = staged?.efficiencyPct ?? sleep?.efficiencyPct
         var startMinute: Int? = nil
         var endMinute: Int? = nil
-        if let s = sleep {
-            startMinute = TimeUtil.minuteOfDay(s.startMillis)
-            endMinute = TimeUtil.minuteOfDay(s.endMillis)
+        if let w = window {
+            startMinute = TimeUtil.minuteOfDay(w.0)
+            endMinute = TimeUtil.minuteOfDay(w.1)
         }
         let resp: Double? = sleepWindowReadings.isEmpty ? nil : RespiratoryRateCalculator.estimate(sleepWindowReadings.flatMap { $0.rr })
 

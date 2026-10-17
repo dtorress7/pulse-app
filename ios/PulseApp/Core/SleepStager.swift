@@ -30,13 +30,16 @@ enum SleepStager {
     private static let deepHrv = 0.0
     private static let deepHrvSlope = 0.3
     private static let deepHr = -0.5
-    private static let remHrv = -0.3
+    private static let remHrv = -0.2
+    private static let remHrvSlope = 0.4     // 17/10: REM más fácil al final de la noche
     private static let remHr = 0.0
     private static let remNoFirstMin = 45
     private static let deepNoLastMin = 45
     private static let minRun = 4
 
     private static let minWindowMinutes = 90
+    /// La noche empieza en el primer tramo de al menos estos minutos sin despertar (17/10).
+    private static let onsetRun = 15
     private static let minMotionCoverage = 0.6
 
     final class Result {
@@ -248,7 +251,7 @@ enum SleepStager {
             let prog = Double(i) / Double(max(1, n - 1))
             let deepThr = deepHrv + deepHrvSlope * (prog - 0.5)
             if xl[i] >= deepThr && xh[i] <= deepHr && i <= n - deepNoLastMin { st[i] = deep }
-            else if xl[i] <= remHrv && xh[i] >= remHr && i >= remNoFirstMin { st[i] = rem }
+            else if xl[i] <= remHrv + remHrvSlope * (prog - 0.5) && xh[i] >= remHr && i >= remNoFirstMin { st[i] = rem }
         }
         // Tramos cortos de profundo/REM → ligero
         var i = 0
@@ -258,7 +261,27 @@ enum SleepStager {
             if (st[i] == deep || st[i] == rem) && j - i < minRun { for k in i..<j { st[k] = light } }
             i = j
         }
-        return Result(startMinute: m0, stages: st)
+        // Recorte: fuera el rato en la cama antes de dormirse y después de despertarse
+        let (a, b) = trimBounds(st)
+        return Result(startMinute: m0 + Int64(a), stages: Array(st[a..<b]))
+    }
+
+    /// [inicio, fin) de la noche: del primer tramo de ≥ onsetRun min sin despertar al último minuto dormido.
+    static func trimBounds(_ st: [Int]) -> (Int, Int) {
+        let n = st.count
+        var start = -1
+        var i = 0
+        while i < n {
+            if st[i] == awake { i += 1; continue }
+            var j = i
+            while j < n && st[j] != awake { j += 1 }
+            if j - i >= onsetRun { start = i; break }
+            i = j
+        }
+        if start < 0 { return (0, n) }
+        var end = n
+        while end > start && st[end - 1] == awake { end -= 1 }
+        return (start, end)
     }
 
     private static func median(_ v: [Double]) -> Double {
