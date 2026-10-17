@@ -26,7 +26,9 @@ import com.pulseapp.android.data.AppDatabase
 import com.pulseapp.android.ui.CircularRingView
 import com.pulseapp.android.ui.StrainRecoveryChartView
 import com.pulseapp.android.ui.StressDayChartView
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.time.format.TextStyle
 import java.util.Calendar
@@ -686,18 +688,76 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
+    /**
+     * Exportar todo para pasarlo a otro móvil (p. ej. el iPhone): pulso, movimiento, días guardados, actividades y perfil.
+     * Se comparten varios archivos a la vez (Drive, WhatsApp, correo...). La app de iPhone los importa en Más → Importar datos de Android.
+     */
     private fun exportCsv() {
-        val file = java.io.File(getExternalFilesDir(null), "hr_log.csv")
-        if (!file.exists()) {
-            Toast.makeText(this, "Aún no hay datos guardados", Toast.LENGTH_SHORT).show()
-            return
+        lifecycleScope.launch {
+            val dir = getExternalFilesDir(null)
+            val files = withContext(Dispatchers.IO) { buildExport(dir!!) }
+            if (files.isEmpty()) {
+                Toast.makeText(this@MainActivity, "Aún no hay datos guardados", Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+            val uris = ArrayList(files.map { androidx.core.content.FileProvider.getUriForFile(this@MainActivity, "$packageName.fileprovider", it) })
+            val intent = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+                type = "text/csv"
+                putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            startActivity(Intent.createChooser(intent, "Exportar ${files.size} archivos"))
         }
-        val uri = androidx.core.content.FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
-        val intent = Intent(Intent.ACTION_SEND).apply {
-            type = "text/csv"
-            putExtra(Intent.EXTRA_STREAM, uri)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+
+    private suspend fun buildExport(dir: java.io.File): List<java.io.File> {
+        val out = ArrayList<java.io.File>()
+        java.io.File(dir, "hr_log.csv").takeIf { it.exists() && it.length() > 0 }?.let { out.add(it) }
+        java.io.File(dir, MotionTracker.FILE_NAME).takeIf { it.exists() && it.length() > 0 }?.let { out.add(it) }
+        fun n(v: Any?): String = when (v) {
+            null -> ""
+            is Double -> String.format(Locale.US, "%.4f", v)
+            is Float -> String.format(Locale.US, "%.2f", v)
+            else -> v.toString()
         }
-        startActivity(Intent.createChooser(intent, "Compartir hr_log.csv"))
+        val days = db.dailyMetricsDao().getLastDays(100_000)
+        if (days.isNotEmpty()) {
+            val f = java.io.File(dir, "pulse_daily_metrics.csv")
+            f.bufferedWriter().use { w ->
+                w.write("#pulseapp_daily_metrics v1\n")
+                w.write("date,restingHr,avgHrv,sleepMinutes,strain,vo2Max,caloriesKcal,sleepStartMinuteOfDay,sleepEndMinuteOfDay," +
+                    "sleepEfficiencyPct,respiratoryRate,lightMinutes,deepMinutes,remMinutes,awakeMinutes,wakeEpisodes,latencyMinutes\n")
+                days.sortedBy { it.date }.forEach { d ->
+                    w.write(listOf(d.date, n(d.restingHr), n(d.avgHrv), n(d.sleepMinutes), n(d.strain), n(d.vo2Max), n(d.caloriesKcal),
+                        n(d.sleepStartMinuteOfDay), n(d.sleepEndMinuteOfDay), n(d.sleepEfficiencyPct), n(d.respiratoryRate),
+                        n(d.lightMinutes), n(d.deepMinutes), n(d.remMinutes), n(d.awakeMinutes), n(d.wakeEpisodes), n(d.latencyMinutes)
+                    ).joinToString(",") + "\n")
+                }
+            }
+            out.add(f)
+        }
+        val sessions = db.activitySessionDao().getAll()
+        if (sessions.isNotEmpty()) {
+            val f = java.io.File(dir, "pulse_activity_sessions.csv")
+            f.bufferedWriter().use { w ->
+                w.write("#pulseapp_activity_sessions v1\n")
+                w.write("startMillis,endMillis,avgHr,maxHr,strain,caloriesKcal,z1,z2,z3,z4,z5,type,autoDetected,z0\n")
+                sessions.sortedBy { it.startMillis }.forEach { a ->
+                    w.write(listOf(a.startMillis, a.endMillis, a.avgHr, a.maxHr, n(a.strain), n(a.caloriesKcal), a.minutesZone1, a.minutesZone2,
+                        a.minutesZone3, a.minutesZone4, a.minutesZone5, a.type.replace(",", " "), if (a.autoDetected) 1 else 0, a.minutesZone0
+                    ).joinToString(",") + "\n")
+                }
+            }
+            out.add(f)
+        }
+        val p = db.userProfileDao().getOnce()
+        if (p != null) {
+            val f = java.io.File(dir, "pulse_profile.csv")
+            f.writeText("#pulseapp_profile v1\nbirthdayMillis,weightKg,heightCm,sex,vo2Max,vo2MaxUpdatedDate,hrMaxObserved\n" +
+                listOf(p.birthdayMillis, n(p.weightKg), n(p.heightCm), p.sex, n(p.vo2Max), p.vo2MaxUpdatedDate ?: "",
+                    Formulas.observedHrMax(this) ?: "").joinToString(",") + "\n")
+            out.add(f)
+        }
+        return out
     }
 }

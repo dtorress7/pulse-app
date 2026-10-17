@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Inicio con el aspecto de la app de WHOOP (port de MainActivity de Android, 17/10): cabecera con racha y día, tres anillos,
 /// monitores de salud y estrés, "Mi día" (perspectiva, actividades, sueño de esta noche) y "Mi panel de control".
@@ -32,6 +33,8 @@ struct HomeView: View {
     @State private var pendingStop: (Int64, Int64)? = nil
     @State private var message = ""
     @State private var showMessage = false
+    @State private var showImporter = false
+    @State private var importing = false
 
     static let types = ["Fútbol", "Pádel", "Pickleball", "Entrenamiento funcional", "Entrenamiento de fuerza", "Otro"]
     private let ticker = Timer.publish(every: 2, on: .main, in: .common).autoconnect()
@@ -113,6 +116,10 @@ struct HomeView: View {
         }, message: {
             Text("Necesito tu fecha de nacimiento, peso, altura y sexo. Con ellos calculo tu FC máxima y tus zonas, el esfuerzo, las calorías, el VO₂ máx y cuánto sueño necesitas.")
         })
+        .fileImporter(isPresented: $showImporter, allowedContentTypes: [.commaSeparatedText, .plainText, .text, .data],
+                      allowsMultipleSelection: true) { result in
+            if case .success(let urls) = result { importAndroid(urls) }
+        }
         .confirmationDialog("¿Qué actividad ha sido?", isPresented: $showTypePicker, titleVisibility: .visible) {
             ForEach(HomeView.types, id: \.self) { t in
                 Button(t) { if let p = pendingStop { saveSession(p.0, p.1, t) }; pendingStop = nil }
@@ -614,6 +621,10 @@ struct HomeView: View {
                 WDivider()
                 moreRow("list.bullet.rectangle", "Resumen detallado") { showSummary = true }
                 WDivider()
+                moreRow("square.and.arrow.down", importing ? "Importando… (puede tardar un poco)" : "Importar datos de Android") {
+                    if !importing { showImporter = true }
+                }
+                WDivider()
                 ShareLink(item: AppPaths.file(AppPaths.hrLog)) {
                     moreRowContent("square.and.arrow.up", "Exportar CSV")
                 }
@@ -656,6 +667,38 @@ struct HomeView: View {
             s += "No se detectó ningún periodo de descanso largo (mínimo 90 min).\n"
         }
         return s
+    }
+
+    // MARK: - Importar de Android
+
+    /// Copia los archivos elegidos a una carpeta propia (el permiso para leerlos solo dura mientras se copian) y los importa.
+    private func importAndroid(_ urls: [URL]) {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("import-\(Int(Date().timeIntervalSince1970))")
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        var local = [URL]()
+        for u in urls {
+            let ok = u.startAccessingSecurityScopedResource()
+            let dest = dir.appendingPathComponent(u.lastPathComponent)
+            if (try? FileManager.default.copyItem(at: u, to: dest)) != nil { local.append(dest) }
+            if ok { u.stopAccessingSecurityScopedResource() }
+        }
+        if local.isEmpty {
+            message = "No pude leer los archivos elegidos."
+            showMessage = true
+            return
+        }
+        importing = true
+        HomeStore.shared.run({ () -> String in
+            let r = AndroidImport.importFiles(local)
+            try? FileManager.default.removeItem(at: dir)
+            return r.text
+        }, completion: { text in
+            importing = false
+            HomeStore.shared.invalidate()
+            AppModel.shared.refresh()
+            message = text
+            showMessage = true
+        })
     }
 
     // MARK: - Actividades

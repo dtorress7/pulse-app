@@ -71,6 +71,14 @@ final class AppStore {
         write(Array(days.values), to: daysURL)
     }
 
+    /// Varios días de una vez (importación): un solo guardado del archivo.
+    func saveDays(_ list: [DailyMetrics]) {
+        if list.isEmpty { return }
+        lock.lock(); defer { lock.unlock() }
+        for m in list { days[m.date] = m }
+        write(Array(days.values), to: daysURL)
+    }
+
     func getDay(_ date: String) -> DailyMetrics? {
         lock.lock(); defer { lock.unlock() }
         return days[date]
@@ -98,6 +106,19 @@ final class AppStore {
     func updateSession(_ s: ActivitySession) {
         lock.lock(); defer { lock.unlock() }
         if let i = sessions.firstIndex(where: { $0.id == s.id }) { sessions[i] = s }
+        write(sessions, to: sessionsURL)
+    }
+
+    /// Varias actividades de una vez (importación), con id nuevo cada una.
+    func saveSessions(_ list: [ActivitySession]) {
+        if list.isEmpty { return }
+        lock.lock(); defer { lock.unlock() }
+        for s in list {
+            var copy = s
+            copy.id = nextId
+            nextId += 1
+            sessions.append(copy)
+        }
         write(sessions, to: sessionsURL)
     }
 

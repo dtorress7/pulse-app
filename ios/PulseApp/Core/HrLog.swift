@@ -64,6 +64,31 @@ final class HrLog {
         lastFlush = Date()
     }
 
+    /// Termina una importación: [tmp] ya tiene la cabecera y las lecturas nuevas; se le añade todo lo de este archivo
+    /// (con el cerrojo puesto, para no perder lo que llegue de la pulsera mientras tanto) y lo sustituye.
+    func finishMerge(_ tmp: URL) {
+        lock.lock()
+        defer { lock.unlock() }
+        flushLocked()
+        if let out = try? FileHandle(forWritingTo: tmp) {
+            out.seekToEndOfFile()
+            var first = true
+            var buf = Data()
+            HrLog.forEachLine(url) { b, s, e in
+                if first { first = false; if e > s && (b[s] < 48 || b[s] > 57) { return } }   // cabecera
+                buf.append(contentsOf: b[s..<e])
+                buf.append(10)
+                if buf.count > 4_000_000 { out.write(buf); buf.removeAll(keepingCapacity: true) }
+            }
+            out.write(buf)
+            try? out.close()
+        }
+        _ = try? FileManager.default.replaceItemAt(url, withItemAt: tmp)
+        cache.removeAll()
+        cacheOffset = 0
+        cacheValid = false
+    }
+
     func fileSize() -> Int64 {
         lock.lock()
         flushLocked()
