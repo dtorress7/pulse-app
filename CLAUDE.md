@@ -205,7 +205,16 @@ Copiado de capturas reales de la app de WHOOP del usuario (Inicio entero, Monito
   `DayRecord` lleva fases, despertares, latencia, tiempo en cama, desglose de la necesidad, fuerza y zonas 1–5 (`ZoneDay` v2).
   Umbrales de los 3 tramos (deficiente/suficiente/óptimo): horas vs necesidad 70/85, regularidad 65/80, eficiencia 80/90, estrés alto 0/5 %.
   Esfuerzo recomendado (marca blanca): recuperación verde 16, amarilla 12, roja 8.
-- Pendiente de aspecto: Recuperación y Sobre mí siguen con el diseño anterior; iOS sin portar.
+- Pendiente de aspecto: Recuperación y Sobre mí siguen con el diseño anterior.
+- **iOS (17/10, rama `ios-whoop-ui`)**: portado el mismo diseño. `Core/HomeData.swift` = HomeDataLoader/DayRecord/ZoneDayCache/Insight/StressBreakdown
+  (mismas cuentas que Android). `UI/HomeStore.swift` calcula en una cola y guarda 50 s; `Route` para navegar. Pantallas: `HomeView`, `SleepScreen`,
+  `StrainScreen`, `DetailScreens` (Salud, Estrés, Actividad). Piezas en `WComponents.swift`, gráficas con `Canvas` en `WCharts.swift`, carga animada
+  `LoadingView.swift`, barra de pestañas flotante en `Screens1.swift`. Icono nuevo (AppIcon 1024) y arranque negro con logo (LaunchLogo/LaunchBackground).
+  `DailyMetrics` iOS guarda fases (light/deep/rem/awake/wakeEpisodes/latency, opcionales) y `BaselineProvider` usa `newMethodSince` como Android.
+  Compila en GitHub Actions (macos-15). El workflow saca los errores de Swift como avisos (`::error`) legibles por la API sin login.
+- **Instalar en el iPhone sin Mac**: iloader (Windows, con iTunes de la web de Apple) → SideStore + LocalDevVPN; el .ipa se mete con "Import IPA".
+  Certificado gratuito = 7 días (refresca SideStore o volver a "Import IPA"). Errores vistos: 502 anisette (cambiar servidor), SMS 2FA 403 (esperar),
+  SideStore -80045 al iniciar sesión (cambiar servidor anisette en SideStore).
 
 ## Herramientas de comprobación (en el contenedor de Claude, no van en la app)
 - Recursos: `/tmp/claude-0/rescheck/run.sh` (aapt2 de PyPI `aapt2==0.2.1` + stubs de Material3 → R.java real).
