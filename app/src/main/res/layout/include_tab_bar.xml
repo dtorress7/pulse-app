@@ -52,6 +52,14 @@
             android:drawableTint="@color/text_secondary"
             android:paddingTop="9dp"
             android:text="Esfuerzo" />
+
+        <TextView
+            android:id="@+id/tabCommunity"
+            style="@style/TabItem"
+            android:drawableTop="@drawable/ic_people"
+            android:drawableTint="@color/text_secondary"
+            android:paddingTop="9dp"
+            android:text="Equipos" />
     </LinearLayout>
 
     <ImageView

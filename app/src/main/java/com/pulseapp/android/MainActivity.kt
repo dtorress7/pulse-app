@@ -288,6 +288,7 @@ class MainActivity : AppCompatActivity() {
     private fun render(d: HomeData) {
         lastData = d
         hideLoading()
+        if (d.isToday) CommunitySync.upload(this, d)
         val ctx = this
         findViewById<TextView>(R.id.streakText).text = d.streak.toString()
 

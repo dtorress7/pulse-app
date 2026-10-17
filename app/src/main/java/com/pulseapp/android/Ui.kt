@@ -18,7 +18,7 @@ import java.util.Locale
 /** Utilidades compartidas del rediseño: barra inferior, formatos y piezas de UI hechas por código. */
 object Ui {
 
-    enum class Tab { HOME, HEALTH, SLEEP, ACTIVITIES, NONE }
+    enum class Tab { HOME, HEALTH, SLEEP, ACTIVITIES, COMMUNITY, NONE }
 
     // ---------- Formatos ----------
     fun hm(minutes: Int): String = "%d:%02d".format(minutes / 60, kotlin.math.abs(minutes % 60))
@@ -47,7 +47,8 @@ object Ui {
             Tab.HOME to (R.id.tabHome to MainActivity::class.java),
             Tab.HEALTH to (R.id.tabHealth to HealthActivity::class.java),
             Tab.SLEEP to (R.id.tabSleep to SleepDetailActivity::class.java),
-            Tab.ACTIVITIES to (R.id.tabActivities to ActivitiesListActivity::class.java)
+            Tab.ACTIVITIES to (R.id.tabActivities to ActivitiesListActivity::class.java),
+            Tab.COMMUNITY to (R.id.tabCommunity to CommunityActivity::class.java)
         )
         tabs.forEach { (tab, pair) ->
             val view = activity.findViewById<TextView>(pair.first) ?: return@forEach

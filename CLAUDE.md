@@ -216,6 +216,12 @@ Copiado de capturas reales de la app de WHOOP del usuario (Inicio entero, Monito
   pulse_daily_metrics.csv / pulse_activity_sessions.csv / pulse_profile.csv (primera línea "#pulseapp_… v1"). iOS Más → "Importar datos de Android"
   (`Core/AndroidImport.swift`): mezcla pulso (sin duplicar segundos, `HrLog.mergeImport/finishMerge`) y movimiento; días, actividades y perfil solo
   rellenan lo que falta. En la rama, `build.yml` también compila el APK en `ios-whoop-ui`.
+- **Comunidad (17/10)**: equipos como WHOOP sobre **Supabase** (REST sin librerías). Script `supabase/comunidad.sql` (tablas profiles, teams,
+  team_members, day_stats, messages + RLS: solo ves a gente de tus equipos; RPC create_team/join_team con código de 6). Probado en Postgres 16 +
+  PostgREST 12 local. Cada móvil entra con cuenta ANÓNIMA (hay que activar "Allow anonymous sign-ins"). URL/clave: `CommunityConfig`
+  (`BUILT_IN_URL/KEY` en Android `Community.kt`, `builtInUrl/Key` en iOS `Core/Community.swift`; si están vacías se pegan en la app).
+  Sube hoy+ayer (`CommunitySync`, máx. cada 10 min) al calcular Inicio. Pantallas: Android `CommunityActivity`/`TeamActivity` (pestaña "Equipos"),
+  iOS `UI/CommunityScreens.swift`. Ganadores del lunes 17:00 = mensaje calculado en la app (`WeeklyWinners`, medias lun–dom), no hay cron.
 - **Instalar en el iPhone sin Mac**: iloader (Windows, con iTunes de la web de Apple) → SideStore + LocalDevVPN; el .ipa se mete con "Import IPA".
   Certificado gratuito = 7 días (refresca SideStore o volver a "Import IPA"). Errores vistos: 502 anisette (cambiar servidor), SMS 2FA 403 (esperar),
   SideStore -80045 al iniciar sesión (cambiar servidor anisette en SideStore).
