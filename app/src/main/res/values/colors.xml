@@ -69,4 +69,19 @@
     <color name="w_stress_low_dim">#3D5E80</color>
     <color name="w_stress_high_dim">#8A6420</color>
     <color name="w_text_dim">#6F767B</color>
+    <color name="logo_bg">#FF000000</color>
+    <!-- Fases y gráficas de Sueño / Esfuerzo como WHOOP (17/10) -->
+    <color name="w_stage_awake">#D9DDE0</color>
+    <color name="w_stage_light">#A9A6F2</color>
+    <color name="w_stage_deep">#F49BEA</color>
+    <color name="w_stage_rem">#A04BEA</color>
+    <color name="w_need_base">#5E666B</color>
+    <color name="w_need_debt">#D9DDE0</color>
+    <color name="w_hr_sleep">#8FB0C9</color>
+    <color name="w_zone1_bar">#B7CBD9</color>
+    <color name="w_zone2_bar">#3F8FCB</color>
+    <color name="w_zone3_bar">#4FB98A</color>
+    <color name="w_zone4_bar">#F7A44A</color>
+    <color name="w_zone5_bar">#F2662E</color>
+    <color name="w_insight_border">#7C6CF0</color>
 </resources>

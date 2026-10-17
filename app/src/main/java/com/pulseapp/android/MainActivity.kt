@@ -85,7 +85,11 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         Formulas.init(this)
         setContentView(R.layout.activity_main)
-        window.statusBarColor = Ui.color(this, R.color.w_bg_top)
+        window.statusBarColor = android.graphics.Color.BLACK
+        window.navigationBarColor = android.graphics.Color.BLACK
+        loadingShownAt = System.currentTimeMillis()
+        // Seguridad: si algo tarda demasiado, la pantalla de carga se quita igualmente
+        liveHandler.postDelayed({ hideLoading() }, 9000)
 
         sleepRing = findViewById(R.id.sleepRing)
         recoveryRing = findViewById(R.id.recoveryRing)
@@ -111,8 +115,12 @@ class MainActivity : AppCompatActivity() {
         strainRing.setValue(0f, "--", "", Ui.color(this, R.color.strain_blue))
 
         val openRecovery = View.OnClickListener { startActivity(Intent(this, RecoveryDetailActivity::class.java)) }
-        val openSleep = View.OnClickListener { startActivity(Intent(this, SleepDetailActivity::class.java)) }
-        val openActivities = View.OnClickListener { startActivity(Intent(this, ActivitiesListActivity::class.java)) }
+        val openSleep = View.OnClickListener {
+            startActivity(Intent(this, SleepDetailActivity::class.java).putExtra(SleepDetailActivity.EXTRA_DAY_OFFSET, dayOffset))
+        }
+        val openActivities = View.OnClickListener {
+            startActivity(Intent(this, ActivitiesListActivity::class.java).putExtra(ActivitiesListActivity.EXTRA_DAY_OFFSET, dayOffset))
+        }
         val openProfile = View.OnClickListener { startActivity(Intent(this, ProfileActivity::class.java)) }
         val openWhoop = View.OnClickListener { startActivity(Intent(this, WhoopExperimentalActivity::class.java)) }
         val openStress = View.OnClickListener { startActivity(Intent(this, StressDetailActivity::class.java)) }
@@ -240,6 +248,7 @@ class MainActivity : AppCompatActivity() {
                 if (offset == dayOffset) render(data)
             } catch (e: Exception) {
                 Toast.makeText(this@MainActivity, "Error al calcular Inicio: ${e.message}", Toast.LENGTH_LONG).show()
+                hideLoading()
             } finally {
                 loading = false
                 if (offset != dayOffset) refresh()
@@ -258,8 +267,25 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.nextDayButton).alpha = if (dayOffset < 0) 1f else 0.35f
     }
 
+    private var loadingShownAt = 0L
+    private var loadingHidden = false
+
+    /** Quita la pantalla de carga con un fundido (como mínimo se ve 1,6 s para que la animación luzca). */
+    private fun hideLoading() {
+        if (loadingHidden) return
+        loadingHidden = true
+        val overlay = findViewById<View>(R.id.loadingOverlay)
+        val wait = (1600L - (System.currentTimeMillis() - loadingShownAt)).coerceAtLeast(0L)
+        overlay.animate().alpha(0f).setStartDelay(wait).setDuration(350).withEndAction {
+            overlay.visibility = View.GONE
+            window.statusBarColor = Ui.color(this, R.color.w_bg_top)
+            window.navigationBarColor = Ui.color(this, R.color.background)
+        }.start()
+    }
+
     private fun render(d: HomeData) {
         lastData = d
+        hideLoading()
         val ctx = this
         findViewById<TextView>(R.id.streakText).text = d.streak.toString()
 
@@ -356,7 +382,9 @@ class MainActivity : AppCompatActivity() {
         if (day.sleepMinutes != null && from != null && to != null) {
             val row = W.activityRow(this, R.color.w_ring_sleep, R.drawable.ic_moon_filled, Ui.hm(day.sleepMinutes), "Sueño",
                 timeFmt.format(Date(from)), timeFmt.format(Date(to)))
-            row.setOnClickListener { startActivity(Intent(this, SleepDetailActivity::class.java)) }
+            row.setOnClickListener {
+                startActivity(Intent(this, SleepDetailActivity::class.java).putExtra(SleepDetailActivity.EXTRA_DAY_OFFSET, dayOffset))
+            }
             todayList.addView(row)
         }
         d.sessions.forEach { s ->

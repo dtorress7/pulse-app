@@ -67,7 +67,9 @@ class StressCalculator {
     /** Lecturas del archivo desde [sinceMillis] (para calcular el estrés de días anteriores con una sola lectura). */
     class Sample(val timeMillis: Long, val bpm: Int, val rr: List<Double>)
 
-    fun loadSamples(file: File, sinceMillis: Long): List<Sample> {
+    fun loadSamples(file: File, sinceMillis: Long): List<Sample> = loadSamples(file, sinceMillis, null)
+
+    private fun loadSamples(file: File, sinceMillis: Long, keep: ((Long) -> Boolean)?): List<Sample> {
         if (!file.exists()) return emptyList()
         // Las líneas empiezan por la fecha local "yyyy-MM-dd": las de días anteriores se saltan sin convertir la hora (rápido)
         val minKey = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(sinceMillis - 86_400_000L))
@@ -80,7 +82,7 @@ class StressCalculator {
             if (parts.size < 2) return@forEachLine
             try {
                 val time = sdf.parse(parts[0])?.time ?: return@forEachLine
-                if (time < sinceMillis) return@forEachLine
+                if (time < sinceMillis || (keep != null && !keep(time))) return@forEachLine
                 val bpm = parts[1].toIntOrNull() ?: return@forEachLine
                 if (bpm <= 0 || bpm > 250) return@forEachLine
                 val rr = if (parts.size > 2) parts[2].split("|").mapNotNull { it.replace(',', '.').toDoubleOrNull() }.filter { it in 300.0..2000.0 }
@@ -89,6 +91,12 @@ class StressCalculator {
             } catch (e: Exception) { }
         }
         return out.sortedBy { it.timeMillis }.distinctBy { it.timeMillis / 1000 }
+    }
+
+    /** Como [loadSamples] pero guardando solo lo que cae dentro de [ranges] (p. ej. 7 noches) para no llenar la memoria. */
+    fun loadSamplesIn(file: File, ranges: List<LongRange>): List<Sample> {
+        if (ranges.isEmpty()) return emptyList()
+        return loadSamples(file, ranges.minOf { it.first }) { t -> ranges.any { t in it } }
     }
 
     /** Serie de estrés (un punto cada 5 min) entre [from] y [to] con la misma fórmula que [analyze]. */

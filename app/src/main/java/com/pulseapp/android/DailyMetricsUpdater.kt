@@ -95,7 +95,13 @@ class DailyMetricsUpdater {
                 sleepStartMinuteOfDay = sleepStartMinute,
                 sleepEndMinuteOfDay = sleepEndMinute,
                 sleepEfficiencyPct = sleepEfficiency,
-                respiratoryRate = respiratoryRate
+                respiratoryRate = respiratoryRate,
+                lightMinutes = staged?.lightMinutes,
+                deepMinutes = staged?.deepMinutes,
+                remMinutes = staged?.remMinutes,
+                awakeMinutes = staged?.awakeMinutes ?: sleep?.awakeMinutes,
+                wakeEpisodes = staged?.awakenings,
+                latencyMinutes = if (staged != null && sleep != null) ((staged.startMillis - sleep.startMillis) / 60_000L).toInt().coerceAtLeast(0) else null
             )
         )
     }

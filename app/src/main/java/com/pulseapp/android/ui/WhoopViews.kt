@@ -297,6 +297,11 @@ class ActivityHrChartView @JvmOverloads constructor(context: Context, attrs: Att
     }
     private val dot = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
 
+    /** Paso de la escala (25 lpm en actividades, 20 en el sueño) y si se rellena el área bajo la línea. */
+    var yStep = 25.0
+    var filled = true
+    fun setLineColor(c: Int) { line.color = c; invalidate() }
+
     /** [points] incluye unos minutos antes y después de la actividad (como WHOOP). */
     fun setData(points: List<Pair<Long, Int>>, startMillis: Long, endMillis: Long) {
         pts = points; start = startMillis; end = endMillis; invalidate()
@@ -308,8 +313,8 @@ class ActivityHrChartView @JvmOverloads constructor(context: Context, attrs: Att
         val left = 0f; val right = w
         val top = dp(10f); val bottom = h - dp(30f)
         val t0 = pts.first().first; val t1 = pts.last().first
-        val lo = floor((pts.minOf { it.second } - 5) / 25.0) * 25
-        val hi = ceil((pts.maxOf { it.second } + 5) / 25.0) * 25
+        val lo = floor((pts.minOf { it.second } - 5) / yStep) * yStep
+        val hi = ceil((pts.maxOf { it.second } + 5) / yStep) * yStep
         fun x(t: Long) = left + (right - left) * ((t - t0).toFloat() / max(1L, t1 - t0))
         fun y(b: Double) = bottom - (bottom - top) * ((b - lo) / (hi - lo)).toFloat()
         var v = lo
@@ -317,7 +322,7 @@ class ActivityHrChartView @JvmOverloads constructor(context: Context, attrs: Att
             val yy = y(v)
             canvas.drawLine(dp(28f), yy, right, yy, grid)
             canvas.drawText("%.0f".format(v), dp(2f), yy + dp(4.5f), axis)
-            v += 25
+            v += yStep
         }
         fill.shader = LinearGradient(0f, top, 0f, bottom, withAlpha(col(R.color.strain_blue), 110), withAlpha(col(R.color.strain_blue), 8), Shader.TileMode.CLAMP)
         val p = Path(); val f = Path()
@@ -326,7 +331,7 @@ class ActivityHrChartView @JvmOverloads constructor(context: Context, attrs: Att
             if (i == 0) { p.moveTo(xx, yy); f.moveTo(xx, bottom); f.lineTo(xx, yy) } else { p.lineTo(xx, yy); f.lineTo(xx, yy) }
         }
         f.lineTo(x(t1), bottom); f.close()
-        canvas.drawPath(f, fill)
+        if (filled) canvas.drawPath(f, fill)
         canvas.drawPath(p, line)
         val fmt = SimpleDateFormat("HH:mm", Locale("es", "ES"))
         for ((t, alignLeft) in listOf(start to true, end to false)) {

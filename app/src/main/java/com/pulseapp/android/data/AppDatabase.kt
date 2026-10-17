@@ -9,7 +9,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [UserProfile::class, DailyMetrics::class, ActivitySession::class],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -96,6 +96,18 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** 17/10: fases de cada noche para las tendencias semanales de Sueño. Solo añade columnas: no se pierde nada. */
+        private val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE daily_metrics ADD COLUMN lightMinutes INTEGER")
+                db.execSQL("ALTER TABLE daily_metrics ADD COLUMN deepMinutes INTEGER")
+                db.execSQL("ALTER TABLE daily_metrics ADD COLUMN remMinutes INTEGER")
+                db.execSQL("ALTER TABLE daily_metrics ADD COLUMN awakeMinutes INTEGER")
+                db.execSQL("ALTER TABLE daily_metrics ADD COLUMN wakeEpisodes INTEGER")
+                db.execSQL("ALTER TABLE daily_metrics ADD COLUMN latencyMinutes INTEGER")
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
@@ -103,7 +115,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "pulseapp.db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
                     .build().also { INSTANCE = it }
             }
         }

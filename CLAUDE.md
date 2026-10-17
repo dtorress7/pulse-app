@@ -18,7 +18,7 @@ El usuario habla español: responde siempre en español, claro y paso a paso.
 Kotlin, minSdk 26, target/compile 34, Java 17. Room 2.6.1 con **KSP** (kapt no funciona).
 `gradle.properties`: `android.useAndroidX=true`, `android.enableJetifier=false`, `org.gradle.jvmargs=-Xmx2048m`.
 Archivos Gradle en **Groovy**. Usar `Locale.US` al escribir números en CSV. Trabajo pesado en `Dispatchers.IO`.
-Base de datos: versión 8, migraciones 1→8 registradas en `AppDatabase.kt`.
+Base de datos: versión 9, migraciones 1→9 registradas en `AppDatabase.kt` (9 = fases de cada noche en daily_metrics).
 
 ## Pantallas y archivos principales (`app/src/main/java/com/pulseapp/android/`)
 - `MainActivity` (inicio: Recuperación, Esfuerzo/Strain, Sueño, Estrés, calorías, actividades),
@@ -196,7 +196,16 @@ Copiado de capturas reales de la app de WHOOP del usuario (Inicio entero, Monito
 - Vistas nuevas en `ui/WhoopViews.kt`; piezas por código en `WhoopUi.kt` (objeto `W`); colores `w_*` en colors.xml; estilos TitleW/HeadingW/ButtonW.
 - Comprobado 17/10 con datos reales: compila, recursos enlazan con aapt2, y las gráficas se dibujaron a PNG con un "lienzo" Java2D
   (ver abajo). Estrés del sueño 16→17: 7:20/0:35/0:05 (WHOOP 7:39/0:19/0:00).
-- Pendiente de aspecto: Sueño, Recuperación, Esfuerzo y Sobre mí siguen con el diseño anterior; iOS sin portar.
+- Logo (17/10): anillo con degradado azul→verde (#02A9F7→#16EC06) atravesado por un latido blanco, sobre negro. `drawable/ic_logo.xml`,
+  icono adaptativo `mipmap-anydpi-v26` + PNG en todas las densidades, arranque Android 12 en negro (`values-v31/themes.xml`).
+  Pantalla de carga animada `ui/LoadingView.kt` (anillo que gira, latido que se dibuja con estela, onda al latir, letras de CARGANDO
+  que saltan) en `loadingOverlay` de Inicio; se quita al tener los datos (mínimo 1,6 s, máximo 9 s).
+- Sueño (`SleepDetailActivity`, 17/10) y Esfuerzo (`ActivitiesListActivity`) rehechos como WHOOP; reciben `EXTRA_DAY_OFFSET` desde Inicio.
+  Gráficas semanales con `ui/WeekChartView.kt` (barras/apiladas, rangos de horas, líneas), `SleepTimelineBar`, `TriSegmentView`.
+  `DayRecord` lleva fases, despertares, latencia, tiempo en cama, desglose de la necesidad, fuerza y zonas 1–5 (`ZoneDay` v2).
+  Umbrales de los 3 tramos (deficiente/suficiente/óptimo): horas vs necesidad 70/85, regularidad 65/80, eficiencia 80/90, estrés alto 0/5 %.
+  Esfuerzo recomendado (marca blanca): recuperación verde 16, amarilla 12, roja 8.
+- Pendiente de aspecto: Recuperación y Sobre mí siguen con el diseño anterior; iOS sin portar.
 
 ## Herramientas de comprobación (en el contenedor de Claude, no van en la app)
 - Recursos: `/tmp/claude-0/rescheck/run.sh` (aapt2 de PyPI `aapt2==0.2.1` + stubs de Material3 → R.java real).

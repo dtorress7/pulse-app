@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Pantalla de detalle con el aspecto de WHOOP (17/10). El contenido se crea por código. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/background">
+    android:background="@drawable/bg_screen_whoop">
 
     <ScrollView
         android:layout_width="match_parent"
@@ -14,82 +15,20 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingStart="20dp"
-            android:paddingTop="24dp"
-            android:paddingEnd="20dp">
+            android:paddingStart="16dp"
+            android:paddingTop="10dp"
+            android:paddingEnd="16dp">
 
-            <TextView style="@style/LargeTitle" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Esfuerzo" />
-            <TextView android:id="@+id/dateText" style="@style/RowText" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="" android:textColor="@color/text_secondary" android:textSize="14sp" />
-
-            <!-- Esfuerzo del día -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
-                android:background="@drawable/bg_card"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:padding="18dp">
-
-                <com.pulseapp.android.ui.CircularRingView
-                    android:id="@+id/strainRing"
-                    android:layout_width="150dp"
-                    android:layout_height="150dp" />
-
-                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_marginStart="20dp" android:layout_weight="1" android:orientation="vertical">
-                    <TextView style="@style/TitleLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Nivel" android:textSize="11sp" />
-                    <TextView android:id="@+id/levelText" style="@style/StatNumber" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:letterSpacing="0.04" android:text="--" android:textAllCaps="true" android:textColor="@color/strain_blue" android:textSize="22sp" />
-                    <TextView style="@style/TitleLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="14dp" android:text="FC media" android:textSize="11sp" />
-                    <TextView android:id="@+id/avgHrText" style="@style/StatNumber" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="--" android:textSize="26sp" />
-                    <TextView style="@style/TitleLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="14dp" android:text="FC máxima" android:textSize="11sp" />
-                    <TextView android:id="@+id/maxHrText" style="@style/StatNumber" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="--" android:textSize="26sp" />
-                </LinearLayout>
-            </LinearLayout>
-
-            <!-- Calorías y pasos -->
-            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:orientation="horizontal">
-                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_marginEnd="6dp" android:layout_weight="1" android:background="@drawable/bg_card" android:orientation="vertical" android:padding="16dp">
-                    <TextView style="@style/TitleLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Calorías" />
-                    <TextView android:id="@+id/caloriesText" style="@style/StatNumber" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:text="--" />
-                </LinearLayout>
-                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_marginStart="6dp" android:layout_weight="1" android:background="@drawable/bg_card" android:orientation="vertical" android:padding="16dp">
-                    <TextView style="@style/TitleLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Pasos" />
-                    <TextView android:id="@+id/stepsText" style="@style/StatNumber" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:text="--" />
-                </LinearLayout>
-            </LinearLayout>
-
-            <TextView style="@style/SectionTitle" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="28dp" android:text="Actividades" />
+            <include layout="@layout/include_detail_header" />
 
             <LinearLayout
-                android:id="@+id/activitiesList"
+                android:id="@+id/detailContent"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
                 android:orientation="vertical" />
-
-            <!-- Últimos 7 días -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:background="@drawable/bg_card"
-                android:orientation="vertical"
-                android:padding="18dp">
-
-                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="bottom">
-                    <TextView style="@style/TitleLabel" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Últimos 7 días" android:textSize="13sp" />
-                    <TextView android:id="@+id/weekAverageText" style="@style/Caption" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:id="@+id/weekBars"
-                    android:layout_width="match_parent"
-                    android:layout_height="150dp"
-                    android:layout_marginTop="12dp"
-                    android:orientation="horizontal" />
-            </LinearLayout>
         </LinearLayout>
     </ScrollView>
 
     <include layout="@layout/include_tab_bar" />
+
 </FrameLayout>

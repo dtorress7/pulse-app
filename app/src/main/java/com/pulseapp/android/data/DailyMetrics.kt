@@ -15,5 +15,12 @@ data class DailyMetrics(
     val sleepStartMinuteOfDay: Int? = null,
     val sleepEndMinuteOfDay: Int? = null,
     val sleepEfficiencyPct: Int? = null,
-    val respiratoryRate: Double? = null
+    val respiratoryRate: Double? = null,
+    // Fases de esa noche (solo si había movimiento grabado), desde la versión 9 de la base de datos (17/10)
+    val lightMinutes: Int? = null,
+    val deepMinutes: Int? = null,
+    val remMinutes: Int? = null,
+    val awakeMinutes: Int? = null,
+    val wakeEpisodes: Int? = null,
+    val latencyMinutes: Int? = null
 )

@@ -31,8 +31,19 @@ data class DayRecord(
     val needTonight: Int?,
     /** Deuda de sueño tras la noche que termina ese día. */
     val debt: Int?,
-    val consistency: Int?, val steps: Int?, val kcal: Double?, val vo2: Double?
-)
+    val consistency: Int?, val steps: Int?, val kcal: Double?, val vo2: Double?,
+    // Sueño de esa noche (pantalla Sueño): fases (si hubo movimiento), despertares, latencia, tiempo en cama
+    val light: Int? = null, val deep: Int? = null, val rem: Int? = null, val awake: Int? = null,
+    val wakeEpisodes: Int? = null, val latency: Int? = null, val inBed: Int? = null,
+    /** Lo que necesitabas la noche que termina ese día y de dónde sale (base + esfuerzo de la víspera + deuda). */
+    val needLastNight: Int? = null, val needBase: Int? = null, val needStrainAdj: Int? = null, val needDebtAdj: Int? = null,
+    // Esfuerzo de ese día (pantalla Esfuerzo)
+    val strengthMinutes: Int = 0, val zones: ZoneDay? = null
+) {
+    /** Sueño reparador = profundo + REM. */
+    val restorative: Int? get() = if (deep != null && rem != null) deep + rem else null
+    val hoursVsNeedPct: Int? get() = sleepMinutes?.let { s -> needLastNight?.let { n -> (s * 100 / n.coerceAtLeast(1)).coerceAtMost(100) } }
+}
 
 enum class Trend { UP, DOWN, SAME }
 
@@ -74,7 +85,13 @@ data class HomeData(
     val streak: Int,
     val insight: String,
     val baselineReady: Boolean,
-    val profileMissing: Boolean
+    val profileMissing: Boolean,
+    /** Todos los días con datos (hasta 40 antes + el elegido), de más antiguo a más reciente. */
+    val records: List<DayRecord> = emptyList(),
+    /** Estrés durante la noche que termina ese día. */
+    val sleepStressSeries: List<StressPoint> = emptyList(),
+    /** Fases minuto a minuto de esa noche (solo hoy, si hubo movimiento). */
+    val stages: SleepStager.Result? = null
 )
 
 object PanelKeys {
@@ -142,6 +159,13 @@ class HomeDataLoader(private val ctx: Context) {
             calories.estimateDailyTotal(elapsedMinutes, act, it.ageYears(), it.weightKg, it.heightCm, it.sex)
         }
 
+        fun strengthOf(d: LocalDate): Int {
+            val s = d.atStartOfDay(zone).toInstant().toEpochMilli()
+            val e = d.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+            return allSessions.filter { it.type.contains("fuerza", ignoreCase = true) && it.startMillis in s until e }
+                .sumOf { ((it.endMillis - it.startMillis) / 60_000L).toInt() }
+        }
+
         /** Día guardado → el mismo cálculo que hizo Inicio ese día (línea base, necesidad y regularidad de los días anteriores). */
         fun recordFromStored(d: LocalDate, row: DailyMetrics): DayRecord {
             val before = rowsBefore(d)
@@ -161,7 +185,13 @@ class HomeDataLoader(private val ctx: Context) {
             return DayRecord(
                 d, row.avgHrv, row.restingHr, row.respiratoryRate, row.sleepMinutes, row.sleepEfficiencyPct,
                 row.sleepStartMinuteOfDay, row.sleepEndMinuteOfDay, row.strain, recovery, score, needTonight, debtAfter,
-                consistency, stepsByDay[d]?.takeIf { it > 0 }, kcalFor(d, 1440.0), row.vo2Max
+                consistency, stepsByDay[d]?.takeIf { it > 0 }, kcalFor(d, 1440.0), row.vo2Max,
+                light = row.lightMinutes, deep = row.deepMinutes, rem = row.remMinutes, awake = row.awakeMinutes,
+                wakeEpisodes = row.wakeEpisodes, latency = row.latencyMinutes,
+                inBed = if (row.sleepStartMinuteOfDay != null && row.sleepEndMinuteOfDay != null)
+                    ((row.sleepEndMinuteOfDay - row.sleepStartMinuteOfDay + 1440) % 1440) else null,
+                needLastNight = needLastNight, needBase = base, needStrainAdj = Formulas.sleepNeedFromStrain(prevStrain ?: 0.0),
+                needDebtAdj = debtBefore, strengthMinutes = strengthOf(d), zones = zoneDays[d]
             )
         }
 
@@ -175,7 +205,8 @@ class HomeDataLoader(private val ctx: Context) {
             val plan = planner.computeTonightPlan(db, summary.strain, wake / 60, wake % 60)
             bedtime = plan.suggestedBedtime
             val consistency = Formulas.sleepConsistency(db.dailyMetricsDao().getLastDays(7).mapNotNull { it.sleepStartMinuteOfDay })
-            val lastNightNeed = planner.planForLastNight(db, summary).totalNeedMinutes
+            val lastPlan = planner.planForLastNight(db, summary)
+            val lastNightNeed = lastPlan.totalNeedMinutes
             val score = summary.sleepMinutes?.let {
                 Formulas.sleepScore((it * 100 / lastNightNeed.coerceAtLeast(1)).coerceAtMost(100), summary.sleepEfficiencyPct, consistency)
             }
@@ -193,7 +224,13 @@ class HomeDataLoader(private val ctx: Context) {
             todayRecord = DayRecord(
                 date, summary.avgHrv, summary.restingHr, summary.respiratoryRate, summary.sleepMinutes, summary.sleepEfficiencyPct,
                 summary.sleepStartMinuteOfDay, summary.sleepEndMinuteOfDay, summary.strain, recovery, score,
-                plan.totalNeedMinutes, debtAfter, consistency, liveSteps.takeIf { it > 0 }, kcalFor(date, elapsed), vo2
+                plan.totalNeedMinutes, debtAfter, consistency, liveSteps.takeIf { it > 0 }, kcalFor(date, elapsed), vo2,
+                light = summary.stages?.lightMinutes, deep = summary.stages?.deepMinutes, rem = summary.stages?.remMinutes,
+                awake = summary.stages?.awakeMinutes ?: summary.awakeMinutes, wakeEpisodes = summary.stages?.awakenings,
+                latency = summary.stages?.let { st -> summary.sleepStartMillis?.let { ((st.startMillis - it) / 60_000L).toInt().coerceAtLeast(0) } },
+                inBed = summary.stages?.minutes ?: summary.timeInBedMinutes,
+                needLastNight = lastNightNeed, needBase = lastPlan.baselineMinutes, needStrainAdj = lastPlan.strainAdjustmentMinutes,
+                needDebtAdj = lastPlan.debtAdjustmentMinutes, strengthMinutes = strengthOf(date), zones = zoneDays[date]
             )
         }
 
@@ -206,25 +243,9 @@ class HomeDataLoader(private val ctx: Context) {
         val day: DayRecord = todayRecord
             ?: byDate[date.format(iso)]?.let { recordFromStored(date, it) }
             ?: DayRecord(date, null, null, null, null, null, null, null, null, null, null, null, null, null,
-                stepsByDay[date]?.takeIf { it > 0 }, null, null)
+                stepsByDay[date]?.takeIf { it > 0 }, null, null, strengthMinutes = strengthOf(date), zones = zoneDays[date])
         records[date] = day
         val previous = records.values.filter { it.date < date && it.date >= date.minusDays(30) }
-
-        // ---------- Estrés del día (00:00 → ahora, como WHOOP) ----------
-        val baselineNow = BaselineProvider().compute(db)
-        val stressCalc = StressCalculator()
-        // Una sola lectura del archivo: el día elegido y, si es hoy, también las últimas 24 h (el valor "actual" de siempre)
-        val samples = withContext(Dispatchers.IO) { stressCalc.loadSamples(hrFile, if (isToday) minOf(dayStart, now - 86_400_000L) else dayStart) }
-        val stressTo = if (isToday) now else dayEnd
-        val series = stressCalc.seriesBetween(samples, dayStart, stressTo, day.rhr, baselineNow)
-        val current = if (isToday) stressCalc.seriesBetween(samples, now - 86_400_000L, now, day.rhr, baselineNow).lastOrNull() else null
-        val lastPoint = (current ?: series.lastOrNull())?.score
-        val lastMinute = (current ?: series.lastOrNull())?.minuteOfDay
-        val level = when {
-            lastPoint == null || lastPoint < 1f -> "BAJO"
-            lastPoint < 2f -> "MEDIO"
-            else -> "ALTO"
-        }
 
         // Ventana de sueño de la noche que termina ese día
         var sleepFrom: Long? = null
@@ -236,6 +257,24 @@ class HomeDataLoader(private val ctx: Context) {
             sleepTo = dayStart + day.sleepEndMinute * 60_000L
             sleepFrom = if (day.sleepStartMinute > day.sleepEndMinute) dayStart - (1440 - day.sleepStartMinute) * 60_000L
             else dayStart + day.sleepStartMinute * 60_000L
+        }
+
+        // ---------- Estrés del día (00:00 → ahora, como WHOOP) ----------
+        val baselineNow = BaselineProvider().compute(db)
+        val stressCalc = StressCalculator()
+        // Una sola lectura del archivo: el día elegido y, si es hoy, también las últimas 24 h (el valor "actual" de siempre)
+        val loadFrom = listOfNotNull(dayStart, sleepFrom, if (isToday) now - 86_400_000L else null).minOrNull()!!
+        val samples = withContext(Dispatchers.IO) { stressCalc.loadSamples(hrFile, loadFrom) }
+        val sleepStress = if (sleepFrom != null && sleepTo != null) stressCalc.seriesBetween(samples, sleepFrom, sleepTo, day.rhr, baselineNow) else emptyList()
+        val stressTo = if (isToday) now else dayEnd
+        val series = stressCalc.seriesBetween(samples, dayStart, stressTo, day.rhr, baselineNow)
+        val current = if (isToday) stressCalc.seriesBetween(samples, now - 86_400_000L, now, day.rhr, baselineNow).lastOrNull() else null
+        val lastPoint = (current ?: series.lastOrNull())?.score
+        val lastMinute = (current ?: series.lastOrNull())?.minuteOfDay
+        val level = when {
+            lastPoint == null || lastPoint < 1f -> "BAJO"
+            lastPoint < 2f -> "MEDIO"
+            else -> "ALTO"
         }
 
         // ---------- Monitor de salud ----------
@@ -333,7 +372,9 @@ class HomeDataLoader(private val ctx: Context) {
             stressFrom = dayStart, stressTo = stressTo, sleepFromMillis = sleepFrom, sleepToMillis = sleepTo,
             sessions = sessionsOfDay, bedtime = bedtime, wakeMinute = wake, panel = panel, week = week, streak = streak,
             insight = Insight.build(day, previous, isToday, baselineNow != null),
-            baselineReady = baselineNow != null, profileMissing = profile == null
+            baselineReady = baselineNow != null, profileMissing = profile == null,
+            records = records.values.sortedBy { it.date }, sleepStressSeries = sleepStress,
+            stages = if (isToday) summary?.stages else null
         )
     }
 
@@ -360,7 +401,10 @@ class HomeDataLoader(private val ctx: Context) {
 }
 
 /** Segundos con pulso de un día y segundos en zonas 1–3 (50–80 % FC máx) y 4–5 (≥ 80 %), como las zonas de la app. */
-data class ZoneDay(val totalSeconds: Int, val z13Seconds: Int, val z45Seconds: Int)
+data class ZoneDay(val totalSeconds: Int, val z1: Int, val z2: Int, val z3: Int, val z4: Int, val z5: Int) {
+    val z13Seconds get() = z1 + z2 + z3
+    val z45Seconds get() = z4 + z5
+}
 
 /**
  * Tiempo por zonas de cada día sacado de hr_log.csv en UNA pasada, con caché de los días cerrados
@@ -371,14 +415,15 @@ class ZoneDayCache(private val cacheFile: File) {
 
     fun load(hrFile: File, hrMax: Double, today: LocalDate, days: Int): Map<LocalDate, ZoneDay> {
         val result = HashMap<LocalDate, ZoneDay>()
-        val hrMaxKey = Math.round(hrMax).toInt()
+        val header = "v2,hrmax=" + Math.round(hrMax).toInt()
         try {
             if (cacheFile.exists()) {
                 val lines = cacheFile.readLines()
-                if (lines.firstOrNull() == "hrmax=$hrMaxKey") {
+                if (lines.firstOrNull() == header) {
                     lines.drop(1).forEach { l ->
                         val p = l.split(',')
-                        if (p.size == 4) result[LocalDate.parse(p[0])] = ZoneDay(p[1].toInt(), p[2].toInt(), p[3].toInt())
+                        if (p.size == 7) result[LocalDate.parse(p[0])] =
+                            ZoneDay(p[1].toInt(), p[2].toInt(), p[3].toInt(), p[4].toInt(), p[5].toInt(), p[6].toInt())
                     }
                 }
             }
@@ -387,9 +432,8 @@ class ZoneDayCache(private val cacheFile: File) {
         val wanted = (0..days).map { today.minusDays(it.toLong()) }.filter { it > today.minusDays(3) || it !in result }.toSet()
         if (wanted.isEmpty() || !hrFile.exists()) return result
         val wantedKeys = wanted.associateBy { it.toString() }
-        val total = HashMap<LocalDate, BitSet>()
-        val z13 = HashMap<LocalDate, BitSet>()
-        val z45 = HashMap<LocalDate, BitSet>()
+        // Por día: [0] = segundos con pulso, [1..5] = segundos en cada zona (marcados en un BitSet de 86 400 s)
+        val bits = HashMap<LocalDate, Array<BitSet>>()
         try {
             hrFile.forEachLine { line ->
                 if (line.length < 21 || line[10] != 'T') return@forEachLine
@@ -402,23 +446,26 @@ class ZoneDayCache(private val cacheFile: File) {
                 if (bpm <= 0 || bpm > 250) return@forEachLine
                 val sec = h * 3600 + m * 60 + s
                 if (sec !in 0 until 86400) return@forEachLine
-                total.getOrPut(d) { BitSet(86400) }.set(sec)
+                val b = bits.getOrPut(d) { Array(6) { BitSet(86400) } }
+                b[0].set(sec)
                 val pct = bpm / hrMax
-                if (pct >= 0.8) z45.getOrPut(d) { BitSet(86400) }.set(sec)
-                else if (pct >= 0.5) z13.getOrPut(d) { BitSet(86400) }.set(sec)
+                val z = when { pct < 0.5 -> 0; pct < 0.6 -> 1; pct < 0.7 -> 2; pct < 0.8 -> 3; pct < 0.9 -> 4; else -> 5 }
+                if (z > 0) b[z].set(sec)
             }
         } catch (e: Exception) { return result }
         for (d in wanted) {
-            val t = total[d]?.cardinality() ?: 0
-            result[d] = ZoneDay(t, z13[d]?.cardinality() ?: 0, z45[d]?.cardinality() ?: 0)
+            val b = bits[d]
+            result[d] = if (b == null) ZoneDay(0, 0, 0, 0, 0, 0)
+            else ZoneDay(b[0].cardinality(), b[1].cardinality(), b[2].cardinality(), b[3].cardinality(), b[4].cardinality(), b[5].cardinality())
         }
         // Guarda solo días cerrados hace ≥ 3 días y con datos: el historial de la pulsera puede llegar tarde y rellenar huecos
         try {
-            val sb = StringBuilder("hrmax=$hrMaxKey\n")
+            val sb = StringBuilder(header).append('\n')
             result.filter { (d, z) -> d <= today.minusDays(3) && d >= today.minusDays(days.toLong()) && z.totalSeconds > 0 }
                 .toSortedMap().forEach { (d, z) ->
-                sb.append(d).append(',').append(z.totalSeconds).append(',').append(z.z13Seconds).append(',').append(z.z45Seconds).append('\n')
-            }
+                    sb.append(d).append(',').append(z.totalSeconds).append(',').append(z.z1).append(',').append(z.z2).append(',')
+                        .append(z.z3).append(',').append(z.z4).append(',').append(z.z5).append('\n')
+                }
             cacheFile.writeText(sb.toString())
         } catch (e: Exception) { }
         return result

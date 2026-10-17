@@ -1217,4 +1217,20 @@
 
     <include layout="@layout/include_tab_bar" />
 
+    <!-- Pantalla de carga animada con el logo (se quita al tener los datos) -->
+    <FrameLayout
+        android:id="@+id/loadingOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#FF000000"
+        android:clickable="true"
+        android:elevation="20dp"
+        android:focusable="true">
+
+        <com.pulseapp.android.ui.LoadingView
+            android:id="@+id/loadingView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+    </FrameLayout>
+
 </FrameLayout>

@@ -192,4 +192,113 @@ object W {
                 layoutParams = LinearLayout.LayoutParams(dp(ctx, 3f), dp(ctx, 36f)).apply { marginStart = dp(ctx, 12f) }
             })
         }
+
+    // ---------- Pantallas de detalle (Sueño y Esfuerzo, 17/10) ----------
+
+    private val WD = arrayOf("LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB", "DOM")
+    private val WD_LOW = arrayOf("lun", "mar", "mié", "jue", "vie", "sáb", "dom")
+    private val MO = arrayOf("ENE", "FEB", "MAR", "ABR", "MAY", "JUN", "JUL", "AGO", "SEP", "OCT", "NOV", "DIC")
+    private val MO_LOW = arrayOf("ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic")
+
+    /** "VIE., OCT. 16" (cabecera de WHOOP). */
+    fun dateTitle(d: java.time.LocalDate) = "${WD[d.dayOfWeek.value - 1]}., ${MO[d.monthValue - 1]}. ${d.dayOfMonth}"
+
+    /** "Vie., Oct. 16". */
+    fun dateShort(d: java.time.LocalDate) =
+        WD_LOW[d.dayOfWeek.value - 1].replaceFirstChar { it.uppercase() } + "., " + MO_LOW[d.monthValue - 1].replaceFirstChar { it.uppercase() } + ". " + d.dayOfMonth
+
+    fun weekDays(dates: List<java.time.LocalDate>) = dates.map { com.pulseapp.android.ui.WeekChartView.Day(WD_LOW[it.dayOfWeek.value - 1], it.dayOfMonth.toString()) }
+
+    fun trendOf(value: Double?, avg: Double?, tol: Double = 0.5): Trend? = when {
+        value == null || avg == null -> null
+        kotlin.math.abs(value - avg) <= tol -> Trend.SAME
+        value > avg -> Trend.UP
+        else -> Trend.DOWN
+    }
+
+    /** Flecha de color: verde si va hacia lo bueno, naranja si va hacia lo malo, gris si no importa. */
+    fun trendColor(trend: Trend?, goodWhenHigh: Boolean?): Int = when {
+        trend == null || trend == Trend.SAME || goodWhenHigh == null -> R.color.text_secondary
+        (trend == Trend.UP) == goodWhenHigh -> R.color.w_mint
+        else -> R.color.w_trend_amber
+    }
+
+    /** Cabecera de tarjeta con valor grande, flecha y la media debajo: "HORAS DE SUEÑO / 6:58 ▼ / 8:07". */
+    fun metricHeader(ctx: Context, title: String, value: String, trend: Trend?, goodWhenHigh: Boolean?, avg: String?, info: String? = null): LinearLayout =
+        LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(LinearLayout(ctx).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                addView(title(ctx, title, 14.5f).apply { layoutParams = weight() })
+                if (info != null) addView(icon(ctx, R.drawable.ic_info, 20f, R.color.text_secondary).apply {
+                    setOnClickListener {
+                        androidx.appcompat.app.AlertDialog.Builder(ctx).setTitle(title.lowercase().replaceFirstChar { it.uppercase() })
+                            .setMessage(info).setPositiveButton("Cerrar", null).show()
+                    }
+                })
+            })
+            addView(LinearLayout(ctx).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(0, dp(ctx, 12f), 0, 0)
+                addView(number(ctx, value, 26f))
+                val ic = when (trend) { Trend.UP -> R.drawable.ic_triangle_up; Trend.DOWN -> R.drawable.ic_triangle_down; Trend.SAME -> R.drawable.ic_dot; null -> 0 }
+                if (ic != 0) addView(icon(ctx, ic, 12f, trendColor(trend, goodWhenHigh)).apply {
+                    (layoutParams as LinearLayout.LayoutParams).marginStart = dp(ctx, 8f)
+                })
+            })
+            if (avg != null) addView(number(ctx, avg, 14f, R.color.text_secondary).apply { setPadding(0, dp(ctx, 3f), 0, 0) })
+        }
+
+    /** Tarjeta de tendencia semanal: título con flecha, leyenda opcional y la gráfica. */
+    fun chartCard(ctx: Context, title: String, legend: List<Pair<String, Int>>, chart: View, heightDp: Float = 250f): LinearLayout =
+        card(ctx, 14f).apply {
+            addView(LinearLayout(ctx).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                addView(title(ctx, title, 14.5f).apply { layoutParams = weight() })
+                addView(icon(ctx, R.drawable.ic_chevron_right, 18f, R.color.text_secondary))
+            })
+            if (legend.isNotEmpty()) addView(LinearLayout(ctx).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.END or Gravity.CENTER_VERTICAL
+                setPadding(0, dp(ctx, 14f), 0, 0)
+                legend.forEach { (name, color) ->
+                    addView(View(ctx).apply {
+                        background = rounded(ctx, color, 1.5f)
+                        layoutParams = LinearLayout.LayoutParams(dp(ctx, 10f), dp(ctx, 10f)).apply { marginStart = dp(ctx, 14f) }
+                    })
+                    addView(title(ctx, name, 12f, R.color.text_secondary).apply { setPadding(dp(ctx, 7f), 0, 0, 0) })
+                }
+            })
+            addView(chart.apply {
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(ctx, heightDp)).apply { topMargin = dp(ctx, 12f) }
+            })
+        }
+
+    /** Fila "nombre ............ valor" con flecha y media opcional (dentro de una tarjeta). */
+    fun valueRow(ctx: Context, iconRes: Int?, label: String, value: String, trend: Trend? = null, goodWhenHigh: Boolean? = null,
+                 avg: String? = null, iconTint: Int = R.color.text_secondary): LinearLayout = LinearLayout(ctx).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        setPadding(0, dp(ctx, 12f), 0, dp(ctx, 12f))
+        if (iconRes != null) addView(icon(ctx, iconRes, 20f, iconTint).apply { (layoutParams as LinearLayout.LayoutParams).marginEnd = dp(ctx, 12f) })
+        addView(title(ctx, label, 13.5f).apply { layoutParams = weight(); setLineSpacing(dp(ctx, 4f).toFloat(), 1f) })
+        val right = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.END }
+        right.addView(LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(number(ctx, value, 22f))
+            val ic = when (trend) { Trend.UP -> R.drawable.ic_triangle_up; Trend.DOWN -> R.drawable.ic_triangle_down; Trend.SAME -> R.drawable.ic_dot; null -> 0 }
+            if (ic != 0) addView(icon(ctx, ic, 11f, trendColor(trend, goodWhenHigh)).apply { (layoutParams as LinearLayout.LayoutParams).marginStart = dp(ctx, 7f) })
+        })
+        if (avg != null) right.addView(number(ctx, avg, 13f, R.color.text_secondary).apply { setPadding(0, dp(ctx, 2f), dp(ctx, 18f), 0) })
+        addView(right)
+    }
+
+    fun divider(ctx: Context): View = View(ctx).apply {
+        setBackgroundColor(Ui.color(ctx, R.color.hairline))
+        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(ctx, 1f).coerceAtLeast(1))
+    }
 }
