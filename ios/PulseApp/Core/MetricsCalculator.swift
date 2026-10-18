@@ -126,15 +126,22 @@ enum SleepPlanner {
     }
     static func setWakeMinute(_ m: Int) { UserDefaults.standard.set(m, forKey: wakeKey) }
 
-    /// Deuda de sueño acumulada con decaimiento ×0,7 por día, de la noche más antigua a la más reciente.
-    static func debtFrom(_ sleepMinutesOldestFirst: [Int?], base: Int) -> Int {
+    /// Deuda tras una noche, como WHOOP (18/10): la mitad de lo que te faltó para la necesidad de esa noche
+    /// (base + esfuerzo de la víspera + deuda que traías). Ajustado con 152 noches del export de WHOOP: error medio 1,5 min.
+    /// Sin dato de esa noche, la deuda se reduce a la mitad.
+    static func nextDebt(_ debtBefore: Int, base: Int, prevDayStrain: Double?, slept: Int?) -> Int {
+        guard let s = slept else { return debtBefore / 2 }
+        let need = base + Formulas.sleepNeedFromStrain(prevDayStrain ?? 0) + debtBefore
+        return max(Int((Double(need - s) / 2).rounded()), 0)
+    }
+
+    /// Deuda acumulada tras la última noche guardada, de la más antigua a la más reciente.
+    static func debtFrom(_ rowsOldestFirst: [DailyMetrics], base: Int) -> Int {
+        var strain = [String: Double]()
+        for r in rowsOldestFirst { if let s = r.strain { strain[r.date] = s } }
         var debt = 0
-        for slept in sleepMinutesOldestFirst {
-            guard let s = slept else { continue }
-            let diff = base - s
-            if diff > 0 { debt = Int(Double(debt) * 0.7 + Double(diff)) } else { debt = Int(Double(debt) * 0.7) }
-        }
-        return max(debt, 0)
+        for r in rowsOldestFirst { debt = nextDebt(debt, base: base, prevDayStrain: strain[Day.add(r.date, -1)], slept: r.sleepMinutes) }
+        return debt
     }
 
     /// Necesidad de la noche que acabas de dormir: usa el esfuerzo de AYER (el de hoy apenas ha empezado).
@@ -148,10 +155,12 @@ enum SleepPlanner {
         return computeTonightPlan(store: store, todayStrain: strain)
     }
 
-    static func computeTonightPlan(store: AppStore, todayStrain: Double?, wakeHour: Int = 7, wakeMinute: Int = 30) -> SleepPlan {
+    /// [debtOverride]: deuda ya calculada (la de después de la última noche); nil = la de las noches guardadas.
+    static func computeTonightPlan(store: AppStore, todayStrain: Double?, wakeHour: Int = 7, wakeMinute: Int = 30,
+                                   debtOverride: Int? = nil) -> SleepPlan {
         let strainMinutes = todayStrain.map { Formulas.sleepNeedFromStrain($0) } ?? 0
         let base = baselineForAge(store.getProfile()?.ageYears())
-        let debt = computeAccumulatedDebt(store: store, base: base)
+        let debt = debtOverride ?? computeAccumulatedDebt(store: store, base: base)
         let nap = 0   // pendiente: detección de siestas
         let total = base + strainMinutes + debt - nap
         return SleepPlan(baselineMinutes: base, strainAdjustmentMinutes: strainMinutes, debtAdjustmentMinutes: debt,
@@ -159,16 +168,9 @@ enum SleepPlanner {
                          suggestedBedtime: suggestedBedtime(total, wakeHour, wakeMinute))
     }
 
-    /// Deuda acumulada de los últimos 7 días con decaimiento (los días viejos pesan menos).
+    /// Deuda tras las noches guardadas (se reparte a la mitad cada noche: 14 noches sobran).
     private static func computeAccumulatedDebt(store: AppStore, base: Int) -> Int {
-        let last = store.lastDays(7).sorted { $0.date < $1.date }
-        var debt = 0
-        for day in last {
-            guard let slept = day.sleepMinutes else { continue }
-            let diff = base - slept
-            if diff > 0 { debt = Int(Double(debt) * 0.7 + Double(diff)) } else { debt = Int(Double(debt) * 0.7) }
-        }
-        return max(debt, 0)
+        return debtFrom(store.lastDays(14).sorted { $0.date < $1.date }, base: base)
     }
 
     private static func suggestedBedtime(_ need: Int, _ h: Int, _ m: Int) -> String {

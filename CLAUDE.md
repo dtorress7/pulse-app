@@ -66,7 +66,13 @@ Peso/altura/edad/sexo → calorías (Mifflin + Keytel). Sexo → TRIMP. Recupera
   FC reposo mediana 64 (WHOOP 64). Ciclo del día = desde que te duermes (o 00:00): esfuerzo y FC media solo de ese ciclo
   (antes usaba todo el archivo). `DailyMetricsUpdater` guarda la noche que TERMINA ese día (18:00 víspera → 14:00).
   `BaselineProvider` solo usa días con ≥ 3 h dormido. Sin 3 noches propias: referencia 86 ms / 59 lpm (media reciente WHOOP).
-- Necesidad de sueño = 470 min + max(0, strain−8)·6 + deuda (decae ×0,7/día). Despertar fijo 7:30.
+- Necesidad de sueño = 470 min + max(0, strain−8)·6 + deuda. **Deuda (18/10, ajustada con 152 noches del export)** = max(0, (necesidad
+  de esa noche − dormido) / 2) (`SleepPlanner.nextDebt`, MAE 1,5 min; la de antes ×0,7 sobre la base salía el doble). Sin dato esa noche: deuda/2.
+  Hora de despertar editable (7:30 por defecto).
+- **Regularidad (18/10, 145 noches del export)** = media de intersección/unión del tramo en cama de la última noche con cada una de las 3
+  anteriores (eje desde las 12:00) × 100 − 7 (`Formulas.sleepConsistency(noches)`), MAE 4,9, 87 % a ±10. La de antes (sd de la hora de
+  dormirse, 7 noches) tenía MAE 27. Ojo: esta semana WHOOP salió ~7 puntos por encima del export (92/89/64/76 vs J3 89/91/65/77 sin restar 7);
+  revisar el −7 en la ronda grande.
 - Calorías = Mifflin-St Jeor × (min transcurridos/1440) × 1,15 + kcal de actividades (Keytel).
 - VO2máx = 15,3 × FCmáx / FC reposo, se recalcula sólo los martes.
 - Estrés (15/10): ventanas de 5 min de las últimas 24 h, 4,8·(0,7·(FC−FCRbase)/FCRbase + 0,3·ln(VFCbase/VFC)) → 0–3.
@@ -164,6 +170,13 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
 - Criterio para dar por cerrado: errores medios dentro de lo que WHOOP varía de por sí (aprox. horas ±10 min, fases ±15 min,
   VFC ±5 ms, FC reposo ±1, recuperación ±5 puntos). Después: igualar el aspecto/pantallas a la app de WHOOP.
 - Noches de referencia hasta ahora: 15→16 (deporte la víspera), 16→17 (deporte la víspera). 14→15 sin movimiento.
+- **17→18 (4.ª referencia, sábado tranquilo)**: WHOOP 01:06–09:04, dormido 7:30, cama 7:58, despierto 0:28 / ligero 4:03 / profundo 1:47 / REM 1:40,
+  13 despertares, 94 %, VFC 98, FCR 56, resp 13,3, necesidad 8:29 (7:50 + 0:02 + deuda 0:37), horas vs necesidad 88 %, regularidad 76 %,
+  calificación 85 %, estrés del sueño alto 0 % (0:00/0:25/7:34), recuperación 78 % (medias WHOOP 30 d: VFC 94, FCR 58).
+  PulseApp Android: 01:02–09:04, 7:27, cama 8:02, 0:35/4:05/1:55/1:27, 12 desp., 92 %, VFC 99, FCR 57, resp 12,9 → crudo casi igual.
+  Porcentajes: necesidad 8:56 (deuda 1:06) → 83 %, regularidad 61 %, calificación 79 %, recuperación 84 % (sin línea base propia: solo hay
+  2 noches ≥17/10 → referencia genérica 86/59), estrés alto 2 %. Con deuda y regularidad nuevas: ≈ 89 % / 71 % / 83 %.
+  Archivos: hr_log_14.csv, motion_minutes_2.csv, whoop_bio_log.csv (subidos 18/10).
 
 ## Pendiente (en orden)
 1. Ajustar el contador de pasos con una prueba de 100 pasos contados.

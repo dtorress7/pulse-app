@@ -36,15 +36,26 @@ class SleepPlanner {
         fun setWakeMinute(ctx: android.content.Context, minuteOfDay: Int) =
             ctx.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).edit().putInt("wake_minute", minuteOfDay).apply()
 
-        /** Deuda de sueño acumulada con decaimiento ×0,7 por día, de la noche más antigua a la más reciente. */
-        fun debtFrom(sleepMinutesOldestFirst: List<Int?>, base: Int): Int {
+        /**
+         * Deuda tras una noche, como WHOOP (18/10): la mitad de lo que te faltó para la necesidad de esa noche
+         * (base + esfuerzo de la víspera + deuda que traías). Ajustado con 152 noches del export de WHOOP: error medio 1,5 min
+         * (la fórmula anterior, ×0,7 por día sobre la base, se quedaba muy por encima). Sin dato de esa noche, la deuda se reduce a la mitad.
+         */
+        fun nextDebt(debtBefore: Int, base: Int, prevDayStrain: Double?, slept: Int?): Int {
+            if (slept == null) return debtBefore / 2
+            val need = base + Formulas.sleepNeedFromStrain(prevDayStrain ?: 0.0) + debtBefore
+            return Math.round((need - slept) / 2.0).toInt().coerceAtLeast(0)
+        }
+
+        /** Deuda acumulada tras la última noche guardada, recorriendo las noches de la más antigua a la más reciente. */
+        fun debtFrom(rowsOldestFirst: List<com.pulseapp.android.data.DailyMetrics>, base: Int): Int {
+            val strainByDate = rowsOldestFirst.associate { it.date to it.strain }
             var debt = 0
-            sleepMinutesOldestFirst.forEach { slept ->
-                if (slept == null) return@forEach
-                val diff = base - slept
-                debt = if (diff > 0) (debt * 0.7 + diff).toInt() else (debt * 0.7).toInt()
+            rowsOldestFirst.forEach { r ->
+                val prev = java.time.LocalDate.parse(r.date).minusDays(1).toString()
+                debt = nextDebt(debt, base, strainByDate[prev], r.sleepMinutes)
             }
-            return debt.coerceAtLeast(0)
+            return debt
         }
 
         /** Sueño base según la edad (recomendaciones de la National Sleep Foundation / AASM). */
@@ -73,10 +84,12 @@ class SleepPlanner {
         return computeTonightPlan(db, strain)
     }
 
-    suspend fun computeTonightPlan(db: AppDatabase, todayStrain: Double?, wakeUpHour: Int = 7, wakeUpMinute: Int = 30): SleepPlan {
+    /** [debtOverride]: deuda ya calculada (p. ej. la de después de la última noche); null = la de las noches guardadas. */
+    suspend fun computeTonightPlan(db: AppDatabase, todayStrain: Double?, wakeUpHour: Int = 7, wakeUpMinute: Int = 30,
+                                   debtOverride: Int? = null): SleepPlan {
         val strainMinutes = todayStrain?.let { Formulas.sleepNeedFromStrain(it) } ?: 0
 
-        val debtMinutes = computeAccumulatedDebt(db, baselineForAge(db.userProfileDao().getOnce()?.ageYears()))
+        val debtMinutes = debtOverride ?: computeAccumulatedDebt(db, baselineForAge(db.userProfileDao().getOnce()?.ageYears()))
 
         val napMinutes = 0 // pendiente: necesitaríamos detección de siestas
 
@@ -96,9 +109,9 @@ class SleepPlanner {
     }
 
     private suspend fun computeAccumulatedDebt(db: AppDatabase, base: Int): Int {
-        // Recorre del más antiguo al más reciente, con decaimiento (cada día la deuda anterior pesa un 70 %)
-        val lastDays = db.dailyMetricsDao().getLastDays(7)
-        return debtFrom(lastDays.sortedBy { it.date }.map { it.sleepMinutes }, base)
+        // Recorre del más antiguo al más reciente (la deuda se reparte a la mitad cada noche: 14 noches sobran)
+        val lastDays = db.dailyMetricsDao().getLastDays(14)
+        return debtFrom(lastDays.sortedBy { it.date }, base)
     }
 
     private fun computeSuggestedBedtime(needMinutes: Int, wakeUpHour: Int, wakeUpMinute: Int): String {

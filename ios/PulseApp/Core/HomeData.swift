@@ -210,10 +210,11 @@ enum HomeDataLoader {
                 r.recovery = Formulas.recovery(hrv: row.avgHrv, restingHr: row.restingHr, respiratoryRate: row.respiratoryRate, baseline: baseline).total
             }
             let prevStrain = byDate[Day.add(d, -1)]?.strain
-            let debtBefore = SleepPlanner.debtFrom(last7.map { $0.sleepMinutes }, base: base)
+            let debtBefore = SleepPlanner.debtFrom(Array(before.suffix(14)), base: base)
             let strainAdj = Formulas.sleepNeedFromStrain(prevStrain ?? 0)
             let needLastNight = base + strainAdj + debtBefore
-            let consistency = Formulas.sleepConsistency(last7.compactMap { $0.sleepStartMinuteOfDay })
+            // Regularidad de esa noche: ella y las 3 anteriores
+            let consistency = Formulas.sleepConsistency(HomeDataLoader.nights(last7 + [row]))
             if let m = row.sleepMinutes {
                 r.sleepScore = Formulas.sleepScore(hoursVsNeedPct: min(m * 100 / max(needLastNight, 1), 100),
                                                    efficiencyPct: row.sleepEfficiencyPct, consistencyPct: consistency)
@@ -222,8 +223,9 @@ enum HomeDataLoader {
             r.sleepMinutes = row.sleepMinutes; r.efficiency = row.sleepEfficiencyPct
             r.sleepStartMinute = row.sleepStartMinuteOfDay; r.sleepEndMinute = row.sleepEndMinuteOfDay
             r.strain = row.strain
-            r.needTonight = base + Formulas.sleepNeedFromStrain(row.strain ?? 0) + debtBefore
-            r.debt = SleepPlanner.debtFrom(Array(last7.suffix(6)).map { $0.sleepMinutes } + [row.sleepMinutes], base: base)
+            let debtAfter = SleepPlanner.nextDebt(debtBefore, base: base, prevDayStrain: prevStrain, slept: row.sleepMinutes)
+            r.needTonight = base + Formulas.sleepNeedFromStrain(row.strain ?? 0) + debtAfter
+            r.debt = debtAfter
             r.consistency = consistency
             if let st = stepsByDay[d], st > 0 { r.steps = st }
             r.kcal = kcalFor(d, 1440)
@@ -247,16 +249,22 @@ enum HomeDataLoader {
                 r.recovery = RecoveryCalculator.breakdown(nightlyHrv: s.avgHrv, restingHr: s.restingHr, baseline: baseline,
                                                           respiratoryRate: s.respiratoryRate).total
             }
-            let plan = SleepPlanner.computeTonightPlan(store: store, todayStrain: s.strain, wakeHour: wake / 60, wakeMinute: wake % 60)
-            bedtime = plan.suggestedBedtime
-            let consistency = Formulas.sleepConsistency(store.lastDays(7).compactMap { $0.sleepStartMinuteOfDay })
             let lastPlan = SleepPlanner.planForLastNight(store: store, summary: s)
+            // Deuda tras la noche de hoy: la mitad de lo que faltó para la necesidad de esa noche
+            var debtAfter = lastPlan.debtAdjustmentMinutes
+            if let m = s.sleepMinutes { debtAfter = max(Int((Double(lastPlan.totalNeedMinutes - m) / 2).rounded()), 0) }
+            let plan = SleepPlanner.computeTonightPlan(store: store, todayStrain: s.strain, wakeHour: wake / 60, wakeMinute: wake % 60,
+                                                       debtOverride: debtAfter)
+            bedtime = plan.suggestedBedtime
+            var consistency: Int? = nil
+            if let a = s.sleepStartMinuteOfDay, let b = s.sleepEndMinuteOfDay {
+                consistency = Formulas.sleepConsistency(HomeDataLoader.nights(Array(stored.filter { $0.date < date }.suffix(3))) + [(a, b)])
+            }
             if let m = s.sleepMinutes {
                 r.sleepScore = Formulas.sleepScore(hoursVsNeedPct: min(m * 100 / max(lastPlan.totalNeedMinutes, 1), 100),
                                                    efficiencyPct: s.sleepEfficiencyPct, consistencyPct: consistency)
             }
-            let last6 = Array(stored.filter { $0.date < date }.suffix(6))
-            r.debt = SleepPlanner.debtFrom(last6.map { $0.sleepMinutes } + [s.sleepMinutes], base: base)
+            r.debt = debtAfter
             // VO2 máx estable: se recalcula solo los martes (o si nunca se ha calculado)
             let isTuesday = TimeUtil.parts(now).weekday == 2
             if var p = profile, (isTuesday || p.vo2Max == nil), let v = s.vo2Max {
@@ -437,6 +445,14 @@ enum HomeDataLoader {
             baselineReady: baselineNow != nil, profileMissing: profile == nil,
             records: records.values.sorted { $0.date < $1.date }, sleepStressSeries: sleepStress,
             stages: isToday ? summary?.stages : nil, nightReadings: nightReadings)
+    }
+
+    /// (inicio, fin) de las noches guardadas que tienen las dos horas.
+    static func nights(_ rows: [DailyMetrics]) -> [(Int, Int)] {
+        return rows.compactMap { r -> (Int, Int)? in
+            guard let a = r.sleepStartMinuteOfDay, let b = r.sleepEndMinuteOfDay else { return nil }
+            return (a, b)
+        }
     }
 
     /// Rango habitual = media ± 1 desviación (mínimo ±5 % de la media). nil con menos de 3 noches.

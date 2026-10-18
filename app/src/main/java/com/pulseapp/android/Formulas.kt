@@ -4,6 +4,7 @@ import android.content.Context
 import kotlin.math.exp
 import kotlin.math.ln
 import kotlin.math.max
+import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
 /**
@@ -145,13 +146,30 @@ object Formulas {
         (0.281 * hoursVsNeedPct.coerceIn(0, 100) + 0.202 * (efficiencyPct ?: 93) +
             0.288 * (consistencyPct ?: 66) + 19.6).toInt().coerceIn(0, 100)
 
-    /** Regularidad 0–100 según lo que varía tu hora de dormirte (minutos del día de las últimas noches). */
-    fun sleepConsistency(sleepStartMinutes: List<Int>): Int? {
-        if (sleepStartMinutes.size < 3) return null
-        val norm = sleepStartMinutes.map { if (it < 12 * 60) it + 1440 else it }
-        val avg = norm.average()
-        val sd = sqrt(norm.map { (it - avg) * (it - avg) }.average())
-        return (100 - sd / 120.0 * 100).coerceIn(0.0, 100.0).toInt()
+    /**
+     * Regularidad 0–100 como WHOOP (18/10): cuánto se solapa la última noche con cada una de las 3 anteriores
+     * (intersección / unión del tramo en cama, por hora del día), en media, menos 7.
+     * Ajustado con las 145 noches del export de WHOOP: error medio 4,9 puntos, 87 % a ±10 (la fórmula anterior, por la
+     * desviación de la hora de dormirse, fallaba 27 puntos de media). [nightsOldestFirst] = (minuto de inicio, minuto de fin)
+     * de cada noche, la última es la que se califica. Null con menos de 2 noches.
+     */
+    fun sleepConsistency(nightsOldestFirst: List<Pair<Int, Int>>): Int? {
+        if (nightsOldestFirst.size < 2) return null
+        // Eje desde las 12:00: la noche queda en un tramo continuo [ini, fin)
+        fun axis(n: Pair<Int, Int>): Pair<Int, Int> {
+            val s = ((n.first - 720) % 1440 + 1440) % 1440
+            var e = ((n.second - 720) % 1440 + 1440) % 1440
+            if (e <= s) e += 1440
+            return s to e
+        }
+        val last = axis(nightsOldestFirst.last())
+        val prev = nightsOldestFirst.dropLast(1).takeLast(3).map { axis(it) }
+        val j = prev.map { p ->
+            val inter = (minOf(last.second, p.second) - maxOf(last.first, p.first)).coerceAtLeast(0)
+            val union = (last.second - last.first) + (p.second - p.first) - inter
+            if (union > 0) inter.toDouble() / union else 0.0
+        }.average()
+        return (j * 100 - 7).roundToInt().coerceIn(0, 100)
     }
 
     /** Minutos extra de sueño por el esfuerzo del día (0 hasta 8, luego 6 min por punto: 16 → +48 min). */

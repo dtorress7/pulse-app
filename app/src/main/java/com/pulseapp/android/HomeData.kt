@@ -174,14 +174,16 @@ class HomeDataLoader(private val ctx: Context) {
             val recovery = if (row.avgHrv != null || row.restingHr != null)
                 Formulas.recovery(row.avgHrv, row.restingHr, row.respiratoryRate, baseline).total else null
             val prevStrain = byDate[d.minusDays(1).format(iso)]?.strain
-            val debtBefore = SleepPlanner.debtFrom(last7.map { it.sleepMinutes }, base)
+            val debtBefore = SleepPlanner.debtFrom(before.takeLast(14), base)
             val needLastNight = base + Formulas.sleepNeedFromStrain(prevStrain ?: 0.0) + debtBefore
-            val consistency = Formulas.sleepConsistency(last7.mapNotNull { it.sleepStartMinuteOfDay })
+            // Regularidad de esa noche: ella y las 3 anteriores
+            val consistency = Formulas.sleepConsistency((last7 + row).mapNotNull { r ->
+                r.sleepStartMinuteOfDay?.let { s -> r.sleepEndMinuteOfDay?.let { e -> s to e } } })
             val score = row.sleepMinutes?.let {
                 Formulas.sleepScore((it * 100 / needLastNight.coerceAtLeast(1)).coerceAtMost(100), row.sleepEfficiencyPct, consistency)
             }
-            val needTonight = base + Formulas.sleepNeedFromStrain(row.strain ?: 0.0) + debtBefore
-            val debtAfter = SleepPlanner.debtFrom(last7.takeLast(6).map { it.sleepMinutes } + row.sleepMinutes, base)
+            val debtAfter = SleepPlanner.nextDebt(debtBefore, base, prevStrain, row.sleepMinutes)
+            val needTonight = base + Formulas.sleepNeedFromStrain(row.strain ?: 0.0) + debtAfter
             return DayRecord(
                 d, row.avgHrv, row.restingHr, row.respiratoryRate, row.sleepMinutes, row.sleepEfficiencyPct,
                 row.sleepStartMinuteOfDay, row.sleepEndMinuteOfDay, row.strain, recovery, score, needTonight, debtAfter,
@@ -202,16 +204,20 @@ class HomeDataLoader(private val ctx: Context) {
             val baseline = BaselineProvider().compute(db)
             val recovery = if (summary.avgHrv != null || summary.restingHr != null)
                 RecoveryCalculator().breakdown(summary.avgHrv, summary.restingHr, baseline, summary.respiratoryRate).total else null
-            val plan = planner.computeTonightPlan(db, summary.strain, wake / 60, wake % 60)
-            bedtime = plan.suggestedBedtime
-            val consistency = Formulas.sleepConsistency(db.dailyMetricsDao().getLastDays(7).mapNotNull { it.sleepStartMinuteOfDay })
             val lastPlan = planner.planForLastNight(db, summary)
             val lastNightNeed = lastPlan.totalNeedMinutes
+            // Deuda tras la noche de hoy: la mitad de lo que faltó para la necesidad de esa noche
+            val debtAfter = summary.sleepMinutes?.let { ((lastNightNeed - it) / 2.0).let { d -> Math.round(d).toInt().coerceAtLeast(0) } }
+                ?: lastPlan.debtAdjustmentMinutes
+            val plan = planner.computeTonightPlan(db, summary.strain, wake / 60, wake % 60, debtOverride = debtAfter)
+            bedtime = plan.suggestedBedtime
+            val prevNights = stored.filter { it.date < date.format(iso) }.takeLast(3)
+                .mapNotNull { r -> r.sleepStartMinuteOfDay?.let { s -> r.sleepEndMinuteOfDay?.let { e -> s to e } } }
+            val tonight = summary.sleepStartMinuteOfDay?.let { s -> summary.sleepEndMinuteOfDay?.let { e -> s to e } }
+            val consistency = if (tonight != null) Formulas.sleepConsistency(prevNights + tonight) else null
             val score = summary.sleepMinutes?.let {
                 Formulas.sleepScore((it * 100 / lastNightNeed.coerceAtLeast(1)).coerceAtMost(100), summary.sleepEfficiencyPct, consistency)
             }
-            val last6 = stored.filter { it.date < date.format(iso) }.takeLast(6)
-            val debtAfter = SleepPlanner.debtFrom(last6.map { it.sleepMinutes } + summary.sleepMinutes, base)
             // VO2 máx estable: se recalcula solo los martes (o si nunca se ha calculado), como antes
             val isTuesday = Calendar.getInstance().get(Calendar.DAY_OF_WEEK) == Calendar.TUESDAY
             val vo2 = if (profile != null && (isTuesday || profile.vo2Max == null) && summary.vo2Max != null) {

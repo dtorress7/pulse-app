@@ -114,16 +114,28 @@ enum Formulas {
         return min(max(Int(v), 0), 100)
     }
 
-    /// Regularidad 0–100 según lo que varía tu hora de dormirte (minutos del día de las últimas noches).
-    static func sleepConsistency(_ sleepStartMinutes: [Int]) -> Int? {
-        if sleepStartMinutes.count < 3 { return nil }
-        let norm = sleepStartMinutes.map { $0 < 12 * 60 ? Double($0 + 1440) : Double($0) }
-        let avg = norm.reduce(0, +) / Double(norm.count)
-        var sq = 0.0
-        for v in norm { sq += (v - avg) * (v - avg) }
-        let sd = (sq / Double(norm.count)).squareRoot()
-        let r = 100.0 - sd / 120.0 * 100.0
-        return Int(min(max(r, 0.0), 100.0))
+    /// Regularidad 0–100 como WHOOP (18/10): cuánto se solapa la última noche con cada una de las 3 anteriores
+    /// (intersección / unión del tramo en cama, por hora del día), en media, menos 7. Ajustado con 145 noches del export
+    /// de WHOOP: error medio 4,9 puntos (la fórmula anterior fallaba 27). Cada noche = (minuto de inicio, minuto de fin);
+    /// la última es la que se califica. nil con menos de 2 noches.
+    static func sleepConsistency(_ nightsOldestFirst: [(Int, Int)]) -> Int? {
+        if nightsOldestFirst.count < 2 { return nil }
+        func axis(_ n: (Int, Int)) -> (Int, Int) {
+            let s = ((n.0 - 720) % 1440 + 1440) % 1440
+            var e = ((n.1 - 720) % 1440 + 1440) % 1440
+            if e <= s { e += 1440 }
+            return (s, e)
+        }
+        let last = axis(nightsOldestFirst.last!)
+        let prev = nightsOldestFirst.dropLast().suffix(3).map { axis($0) }
+        var sum = 0.0
+        for p in prev {
+            let inter = max(min(last.1, p.1) - max(last.0, p.0), 0)
+            let union = (last.1 - last.0) + (p.1 - p.0) - inter
+            sum += union > 0 ? Double(inter) / Double(union) : 0
+        }
+        let v = Int((sum / Double(prev.count) * 100 - 7).rounded())
+        return min(max(v, 0), 100)
     }
 
     /// Minutos extra de sueño por el esfuerzo del día (0 hasta 8, luego 6 min por punto).

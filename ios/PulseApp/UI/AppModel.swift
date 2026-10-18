@@ -105,7 +105,9 @@ final class AppModel: ObservableObject {
         s.recovery = RecoveryCalculator.breakdown(nightlyHrv: summary.avgHrv, restingHr: summary.restingHr,
                                                   baseline: baseline, respiratoryRate: summary.respiratoryRate)
         s.days = store.lastDays(14)
-        s.consistency = Formulas.sleepConsistency(store.lastDays(7).compactMap { $0.sleepStartMinuteOfDay })
+        var nights = HomeDataLoader.nights(Array(store.lastDays(3).reversed()))
+        if let a = summary.sleepStartMinuteOfDay, let b = summary.sleepEndMinuteOfDay { nights.append((a, b)) }
+        s.consistency = Formulas.sleepConsistency(nights)
         if let slept = summary.sleepMinutes {
             let pct = min(slept * 100 / max(s.lastNightNeed, 1), 100)
             s.sleepPerf = pct
