@@ -25,13 +25,14 @@ import java.time.ZoneId
  */
 object CommunityConfig {
     /** Datos del proyecto de Supabase (públicos a propósito: la seguridad la ponen los permisos del servidor). */
-    const val BUILT_IN_URL = ""
-    const val BUILT_IN_KEY = ""
+    const val BUILT_IN_URL = "https://neqnpiscmaslyymrmqws.supabase.co"
+    const val BUILT_IN_KEY = "sb_publishable_vZHIpB4DQuFGHyl2jiS4lg_R0HppQvq"
 
     private const val PREFS = "pulseapp_community"
     fun url(ctx: Context): String {
         val v = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("url", "") ?: ""
-        return (v.ifEmpty { BUILT_IN_URL }).trim().trimEnd('/')
+        // Se acepta también la "API URL" con /rest/v1/ al final (la que enseña Supabase)
+        return (v.ifEmpty { BUILT_IN_URL }).trim().trimEnd('/').removeSuffix("/rest/v1").trimEnd('/')
     }
     fun key(ctx: Context): String {
         val v = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("key", "") ?: ""

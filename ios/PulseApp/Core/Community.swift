@@ -5,13 +5,16 @@ import Foundation
 /// hacen que cada uno solo vea a la gente de sus equipos.
 enum CommunityConfig {
     /// Datos del proyecto de Supabase (públicos a propósito: la seguridad la ponen los permisos del servidor).
-    static let builtInUrl = ""
-    static let builtInKey = ""
+    static let builtInUrl = "https://neqnpiscmaslyymrmqws.supabase.co"
+    static let builtInKey = "sb_publishable_vZHIpB4DQuFGHyl2jiS4lg_R0HppQvq"
 
     private static let kUrl = "pulseapp_sb_url", kKey = "pulseapp_sb_key"
     static var url: String {
         let v = UserDefaults.standard.string(forKey: kUrl) ?? ""
-        return (v.isEmpty ? builtInUrl : v).trimmingCharacters(in: CharacterSet(charactersIn: "/ \n"))
+        // Se acepta también la "API URL" con /rest/v1/ al final (la que enseña Supabase)
+        var u = (v.isEmpty ? builtInUrl : v).trimmingCharacters(in: CharacterSet(charactersIn: "/ \n"))
+        if u.hasSuffix("/rest/v1") { u = String(u.dropLast("/rest/v1".count)) }
+        return u.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
     }
     static var key: String {
         let v = UserDefaults.standard.string(forKey: kKey) ?? ""
