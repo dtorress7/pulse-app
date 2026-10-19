@@ -182,7 +182,7 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   (7:50 + 0:02 + deuda 0:29), horas vs necesidad 100 %, regularidad 66 %, calificación 85 %, estrés 0:00/0:10/9:04, recuperación 77 %.
   PulseApp (iPhone, compilación con deuda/regularidad nuevas): 22:37–07:47, 8:32, cama 9:10, 0:38/6:00/1:11/1:21, 14 desp., 93 %, VFC 104,
   FCR 53, resp 12,9, necesidad 8:16 (+0:00 + deuda 0:26), 100 %, regularidad 63 %, calificación 84 %, estrés 0:00/0:15/9:00,
-  recuperación 88 % (aún referencia genérica; con la línea base de 17 y 18 saldría ≈75 %). Android da las mismas fases (36/360/71/81).
+  recuperación 88 % (aún referencia genérica; con la línea base de 17 y 18 saldría ≈75 %). Android da las mismas fases (38/360/71/81).
   **Fallo claro: fases.** Profundo −40 min y REM −51 min (todo va a ligero). Las otras 3 noches con movimiento cuadran a ±15.
   Hipótesis para la ronda grande: noche más larga y temprana → la mediana local ±45 min y los umbrales por "progreso" no encajan.
   Archivos: hr_log_15.csv (contiene desde el 14/10, sirve para TODAS las noches), motion_minutes_3.csv (desde el 14/10), whoop_bio_log_1.csv.
