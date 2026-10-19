@@ -177,6 +177,16 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   Porcentajes: necesidad 8:56 (deuda 1:06) → 83 %, regularidad 61 %, calificación 79 %, recuperación 84 % (sin línea base propia: solo hay
   2 noches ≥17/10 → referencia genérica 86/59), estrés alto 2 %. Con deuda y regularidad nuevas: ≈ 89 % / 71 % / 83 %.
   Archivos: hr_log_14.csv, motion_minutes_2.csv, whoop_bio_log.csv (subidos 18/10).
+- **18→19 (5.ª referencia, domingo tranquilo, acostarse pronto, noche larga)**: WHOOP 22:36–07:48, dormido 8:34, cama 9:11,
+  despierto 0:37 / ligero 4:31 / profundo 1:51 / REM 2:12, 13 despertares, 94 %, VFC 103, FCR 52, resp 13,2, necesidad 8:21
+  (7:50 + 0:02 + deuda 0:29), horas vs necesidad 100 %, regularidad 66 %, calificación 85 %, estrés 0:00/0:10/9:04, recuperación 77 %.
+  PulseApp (iPhone, compilación con deuda/regularidad nuevas): 22:37–07:47, 8:32, cama 9:10, 0:38/6:00/1:11/1:21, 14 desp., 93 %, VFC 104,
+  FCR 53, resp 12,9, necesidad 8:16 (+0:00 + deuda 0:26), 100 %, regularidad 63 %, calificación 84 %, estrés 0:00/0:15/9:00,
+  recuperación 88 % (aún referencia genérica; con la línea base de 17 y 18 saldría ≈75 %). Android da las mismas fases (36/360/71/81).
+  **Fallo claro: fases.** Profundo −40 min y REM −51 min (todo va a ligero). Las otras 3 noches con movimiento cuadran a ±15.
+  Hipótesis para la ronda grande: noche más larga y temprana → la mediana local ±45 min y los umbrales por "progreso" no encajan.
+  Archivos: hr_log_15.csv (contiene desde el 14/10, sirve para TODAS las noches), motion_minutes_3.csv (desde el 14/10), whoop_bio_log_1.csv.
+  Arnés: /home/claude/check/ftest5/A.kt (fases de todas las noches de referencia de una vez).
 
 ## Pendiente (en orden)
 1. Ajustar el contador de pasos con una prueba de 100 pasos contados.
