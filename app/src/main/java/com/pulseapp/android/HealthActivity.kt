@@ -97,10 +97,7 @@ class HealthActivity : AppCompatActivity() {
         findViewById<LiveHrLineView>(R.id.liveLine).setPoints(livePoints.toList())
     }
 
-    private fun zoneOf(bpm: Int): Int {
-        val p = bpm / hrMax
-        return when { p < 0.5 -> 0; p < 0.6 -> 1; p < 0.7 -> 2; p < 0.8 -> 3; p < 0.9 -> 4; else -> 5 }
-    }
+    private fun zoneOf(bpm: Int): Int = Formulas.zoneOf(bpm, Formulas.zoneBounds(hrMax))
 
     private fun zoneColor(z: Int) = when (z) {
         1 -> R.color.w_zone1; 2 -> R.color.w_zone2; 3 -> R.color.w_zone3; 4 -> R.color.w_zone4; else -> R.color.w_zone5

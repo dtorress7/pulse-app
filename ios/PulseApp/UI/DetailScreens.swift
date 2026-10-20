@@ -53,10 +53,7 @@ struct HealthMonitorView: View {
         }
     }
 
-    private func zoneOf(_ bpm: Int) -> Int {
-        let p = Double(bpm) / hrMax
-        return p < 0.5 ? 0 : p < 0.6 ? 1 : p < 0.7 ? 2 : p < 0.8 ? 3 : p < 0.9 ? 4 : 5
-    }
+    private func zoneOf(_ bpm: Int) -> Int { return Formulas.zoneOf(bpm, Formulas.zoneBounds(hrMax: hrMax)) }
 
     private var liveCard: some View {
         let last = live.last
@@ -371,10 +368,7 @@ struct ActivityDetailView: View {
         })
     }
 
-    static func zoneOf(_ bpm: Int, _ hrMax: Double) -> Int {
-        let p = Double(bpm) / hrMax
-        return p < 0.5 ? 0 : p < 0.6 ? 1 : p < 0.7 ? 2 : p < 0.8 ? 3 : p < 0.9 ? 4 : 5
-    }
+    static func zoneOf(_ bpm: Int, _ hrMax: Double) -> Int { return Formulas.zoneOf(bpm, Formulas.zoneBounds(hrMax: hrMax)) }
 
     static func compute(_ id: Int64) -> Model? {
         let store = AppStore.shared
@@ -482,12 +476,12 @@ struct ActivityDetailView: View {
         .padding(.top, 22)
 
         let total = max(m.zoneSec.reduce(0, +), 1)
-        let bounds = [0.5, 0.6, 0.7, 0.8, 0.9].map { Int(ceil(m.hrMax * $0)) }
+        let bounds = Formulas.zoneBounds(hrMax: m.hrMax)
         ForEach((0...5).reversed(), id: \.self) { z in
             let range = z == 0 ? "<\(bounds[0]) BPM" : (z == 5 ? "\(bounds[4])+ BPM" : "\(bounds[z - 1])-\(bounds[z] - 1) BPM")
             zoneRow(z, range, m.zoneSec[z], Double(m.zoneSec[z]) / Double(total), Theme.wZone[z], m.typical[z])
         }
-        WBody(text: "Las zonas salen de tu FC máxima (\(Int(m.hrMax.rounded())) lpm), que puedes cambiar en Sobre mí.", size: 14.5).padding(.top, 12)
+        WBody(text: "Las zonas salen de tu reserva de FC, como en WHOOP: entre tu FC en reposo (\(Formulas.zoneRestingHr()) lpm) y tu FC máxima (\(Int(m.hrMax.rounded())) lpm), que puedes cambiar en Sobre mí.", size: 14.5).padding(.top, 12)
 
         HStack {
             WTitle(text: "Estadísticas clave", size: 15.5)

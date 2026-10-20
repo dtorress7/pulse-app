@@ -203,22 +203,21 @@ enum ActivityRecorder {
         var z = [Double](repeating: 0, count: 6)
         var trimpTotal = 0.0
         let rhr = restingHr ?? Formulas.defaultRestingHr
+        let bounds = Formulas.zoneBounds(hrMax: hrMax)
         if readings.count > 1 {
             for i in 1..<readings.count {
                 let deltaMin = Double(readings[i].timeMillis - readings[i - 1].timeMillis) / 60000.0
                 if deltaMin <= 0 || deltaMin > 8 { continue }
-                let pct = Double(readings[i].bpm) / hrMax
-                let zone: Int
-                if pct < 0.5 { zone = 0 } else if pct < 0.6 { zone = 1 } else if pct < 0.7 { zone = 2 }
-                else if pct < 0.8 { zone = 3 } else if pct < 0.9 { zone = 4 } else { zone = 5 }
-                z[zone] += deltaMin
+                z[Formulas.zoneOf(readings[i].bpm, bounds)] += deltaMin
                 trimpTotal += Formulas.trimp(minutes: deltaMin, hr: readings[i].bpm, restingHr: rhr, hrMax: hrMax, male: sex != "F")
             }
         }
         let strain = Formulas.strainFromTrimp(trimpTotal)
         let durationMinutes = Double(endMillis - startMillis) / 60000.0
-        let calories = CalorieCalculator.exerciseCalories(avgHr: avgHr, durationMinutes: durationMinutes,
-                                                          ageYears: ageYears, weightKg: weightKg, sex: sex)
+        // Calorías por tiempo en cada zona (ajustadas con el export de WHOOP); Keytel daba ~1,8× más
+        let b = Formulas.bmr() > 0 ? Formulas.bmr()
+            : CalorieCalculator.basalMetabolicRate(ageYears: ageYears, weightKg: weightKg, heightCm: 175, sex: sex)
+        let calories = durationMinutes > 0 ? Formulas.activityKcal(zoneMinutes: z, bmrPerDay: b) : 0
         return ActivitySession(id: 0, startMillis: startMillis, endMillis: endMillis, avgHr: Int(avgHr), maxHr: maxHr,
                                strain: strain, caloriesKcal: calories,
                                minutesZone1: Int(z[1].rounded()), minutesZone2: Int(z[2].rounded()),

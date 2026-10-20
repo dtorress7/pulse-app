@@ -205,6 +205,28 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   y temperatura de piel. Lo confirma la app de WHOOP, así que WHOOP no pierde nada. Es el modo recomendado.
   Archivos: hr_log_16.csv, motion_minutes_4.csv, whoop_bio_log_2.csv. Arnés: /home/claude/check/ftest6/B.kt.
 
+## Actividades como WHOOP (20/10, Android + iOS)
+Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
+esfuerzo 11,5, 271 kcal, FC media 127 (la media aritmética de esos segundos es 133: WHOOP no usa la media simple), máx 170,
+zonas 0–4 = 3:48/21:16/9:07/4:40/0:08 con rangos 112/141/155/168/182 (WHOOP los actualizó solo el 19/10).
+PulseApp iPhone (manual 18:15–19:00): 12,2, 484 kcal, 1082 pasos, zonas por % FCmáx 192 (en el iPhone NO estaba puesta la FC máx 199).
+- Con nuestro pulso y los límites de WHOOP las zonas salen 3:51/21:13/9:07/4:40/0:08 → el pulso es el mismo; lo que cambia es el cálculo.
+- Esfuerzo: con FCmáx 199, FCR 58 y la ventana de WHOOP sale **11,5 exacto** con la fórmula de siempre (no se toca).
+- **Zonas = % de la reserva de FC** (40/60/70/80/90): `Formulas.zoneBounds/zoneOf`, FCR = `avgRestingHr` de la línea base guardada en
+  prefs (`rhr_zone`). Con FCR 58/FCmáx 199 → 115/143/157/171/185 (WHOOP 112/141/155/168/182 → WHOOP parece usar FCmáx ≈196):
+  PENDIENTE confirmar con la pantalla "Ver configuración de FC" de WHOOP. `ZoneDayCache` cabecera v3 con los límites.
+- **Calorías de actividad = minutos por zona × factor × metabolismo basal/min** (`Formulas.ZONE_KCAL_BMR` = 1,09/5,13/10,14/10,14/14,56/16,53,
+  ajustado con 173 entrenos del export, MAE 13 kcal). Funcional: 272 (WHOOP 271). Keytel daba 484.
+- **Calorías del día**: sin el ×1,15. Export: fuera de entrenos 1644 kcal/24 h de mediana ≈ metabolismo basal. Las calorías del día NO
+  dependen de llevar la pulsera: base por la hora del día + actividades guardadas (por eso salían 2300 con 1,5 h conectada).
+- **Detección automática** (`Formulas.detectActivities` + `AutoActivityScanner`, cada 5 min desde el servicio y al abrir Inicio, sobre
+  las últimas 36 h de hr_log): núcleo ≥50 % reserva con huecos ≤5 min, inicio hacia atrás mientras ≥40 %, ≥15 min y ≥10 min de núcleo,
+  solo si acabó hace ≥10 min y no se solapa. Funcional 19/10 → 18:16–18:54 exacto; en 7 días solo encuentra además 15/10 18:11–18:37
+  (por confirmar con WHOOP). Sustituye la regla en directo (60 %/55 % FCmáx, que daba 18:18–19:00).
+- `recalcAllOnce` (prefs `act_recalc`=1): al instalar, rehace zonas/kcal/esfuerzo de todas las actividades guardadas.
+- Pasos: WHOOP no muestra pasos en el funcional (sí en fútbol: 6217). Los de PulseApp solo cuentan con el movimiento activado y
+  cuentan de menos (~50 %): falta la prueba de 100 pasos. Arnés: /home/claude/check/ftest7/C.kt.
+
 ## Pendiente (en orden)
 1. Ajustar el contador de pasos con una prueba de 100 pasos contados.
 2. ~~Orden de parar el IMU~~ HECHO: 106 `[0,0]` (ver Acelerómetro).

@@ -5,13 +5,14 @@ package com.pulseapp.android
  * - Metabolismo basal (Mifflin-St Jeor), proporcional al tiempo real
  *   transcurrido desde medianoche — no depende de cuántas lecturas de
  *   pulso haya guardadas, así no se descuadra con cortes de conexión.
- * - Un factor ligero (x1.15) para el gasto de moverte en el día a día
- *   normal (NEAT: andar por casa, estar de pie, etc.) que no llega a
- *   registrarse como "actividad".
+ * - Sin factor extra (20/10): en el export de WHOOP, lo que quemas fuera de los entrenamientos es de mediana
+ *   1644 kcal/24 h ≈ tu metabolismo basal; con el ×1,15 de antes salían ~250 kcal de más al día.
  * - Las calorías de tus actividades guardadas (fútbol, gym...) se SUMAN
  *   aparte — no se mezclan con la base para no contar dos veces lo mismo.
  */
 class CalorieCalculator {
+
+    companion object { const val DAY_FACTOR = 1.0 }
 
     fun basalMetabolicRate(ageYears: Int, weightKg: Float, heightCm: Float, sex: String): Double {
         return if (sex == "M") {
@@ -42,7 +43,7 @@ class CalorieCalculator {
         ageYears: Int, weightKg: Float, heightCm: Float, sex: String
     ): Double {
         val bmr = basalMetabolicRate(ageYears, weightKg, heightCm, sex)
-        val bmrForPeriod = bmr * (elapsedMinutesToday / (24 * 60)) * 1.15
+        val bmrForPeriod = bmr * (elapsedMinutesToday / (24 * 60)) * DAY_FACTOR
         return bmrForPeriod + activityKcalToday
     }
 }

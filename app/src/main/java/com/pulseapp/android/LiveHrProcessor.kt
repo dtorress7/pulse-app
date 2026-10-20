@@ -27,7 +27,7 @@ object ActivityState {
 /**
  * Procesa cada lectura de pulso con SU hora (en directo o del historial):
  * detección automática de actividades y cálculo del día anterior al cambiar de día.
- * Regla de actividad: media de 4 min > 60 % FCmáx durante 8 min → empieza; < 55 % durante 5 min → termina.
+ * Actividades automáticas: AutoActivityScanner (cada 5 min).
  */
 class LiveHrProcessor(
     private val context: Context,
@@ -35,11 +35,7 @@ class LiveHrProcessor(
     private val csvFile: File,
     private val onActivitySaved: (String) -> Unit
 ) {
-    private val recent = ArrayDeque<Pair<Long, Int>>()
-    private var recording = false
-    private var autoStart: Long? = null
-    private var aboveSince: Long? = null
-    private var belowSince: Long? = null
+    private var lastScan = 0L
     private var lastDay: String? = null
     private var lastTime = 0L
     private val dayFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
@@ -47,54 +43,17 @@ class LiveHrProcessor(
     fun feed(timeMillis: Long, bpm: Int, hrMax: Double) {
         // Solo lecturas en orden: si llega algo más antiguo (historial ya cubierto), no altera el estado
         if (timeMillis <= lastTime) return
-        if (timeMillis - lastTime > 10 * 60_000L) { recent.clear(); aboveSince = null; belowSince = null }
         lastTime = timeMillis
         checkDayRollover(timeMillis)
 
-        recent.addLast(timeMillis to bpm)
-        while (recent.isNotEmpty() && timeMillis - recent.first().first > 4 * 60_000L) recent.removeFirst()
-        val pct = recent.map { it.second }.average() / hrMax
-
-        if (ActivityState.manualStart(context) != null) {
-            aboveSince = null; belowSince = null
-            if (recording) { recording = false; autoStart = null } // la manual manda
-            return
-        }
-        if (!recording) {
-            if (pct > 0.6) {
-                val since = aboveSince ?: timeMillis.also { aboveSince = it }
-                if (timeMillis - since > 8 * 60_000L) { recording = true; autoStart = since; aboveSince = null }
-            } else aboveSince = null
-        } else {
-            if (pct < 0.55) {
-                val since = belowSince ?: timeMillis.also { belowSince = it }
-                if (timeMillis - since > 5 * 60_000L) {
-                    val start = autoStart!!
-                    recording = false; autoStart = null; belowSince = null
-                    saveAuto(start, since)
-                }
-            } else belowSince = null
-        }
-    }
-
-    private fun saveAuto(start: Long, end: Long) {
-        scope.launch {
-            val db = AppDatabase.getInstance(context)
-            // No duplicar si ya hay una actividad guardada que se solapa
-            if (db.activitySessionDao().getAll().any { it.startMillis < end && it.endMillis > start }) return@launch
-            val profile = db.userProfileDao().getOnce()
-            val session = ActivityRecorder().summarize(
-                csvFile, start, end,
-                ageYears = profile?.ageYears() ?: 30,
-                weightKg = profile?.weightKg ?: 75f,
-                sex = profile?.sex ?: "M",
-                type = "Sin clasificar",
-                autoDetected = true,
-                restingHr = BaselineProvider().compute(db)?.avgRestingHr?.toInt()
-            ) ?: return@launch
-            Formulas.updateObservedHrMax(context, session.maxHr)
-            db.activitySessionDao().save(session)
-            onActivitySaved("Actividad detectada guardada (${(end - start) / 60000} min)")
+        // Actividades automáticas (20/10): ya no se decide aquí lectura a lectura (empezaba y acababa tarde);
+        // cada 5 min se repasa el pulso guardado con AutoActivityScanner (misma regla que WHOOP en el funcional del 19/10).
+        if (timeMillis - lastScan > 5 * 60_000L) {
+            lastScan = timeMillis
+            scope.launch {
+                val n = AutoActivityScanner.scan(context, csvFile)
+                if (n > 0) onActivitySaved("Actividad detectada automáticamente ($n)")
+            }
         }
     }
 

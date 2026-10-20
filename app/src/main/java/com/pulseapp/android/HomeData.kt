@@ -126,6 +126,9 @@ class HomeDataLoader(private val ctx: Context) {
         val profile = db.userProfileDao().getOnce()
         val age = profile?.ageYears() ?: 30
         val male = profile?.sex != "F"
+        // Para las zonas (reserva de FC) y las calorías de las actividades: FC en reposo de tus noches y metabolismo basal
+        profile?.let { Formulas.setBmr(ctx, CalorieCalculator().basalMetabolicRate(it.ageYears(), it.weightKg, it.heightCm, it.sex)) }
+        BaselineProvider().compute(db)?.avgRestingHr?.let { Formulas.setZoneRestingHr(ctx, Math.round(it).toInt()) }
         val hrMax = Formulas.hrMax(age)
         val dir = ctx.getExternalFilesDir(null)
         val hrFile = File(dir, "hr_log.csv")
@@ -143,6 +146,7 @@ class HomeDataLoader(private val ctx: Context) {
         // Días guardados (la fila D = noche que termina D + esfuerzo de D), de más antiguo a más reciente
         val stored = db.dailyMetricsDao().getLastDays(80).sortedBy { it.date }
         val byDate = stored.associateBy { it.date }
+        if (isToday) AutoActivityScanner.scan(ctx, hrFile)
         val allSessions = db.activitySessionDao().getAll()
         val stepsByDay = withContext(Dispatchers.IO) { stepsPerDay(motionFile) }
         val zoneDays = withContext(Dispatchers.IO) { ZoneDayCache(ctx).load(hrFile, hrMax, today, 40) }
@@ -421,7 +425,8 @@ class ZoneDayCache(private val cacheFile: File) {
 
     fun load(hrFile: File, hrMax: Double, today: LocalDate, days: Int): Map<LocalDate, ZoneDay> {
         val result = HashMap<LocalDate, ZoneDay>()
-        val header = "v2,hrmax=" + Math.round(hrMax).toInt()
+        val zb = Formulas.zoneBounds(hrMax)
+        val header = "v3,zonas=" + zb.joinToString("/")
         try {
             if (cacheFile.exists()) {
                 val lines = cacheFile.readLines()
@@ -454,8 +459,7 @@ class ZoneDayCache(private val cacheFile: File) {
                 if (sec !in 0 until 86400) return@forEachLine
                 val b = bits.getOrPut(d) { Array(6) { BitSet(86400) } }
                 b[0].set(sec)
-                val pct = bpm / hrMax
-                val z = when { pct < 0.5 -> 0; pct < 0.6 -> 1; pct < 0.7 -> 2; pct < 0.8 -> 3; pct < 0.9 -> 4; else -> 5 }
+                val z = Formulas.zoneOf(bpm, zb)
                 if (z > 0) b[z].set(sec)
             }
         } catch (e: Exception) { return result }

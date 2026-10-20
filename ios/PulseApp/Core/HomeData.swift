@@ -164,6 +164,11 @@ enum HomeDataLoader {
         let profile = store.getProfile()
         let age = profile?.ageYears() ?? 30
         let male = profile?.sex != "F"
+        // Para las zonas (reserva de FC) y las calorías de las actividades: FC en reposo de tus noches y metabolismo basal
+        if let p = profile {
+            Formulas.setBmr(CalorieCalculator.basalMetabolicRate(ageYears: p.ageYears(), weightKg: p.weightKg, heightCm: p.heightCm, sex: p.sex))
+        }
+        if let b = BaselineProvider.compute(store: store) { Formulas.setZoneRestingHr(Int(b.avgRestingHr.rounded())) }
         let hrMax = Formulas.hrMax(ageYears: age)
         let motionFile = AppPaths.file(MotionTracker.fileName)
 
@@ -180,6 +185,7 @@ enum HomeDataLoader {
         let stored = store.lastDays(80).sorted { $0.date < $1.date }
         var byDate = [String: DailyMetrics]()
         for d in stored { byDate[d.date] = d }
+        if isToday { AutoActivityScanner.scan(store: store, hrLog: hrLog) }
         let allSessions = store.allSessions()
         let stepsByDay = stepsPerDay(motionFile)
         let zoneDays = ZoneDayCache.load(hrUrl: hrLog.url, hrMax: hrMax, today: today, days: 40)
@@ -499,7 +505,8 @@ enum ZoneDayCache {
         lock.lock(); defer { lock.unlock() }
         let cacheUrl = AppPaths.file("zone_days.csv")
         var result = [String: ZoneDay]()
-        let header = "v2,hrmax=\(Int(hrMax.rounded()))"
+        let zb = Formulas.zoneBounds(hrMax: hrMax)
+        let header = "v3,zonas=" + zb.map { String($0) }.joined(separator: "/")
         if let text = try? String(contentsOf: cacheUrl, encoding: .utf8) {
             let lines = text.split(separator: "\n")
             if lines.first.map(String.init) == header {
@@ -535,7 +542,7 @@ enum ZoneDayCache {
             var i = 0
             while i < n {
                 if bytes[i] == 10 {
-                    parse(bytes, lineStart, i, wantedBytes, hrMax, &secs)
+                    parse(bytes, lineStart, i, wantedBytes, zb, &secs)
                     lineStart = i + 1
                 }
                 i += 1
@@ -563,7 +570,7 @@ enum ZoneDayCache {
         return result
     }
 
-    private static func parse(_ b: [UInt8], _ s: Int, _ e: Int, _ wanted: [[UInt8]: String], _ hrMax: Double, _ secs: inout [String: [UInt8]]) {
+    private static func parse(_ b: [UInt8], _ s: Int, _ e: Int, _ wanted: [[UInt8]: String], _ zb: [Int], _ secs: inout [String: [UInt8]]) {
         if e - s < 21 || b[s + 10] != 84 { return }          // 'T'
         guard let day = wanted[Array(b[s..<(s + 10)])] else { return }
         func d2(_ o: Int) -> Int { return Int(b[o] &- 48) * 10 + Int(b[o + 1] &- 48) }
@@ -574,8 +581,7 @@ enum ZoneDayCache {
         var digits = 0
         while i < e && b[i] >= 48 && b[i] <= 57 { bpm = bpm * 10 + Int(b[i] - 48); i += 1; digits += 1 }
         if digits == 0 || bpm <= 0 || bpm > 250 { return }
-        let p = Double(bpm) / hrMax
-        let z: UInt8 = p < 0.5 ? 1 : p < 0.6 ? 2 : p < 0.7 ? 3 : p < 0.8 ? 4 : p < 0.9 ? 5 : 6
+        let z = UInt8(Formulas.zoneOf(bpm, zb) + 1)
         let idx = h * 3600 + m * 60 + sec
         if secs[day] == nil { secs[day] = [UInt8](repeating: 0, count: 86400) }
         secs[day]![idx] = z

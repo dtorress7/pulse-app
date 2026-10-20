@@ -84,17 +84,13 @@ enum ActivityState {
 
 /// Procesa cada lectura de pulso con SU hora (en directo o del historial):
 /// detección automática de actividades y cálculo del día anterior al cambiar de día.
-/// Regla: media de 4 min > 60 % FCmáx durante 8 min → empieza; < 55 % durante 5 min → termina.
+/// Actividades automáticas: AutoActivityScanner (cada 5 min).
 final class LiveHrProcessor {
     private let store: AppStore
     private let hrLog: HrLog
     private let onActivitySaved: (String) -> Void
 
-    private var recent = [(Int64, Int)]()
-    private var recording = false
-    private var autoStart: Int64? = nil
-    private var aboveSince: Int64? = nil
-    private var belowSince: Int64? = nil
+    private var lastScan: Int64 = 0
     private var lastDay: String? = nil
     private var lastTime: Int64 = 0
     private let queue = DispatchQueue(label: "pulseapp.liveprocessor", qos: .utility)
@@ -108,56 +104,17 @@ final class LiveHrProcessor {
     func feed(timeMillis: Int64, bpm: Int, hrMax: Double) {
         // Solo lecturas en orden: si llega algo más antiguo (historial ya cubierto), no altera el estado
         if timeMillis <= lastTime { return }
-        if timeMillis - lastTime > 10 * 60_000 { recent.removeAll(); aboveSince = nil; belowSince = nil }
         lastTime = timeMillis
         checkDayRollover(timeMillis)
 
-        recent.append((timeMillis, bpm))
-        while let f = recent.first, timeMillis - f.0 > 4 * 60_000 { recent.removeFirst() }
-        var sum = 0.0
-        for r in recent { sum += Double(r.1) }
-        let pct = sum / Double(recent.count) / hrMax
-
-        if ActivityState.manualStart() != nil {
-            aboveSince = nil; belowSince = nil
-            if recording { recording = false; autoStart = nil }   // la manual manda
-            return
-        }
-        if !recording {
-            if pct > 0.6 {
-                let since = aboveSince ?? timeMillis
-                aboveSince = since
-                if timeMillis - since > 8 * 60_000 { recording = true; autoStart = since; aboveSince = nil }
-            } else {
-                aboveSince = nil
+        // Actividades automáticas (20/10): cada 5 min se repasa el pulso guardado con AutoActivityScanner
+        // (la regla de antes, lectura a lectura, empezaba y acababa tarde).
+        if timeMillis - lastScan > 5 * 60_000 {
+            lastScan = timeMillis
+            queue.async { [store, hrLog, onActivitySaved] in
+                let n = AutoActivityScanner.scan(store: store, hrLog: hrLog)
+                if n > 0 { onActivitySaved("Actividad detectada automáticamente (\(n))") }
             }
-        } else {
-            if pct < 0.55 {
-                let since = belowSince ?? timeMillis
-                belowSince = since
-                if timeMillis - since > 5 * 60_000, let start = autoStart {
-                    recording = false; autoStart = nil; belowSince = nil
-                    saveAuto(start, since)
-                }
-            } else {
-                belowSince = nil
-            }
-        }
-    }
-
-    private func saveAuto(_ start: Int64, _ end: Int64) {
-        queue.async { [store, hrLog, onActivitySaved] in
-            // No duplicar si ya hay una actividad guardada que se solapa
-            if store.allSessions().contains(where: { $0.startMillis < end && $0.endMillis > start }) { return }
-            let profile = store.getProfile()
-            let rhr = BaselineProvider.compute(store: store).map { Int($0.avgRestingHr) }
-            guard let session = ActivityRecorder.summarize(
-                hrLog: hrLog, startMillis: start, endMillis: end,
-                ageYears: profile?.ageYears() ?? 30, weightKg: profile?.weightKg ?? 75, sex: profile?.sex ?? "M",
-                type: "Sin clasificar", autoDetected: true, restingHr: rhr) else { return }
-            Formulas.updateObservedHrMax(session.maxHr)
-            store.saveSession(session)
-            onActivitySaved("Actividad detectada guardada (\((end - start) / 60000) min)")
         }
     }
 

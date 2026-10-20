@@ -89,8 +89,8 @@ enum RecoveryCalculator {
 
 // MARK: - Calorías
 
-/// Gasto calórico: metabolismo basal (Mifflin-St Jeor) proporcional al tiempo transcurrido × 1,15 (vida diaria)
-/// + calorías de las actividades guardadas (Keytel) sumadas aparte.
+/// Gasto calórico: metabolismo basal (Mifflin-St Jeor) proporcional al tiempo transcurrido
+/// + calorías de las actividades guardadas (por zonas) sumadas aparte.
 enum CalorieCalculator {
     static func basalMetabolicRate(ageYears: Int, weightKg: Double, heightCm: Double, sex: String) -> Double {
         if sex == "M" { return 10 * weightKg + 6.25 * heightCm - 5 * Double(ageYears) + 5 }
@@ -113,7 +113,8 @@ enum CalorieCalculator {
     static func estimateDailyTotal(elapsedMinutesToday: Double, activityKcalToday: Double,
                                    ageYears: Int, weightKg: Double, heightCm: Double, sex: String) -> Double {
         let bmr = basalMetabolicRate(ageYears: ageYears, weightKg: weightKg, heightCm: heightCm, sex: sex)
-        return bmr * (elapsedMinutesToday / (24 * 60)) * 1.15 + activityKcalToday
+        // Sin ×1,15 (20/10): fuera de los entrenamientos WHOOP da de mediana 1644 kcal/24 h ≈ tu metabolismo basal
+        return bmr * (elapsedMinutesToday / (24 * 60)) + activityKcalToday
     }
 }
 

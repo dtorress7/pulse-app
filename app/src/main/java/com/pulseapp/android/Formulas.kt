@@ -46,7 +46,86 @@ object Formulas {
     @Volatile private var cachedObserved = 0
 
     fun init(context: Context) {
-        cachedObserved = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt(KEY_HR_MAX, 0)
+        val sp = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        cachedObserved = sp.getInt(KEY_HR_MAX, 0)
+        cachedZoneRhr = sp.getInt(KEY_RHR_ZONE, DEFAULT_RESTING_HR)
+        cachedBmr = sp.getFloat(KEY_BMR, 0f).toDouble()
+    }
+
+    // ---------- Zonas de FC como WHOOP (20/10) ----------
+    // WHOOP (rangos del 19/10: 112 / 141 / 155 / 168 / 182) usa % de la RESERVA de FC: FCR + p·(FCmáx − FCR) con
+    // p = 40/60/70/80/90 %. Con el pulso de PulseApp y esos límites, el funcional del 19/10 sale 3:51/21:13/9:07/4:40/0:08
+    // (WHOOP 3:48/21:16/9:07/4:40/0:08). FCR = media de tus noches (se guarda al calcular Inicio).
+    private const val KEY_RHR_ZONE = "rhr_zone"
+    private const val KEY_BMR = "bmr_kcal"
+    val ZONE_HRR = doubleArrayOf(0.40, 0.60, 0.70, 0.80, 0.90)
+    @Volatile private var cachedZoneRhr = 58
+    @Volatile private var cachedBmr = 0.0
+
+    fun zoneRestingHr(): Int = cachedZoneRhr
+
+    fun setZoneRestingHr(context: Context, rhr: Int) {
+        if (rhr !in 35..100 || rhr == cachedZoneRhr) return
+        cachedZoneRhr = rhr
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putInt(KEY_RHR_ZONE, rhr).apply()
+    }
+
+    /** Límite inferior (lpm) de las zonas 1..5. */
+    fun zoneBounds(hrMax: Double, rhr: Int = cachedZoneRhr): IntArray =
+        IntArray(5) { kotlin.math.ceil(rhr + ZONE_HRR[it] * (hrMax - rhr)).toInt() }
+
+    fun zoneOf(bpm: Int, bounds: IntArray): Int = bounds.count { bpm >= it }
+
+    // ---------- Calorías de actividad (20/10) ----------
+    // Ajustadas con tus 173 entrenamientos del export de WHOOP: kcal/min por zona (0..5) = factor × metabolismo basal por minuto.
+    // Error medio 13 kcal (5 %). Funcional 19/10: ≈291 kcal (WHOOP 271); con Keytel salían 484.
+    val ZONE_KCAL_BMR = doubleArrayOf(1.09, 5.13, 10.14, 10.14, 14.56, 16.53)
+
+    fun bmr(): Double = cachedBmr
+
+    fun setBmr(context: Context, bmr: Double) {
+        if (bmr < 800 || kotlin.math.abs(bmr - cachedBmr) < 1) return
+        cachedBmr = bmr
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putFloat(KEY_BMR, bmr.toFloat()).apply()
+    }
+
+    /** [zoneMinutes] = minutos en zonas 0..5. [bmrPerDay] = metabolismo basal (kcal/día). */
+    fun activityKcal(zoneMinutes: DoubleArray, bmrPerDay: Double): Double {
+        var f = 0.0
+        for (i in 0..5) f += zoneMinutes[i] * ZONE_KCAL_BMR[i]
+        return f * bmrPerDay / 1440.0
+    }
+
+    // ---------- Detección automática de actividades (20/10) ----------
+    // Por minutos con la FC media: núcleo = minutos ≥ 50 % de la reserva (huecos ≤ 5 min); el inicio se adelanta mientras
+    // los minutos anteriores sigan ≥ 40 % (zona 1); vale si dura ≥ 15 min y tiene ≥ 10 min de núcleo.
+    // Funcional 19/10: 18:16–18:54 (WHOOP 18:16–18:54). En 7 días de pulso no da falsos positivos.
+    const val ACT_LOW_HRR = 0.40
+    const val ACT_CORE_HRR = 0.50
+    const val ACT_MAX_GAP_MIN = 6
+    const val ACT_MIN_MINUTES = 15
+    const val ACT_MIN_CORE = 10
+
+    /** [minutes] = (minuto unix, FC media de ese minuto) ordenados. Devuelve (primer minuto, último minuto) de cada actividad. */
+    fun detectActivities(minutes: List<Pair<Long, Double>>, hrMax: Double, rhr: Int = cachedZoneRhr): List<Pair<Long, Long>> {
+        val low = rhr + ACT_LOW_HRR * (hrMax - rhr)
+        val core = rhr + ACT_CORE_HRR * (hrMax - rhr)
+        val out = ArrayList<Pair<Long, Long>>()
+        var i = 0
+        while (i < minutes.size) {
+            if (minutes[i].second < core) { i++; continue }
+            var s = i; var e = i; var j = i + 1
+            while (j < minutes.size && minutes[j].first - minutes[e].first <= ACT_MAX_GAP_MIN) {
+                if (minutes[j].second >= core) e = j
+                j++
+            }
+            while (s > 0 && minutes[s - 1].second >= low && minutes[s].first - minutes[s - 1].first == 1L) s--
+            val dur = minutes[e].first - minutes[s].first + 1
+            val nCore = (s..e).count { minutes[it].second >= core }
+            if (dur >= ACT_MIN_MINUTES && nCore >= ACT_MIN_CORE) out.add(minutes[s].first to minutes[e].first)
+            i = j
+        }
+        return out
     }
 
     /** FC máx usada en zonas y esfuerzo: la mayor entre la de tu edad y la máxima real registrada. */

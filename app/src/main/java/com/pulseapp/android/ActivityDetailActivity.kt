@@ -166,10 +166,10 @@ class ActivityDetailActivity : AppCompatActivity() {
 
             // Zonas: segundos con pulso en cada una (dentro de la actividad)
             val inside = samples.filter { it.timeMillis in s.startMillis..s.endMillis }.distinctBy { it.timeMillis / 1000 }
+            val bounds = Formulas.zoneBounds(hrMax)
             val zoneSec = IntArray(6)
-            inside.forEach { zoneSec[zoneOf(it.bpm, hrMax)]++ }
+            inside.forEach { zoneSec[Formulas.zoneOf(it.bpm, bounds)]++ }
             val zoneTotal = zoneSec.sum().coerceAtLeast(1)
-            val bounds = listOf(0.5, 0.6, 0.7, 0.8, 0.9).map { ceil(hrMax * it).toInt() }
             val zoneColors = listOf(R.color.w_zone0, R.color.w_zone1, R.color.w_zone2, R.color.w_zone3, R.color.w_zone4, R.color.w_zone5)
             // Rango típico de cada zona en este deporte (mín–máx de las otras sesiones, si hay al menos 2)
             val typical = (0..5).map { z ->
@@ -188,7 +188,7 @@ class ActivityDetailActivity : AppCompatActivity() {
                 }
                 content.addView(zoneRow(z, range, zoneSec[z], zoneSec[z].toFloat() / zoneTotal, zoneColors[z], typical[z]))
             }
-            content.addView(W.body(ctx, "Las zonas salen de tu FC máxima (${Math.round(hrMax)} lpm), que puedes cambiar en Sobre mí.", 14.5f).apply {
+            content.addView(W.body(ctx, "Las zonas salen de tu reserva de FC, como en WHOOP: entre tu FC en reposo (${Formulas.zoneRestingHr()} lpm) y tu FC máxima (${Math.round(hrMax)} lpm), que puedes cambiar en Sobre mí.", 14.5f).apply {
                 setPadding(0, Ui.dp(ctx, 12f), 0, 0)
             })
 
@@ -230,11 +230,6 @@ class ActivityDetailActivity : AppCompatActivity() {
                 })
             }
         }
-    }
-
-    private fun zoneOf(bpm: Int, hrMax: Double): Int {
-        val p = bpm / hrMax
-        return when { p < 0.5 -> 0; p < 0.6 -> 1; p < 0.7 -> 2; p < 0.8 -> 3; p < 0.9 -> 4; else -> 5 }
     }
 
     private fun trendOf(value: Double, avg: Double): Trend = when {

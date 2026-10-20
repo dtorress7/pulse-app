@@ -37,16 +37,16 @@ class ActivityRecorder {
         var trimpTotal = 0.0
         val rhr = restingHr ?: Formulas.DEFAULT_RESTING_HR
 
+        val bounds = Formulas.zoneBounds(hrMax)
         for (i in 1 until readings.size) {
             val deltaMin = (readings[i].timeMillis - readings[i - 1].timeMillis) / 60000.0
             if (deltaMin <= 0 || deltaMin > 8) continue
-            val pct = readings[i].bpm / hrMax
-            when {
-                pct < 0.5 -> z0 += deltaMin
-                pct < 0.6 -> z1 += deltaMin
-                pct < 0.7 -> z2 += deltaMin
-                pct < 0.8 -> z3 += deltaMin
-                pct < 0.9 -> z4 += deltaMin
+            when (Formulas.zoneOf(readings[i].bpm, bounds)) {
+                0 -> z0 += deltaMin
+                1 -> z1 += deltaMin
+                2 -> z2 += deltaMin
+                3 -> z3 += deltaMin
+                4 -> z4 += deltaMin
                 else -> z5 += deltaMin
             }
             trimpTotal += Formulas.trimp(deltaMin, readings[i].bpm, rhr, hrMax, sex != "F")
@@ -55,7 +55,10 @@ class ActivityRecorder {
         val strain = Formulas.strainFromTrimp(trimpTotal)
 
         val durationMinutes = (endMillis - startMillis) / 60000.0
-        val calories = estimateCalories(avgHr, durationMinutes, ageYears, weightKg, sex)
+        // Calorías por tiempo en cada zona (ajustadas con el export de WHOOP); antes Keytel daba ~1,8× más
+        val bmr = Formulas.bmr().takeIf { it > 0 }
+            ?: CalorieCalculator().basalMetabolicRate(ageYears, weightKg, 175f, sex)
+        val calories = if (durationMinutes > 0) Formulas.activityKcal(doubleArrayOf(z0, z1, z2, z3, z4, z5), bmr) else 0.0
 
         return ActivitySession(
             startMillis = startMillis,
