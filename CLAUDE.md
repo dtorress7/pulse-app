@@ -187,6 +187,23 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   Hipótesis para la ronda grande: noche más larga y temprana → la mediana local ±45 min y los umbrales por "progreso" no encajan.
   Archivos: hr_log_15.csv (contiene desde el 14/10, sirve para TODAS las noches), motion_minutes_3.csv (desde el 14/10), whoop_bio_log_1.csv.
   Arnés: /home/claude/check/ftest5/A.kt (fases de todas las noches de referencia de una vez).
+- **19→20 (6.ª referencia, 2 h de entrenamiento funcional la víspera, esfuerzo WHOOP 12+)**: WHOOP 23:11–07:29, dormido 7:47, cama 8:18,
+  despierto 0:31 / ligero 4:52 / profundo 1:41 / REM 1:14, 13 desp., 96 %, VFC 78, FCR 62, resp 13,4, necesidad 8:28 (7:49 + 0:39),
+  horas vs necesidad 92 %, regularidad 73 %, calificación 82 %, estrés 0:25/1:44/6:09, recuperación 45 %.
+  PulseApp iPhone: 00:50–07:29, 5:53, 0:46/4:17/0:54/0:42, 15 desp., 88 %, VFC 91, FCR 58, resp 13,2, necesidad 8:19 (+0:29), 70 %,
+  regularidad 69 %, calificación 76 %, recuperación 56 % (ya con línea base propia).
+  **Dos fallos generales encontrados y corregidos (20/10, Android + iOS):**
+  1. `MetricsCalculator.analyze` usaba las últimas 30 h → entraba el final de la noche anterior, el umbral bajaba (64 vs 69) y el inicio
+     dependía de la hora de abrir la app (00:50 a las 08:19; 00:00 desde las 18:00). Ahora: desde las 18:00 de ayer, como DailyMetricsUpdater.
+  2. Tras entrenar, el pulso siguió en 75 la primera hora dormido (quietud total desde 23:11) y el detector, solo pulso, empezaba a las 00:00.
+     Nuevo `SleepStager.extendOnsetByStillness` (dentro de stageNight): hacia atrás, ráfagas ≤5 min/≤12 pasos + tramos de quietud total
+     (≥50 s quieto, giro <3, 0 pasos) ≥15 min. 19→20 → 23:12, 52/303/79/63; las otras 4 noches con movimiento salen IGUAL.
+  Pendiente: con el inicio bien, despierto 52 (WHOOP 31) y profundo 79 (WHOOP 101): el pulso alto tras entrenar confunde las fases.
+- **Doble conexión (19/10, descubierto por el usuario)**: con la app de WHOOP del iPhone conectada a la vez que PulseApp (sin desvincular),
+  las dos funcionan toda la noche. PulseApp recibe las respuestas de las órdenes de WHOOP (34, 22, 23, 20, 66, 115, 116) y TODO el historial
+  que descarga la app de WHOOP cada 10 min ("Historial completo: ~600 registros"), y ahora los registros v18 traen RR (27 048 de 30 715)
+  y temperatura de piel. Lo confirma la app de WHOOP, así que WHOOP no pierde nada. Es el modo recomendado.
+  Archivos: hr_log_16.csv, motion_minutes_4.csv, whoop_bio_log_2.csv. Arnés: /home/claude/check/ftest6/B.kt.
 
 ## Pendiente (en orden)
 1. Ajustar el contador de pasos con una prueba de 100 pasos contados.

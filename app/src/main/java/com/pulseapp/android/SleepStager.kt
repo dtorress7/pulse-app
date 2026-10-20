@@ -130,12 +130,41 @@ object SleepStager {
         return computed
     }
 
-    private fun computeNight(hrFile: File, motionFile: File, startMillis: Long, endMillis: Long): Result? {
-        val motion = MotionTracker.readMinutes(motionFile)
-            .filter { it.minuteStartUnix / 60 in (startMillis / 60_000L)..(endMillis / 60_000L) }
+    private fun computeNight(hrFile: File, motionFile: File, startMillis0: Long, endMillis: Long): Result? {
+        val allMotion = MotionTracker.readMinutes(motionFile)
+        val startMillis = extendOnsetByStillness(startMillis0, allMotion)
+        val motion = allMotion.filter { it.minuteStartUnix / 60 in (startMillis / 60_000L)..(endMillis / 60_000L) }
         if (motion.isEmpty()) return null
         val readings = parseHr(hrFile, startMillis, endMillis)
         return stage(startMillis, endMillis, readings, motion)
+    }
+
+    /**
+     * Inicio del sueño por QUIETUD (20/10). Tras entrenar, el pulso sigue alto la primera hora de sueño y el detector
+     * (solo pulso) empezaba tarde (00:00 en vez de 23:11). Hacia atrás desde el inicio: se aceptan ráfagas de movimiento
+     * de ≤5 min con ≤12 pasos (cambios de postura) y, antes de cada una, un tramo de quietud total (≥50 s quieto, giro <3 °/s,
+     * sin pasos) de ≥15 min. El inicio pasa al principio del tramo quieto más antiguo. Comprobado con las 5 noches con
+     * movimiento: solo cambia la 19→20 (23:12; WHOOP 23:11); las demás quedan igual.
+     */
+    fun extendOnsetByStillness(startMillis: Long, motion: List<MotionMinute>): Long {
+        val byMin = HashMap<Long, MotionMinute>(motion.size * 2)
+        for (mm in motion) byMin[mm.minuteStartUnix / 60] = mm
+        fun still(m: MotionMinute?) = m != null && m.stillSecs >= 50 && m.gyroDps < 3f && m.steps == 0
+        var m = startMillis / 60_000L - 1
+        var best = startMillis / 60_000L
+        var first = true
+        while (true) {
+            var b = m; var stepsB = 0
+            while (byMin[b] != null && !still(byMin[b]) && m - b < 6) { stepsB += byMin[b]!!.steps; b-- }
+            if (byMin[b] == null || m - b > 5 || stepsB > 12) break
+            var k = b
+            while (still(byMin[k])) k--
+            if (b - k < (if (first) 1 else 15)) break
+            if (b - k >= 15) best = k + 1
+            first = false
+            m = k
+        }
+        return best * 60_000L
     }
 
     fun stage(startMillis: Long, endMillis: Long, readings: List<HrReading>, motion: List<MotionMinute>): Result? {

@@ -13,7 +13,10 @@ struct MetricsCalculator {
         if readings.isEmpty { return DailySummary.empty() }
         let totalReadings = readings.count
 
-        let recent = readings.filter { $0.timeMillis >= now - 30 * 3_600_000 }
+        // Noche = desde las 18:00 de AYER (igual que DailyMetricsUpdater). Con las últimas 30 h entraba el final de la noche
+        // anterior, bajaba el umbral del detector y el inicio dependía de la hora a la que abrías la app (19→20: 00:50 / 00:00).
+        let eve18 = TimeUtil.startOfDay(now) - 6 * 3_600_000
+        let recent = readings.filter { $0.timeMillis >= eve18 }
         let sleep = SleepDetector.detect(recent.map { ($0.timeMillis, $0.bpm) })
         let restWindow: (Int64, Int64)? = sleep.map { ($0.startMillis, $0.endMillis) }
 

@@ -47,7 +47,15 @@ class MetricsCalculator(ageYears: Int, private val male: Boolean = true) {
 
         // Noche más reciente (últimas 30 h), detectada con SleepDetector (ajustado con tu noche del 14→15/10)
         val now = System.currentTimeMillis()
-        val recent = readings.filter { it.timeMillis >= now - 30 * 3_600_000L }
+        // Noche = desde las 18:00 de AYER (igual que DailyMetricsUpdater). Antes eran las últimas 30 h: entraba el final
+        // de la noche anterior, bajaba el umbral del detector y el inicio cambiaba según la hora a la que abrías la app
+        // (19→20: 00:50 con 30 h, 00:00 desde las 18:00).
+        val eve18 = java.util.Calendar.getInstance().apply {
+            timeInMillis = now; add(java.util.Calendar.DAY_OF_YEAR, -1)
+            set(java.util.Calendar.HOUR_OF_DAY, 18); set(java.util.Calendar.MINUTE, 0)
+            set(java.util.Calendar.SECOND, 0); set(java.util.Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        val recent = readings.filter { it.timeMillis >= eve18 }
         val sleep = SleepDetector.detect(recent.map { it.timeMillis to it.bpm })
         val restWindow = sleep?.let { it.startMillis to it.endMillis }
 

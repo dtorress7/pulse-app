@@ -73,6 +73,33 @@ enum SleepStager {
     private static var cacheValue: Result? = nil
 
     /// Lee los archivos y clasifica la ventana. nil si no hay movimiento o datos suficientes.
+    /// Inicio del sueño por QUIETUD (20/10), igual que Android: tras entrenar el pulso sigue alto la primera hora de sueño.
+    /// Hacia atrás desde el inicio: ráfagas de ≤5 min con ≤12 pasos (cambios de postura) y, antes de cada una, un tramo
+    /// de quietud total (≥50 s quieto, giro <3 °/s, sin pasos) de ≥15 min. 19→20: 23:12 (WHOOP 23:11); las demás noches igual.
+    static func extendOnsetByStillness(_ startMillis: Int64, _ motion: [MotionMinute]) -> Int64 {
+        var byMin = [Int64: MotionMinute](minimumCapacity: motion.count)
+        for mm in motion { byMin[mm.minuteStartUnix / 60] = mm }
+        func still(_ m: MotionMinute?) -> Bool {
+            guard let m = m else { return false }
+            return m.stillSecs >= 50 && m.gyroDps < 3 && m.steps == 0
+        }
+        var m = startMillis / 60_000 - 1
+        var best = startMillis / 60_000
+        var first = true
+        while true {
+            var b = m; var stepsB = 0
+            while let x = byMin[b], !still(x), m - b < 6 { stepsB += x.steps; b -= 1 }
+            if byMin[b] == nil || m - b > 5 || stepsB > 12 { break }
+            var k = b
+            while still(byMin[k]) { k -= 1 }
+            if b - k < (first ? 1 : 15) { break }
+            if b - k >= 15 { best = k + 1 }
+            first = false
+            m = k
+        }
+        return best * 60_000
+    }
+
     static func stageNight(hrLog: HrLog, motionFile: URL, startMillis: Int64, endMillis: Int64) -> Result? {
         if !FileManager.default.fileExists(atPath: motionFile.path) { return nil }
         let msize = (try? FileManager.default.attributesOfItem(atPath: motionFile.path)[.size] as? NSNumber)?.int64Value ?? 0
@@ -81,12 +108,14 @@ enum SleepStager {
         if key == cacheKey { let v = cacheValue; cacheLock.unlock(); return v }
         cacheLock.unlock()
 
-        let lo = startMillis / 60_000, hi = endMillis / 60_000
-        let motion = MotionTracker.readMinutes(motionFile).filter { $0.minuteStartUnix / 60 >= lo && $0.minuteStartUnix / 60 <= hi }
+        let allMotion = MotionTracker.readMinutes(motionFile)
+        let start = extendOnsetByStillness(startMillis, allMotion)
+        let lo = start / 60_000, hi = endMillis / 60_000
+        let motion = allMotion.filter { $0.minuteStartUnix / 60 >= lo && $0.minuteStartUnix / 60 <= hi }
         var computed: Result? = nil
         if !motion.isEmpty {
-            let readings = hrLog.readings(from: startMillis, to: endMillis)
-            computed = stage(startMillis: startMillis, endMillis: endMillis, readings: readings, motion: motion)
+            let readings = hrLog.readings(from: start, to: endMillis)
+            computed = stage(startMillis: start, endMillis: endMillis, readings: readings, motion: motion)
         }
         cacheLock.lock()
         cacheKey = key; cacheValue = computed
