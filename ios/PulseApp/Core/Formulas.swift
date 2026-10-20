@@ -40,7 +40,8 @@ enum Formulas {
     // ---------- Zonas de FC como WHOOP (20/10) ----------
     // WHOOP (rangos del 19/10: 112/141/155/168/182) usa % de la RESERVA de FC: FCR + p·(FCmáx − FCR), p = 40/60/70/80/90 %.
     // Igual que Android (Formulas.kt). FCR = media de tus noches (se guarda al calcular Inicio).
-    static let zoneHrr: [Double] = [0.40, 0.60, 0.70, 0.80, 0.90]
+    // Confirmado con "Ajustes de FC" de WHOOP (20/10): FCR 59, FCmáx 195 → 112/141/155/168/182.
+    static let zoneHrr: [Double] = [0.385, 0.60, 0.70, 0.80, 0.90]
     private static let keyRhrZone = "pulseapp_rhr_zone"
     private static let keyBmr = "pulseapp_bmr_kcal"
 
@@ -81,7 +82,7 @@ enum Formulas {
 
     // ---------- Detección automática de actividades (20/10) ----------
     // Núcleo = minutos ≥ 50 % de la reserva (huecos ≤ 5 min); el inicio se adelanta mientras los minutos anteriores
-    // sigan ≥ 40 %; vale si dura ≥ 15 min con ≥ 10 min de núcleo. Funcional 19/10: 18:16–18:54 (WHOOP igual).
+    // sigan ≥ 40 %; vale si dura ≥ 12 min con ≥ 8 min de núcleo (WHOOP: mínimo 12 min). Funcional 19/10: 18:16–18:54 (WHOOP igual).
     static func detectActivities(_ minutes: [(Int64, Double)], hrMax: Double, rhr: Int? = nil) -> [(Int64, Int64)] {
         let r = Double(rhr ?? zoneRestingHr())
         let low = r + 0.40 * (hrMax - r), core = r + 0.50 * (hrMax - r)
@@ -97,7 +98,7 @@ enum Formulas {
             while s > 0 && minutes[s - 1].1 >= low && minutes[s].0 - minutes[s - 1].0 == 1 { s -= 1 }
             let dur = minutes[e].0 - minutes[s].0 + 1
             let nCore = (s...e).filter { minutes[$0].1 >= core }.count
-            if dur >= 15 && nCore >= 10 { out.append((minutes[s].0, minutes[e].0)) }
+            if dur >= 12 && nCore >= 8 { out.append((minutes[s].0, minutes[e].0)) }
             i = j
         }
         return out

@@ -58,7 +58,9 @@ object Formulas {
     // (WHOOP 3:48/21:16/9:07/4:40/0:08). FCR = media de tus noches (se guarda al calcular Inicio).
     private const val KEY_RHR_ZONE = "rhr_zone"
     private const val KEY_BMR = "bmr_kcal"
-    val ZONE_HRR = doubleArrayOf(0.40, 0.60, 0.70, 0.80, 0.90)
+    // Confirmado con "Ajustes de FC" de WHOOP (20/10): FCR 59, FCmáx 195 → 112/141/155/168/182 = ceil(FCR + p·reserva)
+    // con p = 0,385 / 0,60 / 0,70 / 0,80 / 0,90 (la zona 1 de WHOOP empieza un poco por debajo del 40 %).
+    val ZONE_HRR = doubleArrayOf(0.385, 0.60, 0.70, 0.80, 0.90)
     @Volatile private var cachedZoneRhr = 58
     @Volatile private var cachedBmr = 0.0
 
@@ -98,13 +100,13 @@ object Formulas {
 
     // ---------- Detección automática de actividades (20/10) ----------
     // Por minutos con la FC media: núcleo = minutos ≥ 50 % de la reserva (huecos ≤ 5 min); el inicio se adelanta mientras
-    // los minutos anteriores sigan ≥ 40 % (zona 1); vale si dura ≥ 15 min y tiene ≥ 10 min de núcleo.
+    // los minutos anteriores sigan ≥ 40 % (zona 1); vale si dura ≥ 12 min y tiene ≥ 8 min de núcleo.
     // Funcional 19/10: 18:16–18:54 (WHOOP 18:16–18:54). En 7 días de pulso no da falsos positivos.
     const val ACT_LOW_HRR = 0.40
     const val ACT_CORE_HRR = 0.50
     const val ACT_MAX_GAP_MIN = 6
-    const val ACT_MIN_MINUTES = 15
-    const val ACT_MIN_CORE = 10
+    const val ACT_MIN_MINUTES = 12   // IA de WHOOP: menos de 12 min no se guarda
+    const val ACT_MIN_CORE = 8
 
     /** [minutes] = (minuto unix, FC media de ese minuto) ordenados. Devuelve (primer minuto, último minuto) de cada actividad. */
     fun detectActivities(minutes: List<Pair<Long, Double>>, hrMax: Double, rhr: Int = cachedZoneRhr): List<Pair<Long, Long>> {

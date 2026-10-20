@@ -214,7 +214,12 @@ PulseApp iPhone (manual 18:15–19:00): 12,2, 484 kcal, 1082 pasos, zonas por % 
 - Esfuerzo: con FCmáx 199, FCR 58 y la ventana de WHOOP sale **11,5 exacto** con la fórmula de siempre (no se toca).
 - **Zonas = % de la reserva de FC** (40/60/70/80/90): `Formulas.zoneBounds/zoneOf`, FCR = `avgRestingHr` de la línea base guardada en
   prefs (`rhr_zone`). Con FCR 58/FCmáx 199 → 115/143/157/171/185 (WHOOP 112/141/155/168/182 → WHOOP parece usar FCmáx ≈196):
-  PENDIENTE confirmar con la pantalla "Ver configuración de FC" de WHOOP. `ZoneDayCache` cabecera v3 con los límites.
+  CONFIRMADO 20/10 con "Ajustes de FC" de WHOOP: "fórmula de FC de reserva", FCR de referencia 59, FCmáx 195 (WHOOP la bajó de 199),
+  zonas 112/141/155/168/182 = ceil(FCR + p·reserva) con p = 0,385/0,60/0,70/0,80/0,90 (`ZONE_HRR`). Con 195/59 el funcional sale
+  3:49/21:14/9:07/4:39/0:08 (WHOOP 3:48/21:16/9:07/4:40/0:08), esfuerzo 11,7 (WHOOP 11,5; con 199 daba 11,5: la curva se ajustó con 199),
+  kcal 291 (WHOOP 271). El usuario debe poner FC máxima 195 en Sobre mí. `ZoneDayCache` cabecera v3 con los límites.
+  IA de WHOOP: autodetección = subida mantenida de pulso y movimiento, mínimo 12 min y esfuerzo ≥ 0,1; la FC media de WHOOP filtra
+  artefactos y recorta (no es la media simple: media 133, mediana 132, armónica 130,5, WHOOP 127). Detección ahora ≥12 min y ≥8 de núcleo.
 - **Calorías de actividad = minutos por zona × factor × metabolismo basal/min** (`Formulas.ZONE_KCAL_BMR` = 1,09/5,13/10,14/10,14/14,56/16,53,
   ajustado con 173 entrenos del export, MAE 13 kcal). Funcional: 272 (WHOOP 271). Keytel daba 484.
 - **Calorías del día**: sin el ×1,15. Export: fuera de entrenos 1644 kcal/24 h de mediana ≈ metabolismo basal. Las calorías del día NO
