@@ -16,7 +16,10 @@ struct MetricsCalculator {
         // Noche = desde las 18:00 de AYER (igual que DailyMetricsUpdater). Con las últimas 30 h entraba el final de la noche
         // anterior, bajaba el umbral del detector y el inicio dependía de la hora a la que abrías la app (19→20: 00:50 / 00:00).
         let eve18 = TimeUtil.startOfDay(now) - 6 * 3_600_000
-        let recent = readings.filter { $0.timeMillis >= eve18 }
+        // …y hasta las 14:00 de hoy: la noche es la que TERMINA hoy (20/10: un rato en el sofá de 20:28 a 21:58 con el pulso
+        // bajo se tomó como "la noche"). Las siestas de la tarde no cuentan como noche.
+        let today14 = eve18 + 20 * 3_600_000
+        let recent = readings.filter { $0.timeMillis >= eve18 && $0.timeMillis <= today14 }
         let sleep = SleepDetector.detect(recent.map { ($0.timeMillis, $0.bpm) })
         let restWindow: (Int64, Int64)? = sleep.map { ($0.startMillis, $0.endMillis) }
 

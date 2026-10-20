@@ -232,6 +232,18 @@ PulseApp iPhone (manual 18:15–19:00): 12,2, 484 kcal, 1082 pasos, zonas por % 
 - Pasos: WHOOP no muestra pasos en el funcional (sí en fútbol: 6217). Los de PulseApp solo cuentan con el movimiento activado y
   cuentan de menos (~50 %): falta la prueba de 100 pasos. Arnés: /home/claude/check/ftest7/C.kt.
 
+## MCP de WHOOP (20/10, conectado por el usuario en Claude — SOLO para calibrar, la app sigue sin usar la API)
+Herramientas mcp__Whoop__get_workouts / get_sleeps / get_recoveries / get_cycles / get_body_measurements: datos oficiales ya puntuados
+(no hay pulso segundo a segundo; un entreno aparece ~15 min después de acabar). Ya no hace falta pedir capturas de WHOOP: solo los archivos
+de PulseApp (hr_log, motion_minutes). Perfil: 1,69 m, 68 kg, FCmáx 195.
+- Entrenos con ms ".000" en inicio/fin = puestos A MANO en WHOOP (p. ej. funcional 15/10 17:56–19:01); los automáticos tienen ms sueltos.
+- Calorías por zona (`ZONE_KCAL_BMR`) con las duraciones por zona de la API: 8 entrenos 14–20/10 dentro de ±8 %
+  (func 20/10 250 vs 261, fútbol 19/10 666 vs 643, func 19/10 291 vs 271, pickleball 469 vs 434, fútbol 15/10 435 vs 423, fútbol 14/10 540 vs 543).
+- Funcional 20/10 (automático en WHOOP 18:20:00–19:04:59, 12,6, 121 de media, 261 kcal, zona 0 22:30): WHOOP alarga la actividad mientras
+  sigues moviéndote con el pulso ~100–120 (no corta en la bajada como el 19/10). PulseApp (versión antigua) 18:22–18:48, 11,0. Falta el
+  hr_log/motion de ese día para ajustar el FINAL de la detección con movimiento.
+- Siesta tomada como noche (20/10, 20:28–21:58 en el sofá): `MetricsCalculator.analyze` ahora mira de las 18:00 de ayer a las 14:00 de hoy.
+
 ## Pendiente (en orden)
 1. Ajustar el contador de pasos con una prueba de 100 pasos contados.
 2. ~~Orden de parar el IMU~~ HECHO: 106 `[0,0]` (ver Acelerómetro).

@@ -55,7 +55,10 @@ class MetricsCalculator(ageYears: Int, private val male: Boolean = true) {
             set(java.util.Calendar.HOUR_OF_DAY, 18); set(java.util.Calendar.MINUTE, 0)
             set(java.util.Calendar.SECOND, 0); set(java.util.Calendar.MILLISECOND, 0)
         }.timeInMillis
-        val recent = readings.filter { it.timeMillis >= eve18 }
+        // …y hasta las 14:00 de hoy: la noche es la que TERMINA hoy (20/10: un rato en el sofá de 20:28 a 21:58 con el pulso
+        // bajo se tomó como "la noche" y cambió sueño y recuperación). Las siestas de la tarde no cuentan como noche.
+        val today14 = eve18 + 20 * 3_600_000L
+        val recent = readings.filter { it.timeMillis >= eve18 && it.timeMillis <= today14 }
         val sleep = SleepDetector.detect(recent.map { it.timeMillis to it.bpm })
         val restWindow = sleep?.let { it.startMillis to it.endMillis }
 
