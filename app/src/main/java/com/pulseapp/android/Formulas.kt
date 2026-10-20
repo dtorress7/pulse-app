@@ -98,34 +98,53 @@ object Formulas {
         return f * bmrPerDay / 1440.0
     }
 
-    // ---------- Detección automática de actividades (20/10) ----------
-    // Por minutos con la FC media: núcleo = minutos ≥ 50 % de la reserva (huecos ≤ 5 min); el inicio se adelanta mientras
-    // los minutos anteriores sigan ≥ 40 % (zona 1); vale si dura ≥ 12 min y tiene ≥ 8 min de núcleo.
-    // Funcional 19/10: 18:16–18:54 (WHOOP 18:16–18:54). En 7 días de pulso no da falsos positivos.
-    const val ACT_LOW_HRR = 0.40
+    // ---------- Detección automática de actividades (v2, 20/10) ----------
+    // Calibrada con los dos funcionales que WHOOP detectó solo (19/10 18:16–18:54 y 20/10 18:20–19:04, horas de la API).
+    //  - Tramo = minutos seguidos con el pulso ≥ 26 % de la reserva (≈95 lpm), tolerando 2 min por debajo o sin dato.
+    //  - Núcleo = minutos ≥ 50 % de la reserva. Vale si el tramo tiene ≥ 8 min de núcleo y dura ≥ 12 min (IA de WHOOP: mínimo 12).
+    //  - Inicio = primer minuto de núcleo, adelantado mientras los anteriores sigan ≥ zona 1.
+    //  - Fin = último minuto de núcleo, o más tarde si después el pulso VUELVE A SUBIR ≥ 5 lpm sobre el mínimo desde entonces
+    //    (sigues haciendo series aunque más suaves). Si solo va bajando (te estás recuperando), acaba en el último minuto de núcleo.
+    const val ACT_ELEVATED_HRR = 0.26
     const val ACT_CORE_HRR = 0.50
-    const val ACT_MAX_GAP_MIN = 6
-    const val ACT_MIN_MINUTES = 12   // IA de WHOOP: menos de 12 min no se guarda
+    const val ACT_MAX_LOW_MIN = 2
+    const val ACT_RERISE_BPM = 5.0
+    const val ACT_MIN_MINUTES = 12
     const val ACT_MIN_CORE = 8
 
     /** [minutes] = (minuto unix, FC media de ese minuto) ordenados. Devuelve (primer minuto, último minuto) de cada actividad. */
     fun detectActivities(minutes: List<Pair<Long, Double>>, hrMax: Double, rhr: Int = cachedZoneRhr): List<Pair<Long, Long>> {
-        val low = rhr + ACT_LOW_HRR * (hrMax - rhr)
-        val core = rhr + ACT_CORE_HRR * (hrMax - rhr)
+        val res = hrMax - rhr
+        val elevated = rhr + ACT_ELEVATED_HRR * res
+        val core = rhr + ACT_CORE_HRR * res
+        val z1 = rhr + ZONE_HRR[0] * res
         val out = ArrayList<Pair<Long, Long>>()
+        val n = minutes.size
         var i = 0
-        while (i < minutes.size) {
-            if (minutes[i].second < core) { i++; continue }
-            var s = i; var e = i; var j = i + 1
-            while (j < minutes.size && minutes[j].first - minutes[e].first <= ACT_MAX_GAP_MIN) {
-                if (minutes[j].second >= core) e = j
+        while (i < n) {
+            if (minutes[i].second < elevated) { i++; continue }
+            // Tramo elevado [s0, e0]: se corta con > 2 min por debajo o sin datos
+            val s0 = i
+            var e0 = i
+            var j = i + 1
+            while (j < n && minutes[j].first - minutes[e0].first <= ACT_MAX_LOW_MIN + 1) {
+                if (minutes[j].second >= elevated) e0 = j
                 j++
             }
-            while (s > 0 && minutes[s - 1].second >= low && minutes[s].first - minutes[s - 1].first == 1L) s--
-            val dur = minutes[e].first - minutes[s].first + 1
-            val nCore = (s..e).count { minutes[it].second >= core }
-            if (dur >= ACT_MIN_MINUTES && nCore >= ACT_MIN_CORE) out.add(minutes[s].first to minutes[e].first)
-            i = j
+            val coreIdx = (s0..e0).filter { minutes[it].second >= core }
+            if (coreIdx.size >= ACT_MIN_CORE) {
+                var s = coreIdx.first()
+                while (s > s0 && minutes[s - 1].second >= z1 && minutes[s].first - minutes[s - 1].first == 1L) s--
+                var e = coreIdx.last()
+                var low = Double.MAX_VALUE
+                for (k in e + 1..e0) {
+                    val v = minutes[k].second
+                    if (v >= low + ACT_RERISE_BPM) e = k
+                    low = minOf(low, v)
+                }
+                if (minutes[e].first - minutes[s].first + 1 >= ACT_MIN_MINUTES) out.add(minutes[s].first to minutes[e].first)
+            }
+            i = e0 + 1
         }
         return out
     }

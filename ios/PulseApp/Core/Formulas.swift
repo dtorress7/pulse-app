@@ -80,26 +80,39 @@ enum Formulas {
         return f * bmrPerDay / 1440.0
     }
 
-    // ---------- Detección automática de actividades (20/10) ----------
-    // Núcleo = minutos ≥ 50 % de la reserva (huecos ≤ 5 min); el inicio se adelanta mientras los minutos anteriores
-    // sigan ≥ 40 %; vale si dura ≥ 12 min con ≥ 8 min de núcleo (WHOOP: mínimo 12 min). Funcional 19/10: 18:16–18:54 (WHOOP igual).
+    // ---------- Detección automática de actividades (v2, 20/10) ----------
+    // Igual que Android (Formulas.kt), calibrada con los funcionales que WHOOP detectó solo (19/10 y 20/10):
+    // tramo ≥ 26 % de la reserva (tolera 2 min por debajo), núcleo ≥ 50 % (≥ 8 min), inicio = primer núcleo adelantado
+    // mientras ≥ zona 1, fin = último núcleo o más tarde si el pulso vuelve a subir ≥ 5 lpm; dura ≥ 12 min.
     static func detectActivities(_ minutes: [(Int64, Double)], hrMax: Double, rhr: Int? = nil) -> [(Int64, Int64)] {
         let r = Double(rhr ?? zoneRestingHr())
-        let low = r + 0.40 * (hrMax - r), core = r + 0.50 * (hrMax - r)
+        let res = hrMax - r
+        let elevated = r + 0.26 * res, core = r + 0.50 * res, z1 = r + zoneHrr[0] * res
         var out = [(Int64, Int64)]()
+        let n = minutes.count
         var i = 0
-        while i < minutes.count {
-            if minutes[i].1 < core { i += 1; continue }
-            var s = i, e = i, j = i + 1
-            while j < minutes.count && minutes[j].0 - minutes[e].0 <= 6 {
-                if minutes[j].1 >= core { e = j }
+        while i < n {
+            if minutes[i].1 < elevated { i += 1; continue }
+            let s0 = i
+            var e0 = i, j = i + 1
+            while j < n && minutes[j].0 - minutes[e0].0 <= 3 {
+                if minutes[j].1 >= elevated { e0 = j }
                 j += 1
             }
-            while s > 0 && minutes[s - 1].1 >= low && minutes[s].0 - minutes[s - 1].0 == 1 { s -= 1 }
-            let dur = minutes[e].0 - minutes[s].0 + 1
-            let nCore = (s...e).filter { minutes[$0].1 >= core }.count
-            if dur >= 12 && nCore >= 8 { out.append((minutes[s].0, minutes[e].0)) }
-            i = j
+            let coreIdx = (s0...e0).filter { minutes[$0].1 >= core }
+            if coreIdx.count >= 8, var s = coreIdx.first, var e = coreIdx.last {
+                while s > s0 && minutes[s - 1].1 >= z1 && minutes[s].0 - minutes[s - 1].0 == 1 { s -= 1 }
+                var low = Double.greatestFiniteMagnitude
+                if e < e0 {
+                    for k in (e + 1)...e0 {
+                        let v = minutes[k].1
+                        if v >= low + 5 { e = k }
+                        low = min(low, v)
+                    }
+                }
+                if minutes[e].0 - minutes[s].0 + 1 >= 12 { out.append((minutes[s].0, minutes[e].0)) }
+            }
+            i = e0 + 1
         }
         return out
     }

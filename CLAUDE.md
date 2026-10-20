@@ -242,6 +242,13 @@ de PulseApp (hr_log, motion_minutes). Perfil: 1,69 m, 68 kg, FCmáx 195.
 - Funcional 20/10 (automático en WHOOP 18:20:00–19:04:59, 12,6, 121 de media, 261 kcal, zona 0 22:30): WHOOP alarga la actividad mientras
   sigues moviéndote con el pulso ~100–120 (no corta en la bajada como el 19/10). PulseApp (versión antigua) 18:22–18:48, 11,0. Falta el
   hr_log/motion de ese día para ajustar el FINAL de la detección con movimiento.
+- **Detección v2 (20/10, con hr_log_17 + motion_minutes_5)**: tramo ≥26 % reserva (tolera 2 min), núcleo ≥50 % (≥8 min), inicio = 1.er núcleo
+  adelantado mientras ≥ zona 1, fin = último núcleo o el último minuto en que el pulso VUELVE A SUBIR ≥5 lpm sobre el mínimo desde entonces.
+  19/10 → 18:16:00–18:54:59 y 20/10 → 18:20:00–19:04:59, los dos EXACTOS a WHOOP; sin falsos positivos del 14 al 20/10.
+  (El movimiento no hizo falta: el 19/10 tras el núcleo el pulso solo baja; el 20/10 hay subidas de 104→115 y 98→104 con pasos.)
+- Esfuerzo con la ventana y zonas de WHOOP (FCmáx 195/FCR 59): func 19/10 11,7 (WHOOP 11,5), func 20/10 12,0 (12,6), func manual 15/10
+  10,6 (12,1). En funcionales WHOOP da más peso a la duración moderada (y separa cardio/muscular). Probado: zonas ponderadas y curva
+  reajustada con export+API → no mejora (MAE ~1,5–1,8). NO se toca hasta tener ~10 entrenos con pulso segundo a segundo + API.
 - Siesta tomada como noche (20/10, 20:28–21:58 en el sofá): `MetricsCalculator.analyze` ahora mira de las 18:00 de ayer a las 14:00 de hoy.
 
 ## Pendiente (en orden)
