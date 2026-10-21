@@ -90,7 +90,14 @@ enum SleepDetector {
             }
         }
         if start != nil { close(keys.count - 1) }
-        guard let (s, e) = windows.last else { return nil }
+        // La NOCHE es la ventana que más se solapa con las 00:00–06:00 (21/10: una reunión quieto de 9:30 a 11:29 se tomaba
+        // como la noche por ser la última ventana). Si ninguna toca la madrugada, la más larga.
+        func score(_ w: (Int, Int)) -> (Int, Int64) {
+            var n = 0
+            for i in w.0...w.1 where TimeUtil.parts(keys[i] * 60_000).hour < 6 { n += 1 }
+            return (n, keys[w.1] - keys[w.0])
+        }
+        guard let (s, e) = windows.max(by: { score($0) < score($1) }) else { return nil }
 
         let inBed = Int(keys[e] - keys[s])
         let minutesInWindow = e - s + 1

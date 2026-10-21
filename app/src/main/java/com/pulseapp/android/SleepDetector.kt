@@ -40,6 +40,9 @@ object SleepDetector {
         return h >= 20 || h < 12
     }
 
+    private fun isSmallHours(timeMillis: Long): Boolean =
+        Calendar.getInstance().apply { this.timeInMillis = timeMillis }.get(Calendar.HOUR_OF_DAY) < 6
+
     /** [readings] = (hora en ms, pulso), en cualquier orden. */
     fun detect(readings: List<Pair<Long, Int>>): SleepWindow? {
         val night = readings.filter { isNightHour(it.first) && it.second in 25..230 }.sortedBy { it.first }
@@ -80,7 +83,10 @@ object SleepDetector {
             }
         }
         if (start != null) close(keys.size - 1)
-        val (s, e) = windows.lastOrNull() ?: return null
+        // La NOCHE es la ventana que más se solapa con las 00:00–06:00 (21/10: una reunión quieto de 9:30 a 11:29 con el pulso
+        // bajo salía como "la última ventana" y se tomaba como la noche). Si ninguna toca la madrugada, la más larga.
+        val (s, e) = windows.maxWithOrNull(compareBy<Pair<Int, Int>>({ w -> (w.first..w.second).count { isSmallHours(keys[it] * 60_000L) } },
+            { w -> keys[w.second] - keys[w.first] })) ?: return null
 
         val inBed = (keys[e] - keys[s]).toInt()
         val minutesInWindow = (s..e).count()

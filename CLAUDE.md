@@ -218,6 +218,10 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   Recuperación 57 vs 73: la línea base de VFC (4 noches nuevas, incluida la 19→20 con 91 vs WHOOP 78) sale alta (99 vs ~94 de WHOOP). Se
   corregirá sola con más noches bien recortadas. iOS: en "Sobre mí" faltaba el campo FC máxima → añadido; cambiarla rehace las actividades.
 
+- **Reunión quieto 9:30–11:29 tomada como noche (21/10, versión antigua)**: `SleepDetector.detect` cogía la ÚLTIMA ventana de pulso bajo.
+  Ahora elige la ventana con más minutos entre 00:00 y 06:00 (si ninguna, la más larga). Las 6 noches de referencia salen igual; con una
+  reunión simulada de 2 h a pulso 60–65 elige la noche (arnés /home/claude/check/ftest8/M.kt).
+
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
 esfuerzo 11,5, 271 kcal, FC media 127 (la media aritmética de esos segundos es 133: WHOOP no usa la media simple), máx 170,
