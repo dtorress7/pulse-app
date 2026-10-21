@@ -40,7 +40,8 @@ object AutoActivityScanner {
                 ageYears = profile.ageYears(), weightKg = profile.weightKg, sex = profile.sex,
                 type = old.type, autoDetected = old.autoDetected, restingHr = rhr
             ) ?: continue
-            db.activitySessionDao().update(fresh.copy(id = old.id))
+            val keep = if (old.type == Formulas.NAP_TYPE) fresh.copy(strain = 0.0, caloriesKcal = 0.0) else fresh
+            db.activitySessionDao().update(keep.copy(id = old.id))
         }
         sp.edit().putInt("act_recalc", 1).apply()
     }
@@ -62,14 +63,19 @@ object AutoActivityScanner {
             a[0] += r.bpm; a[1]++
         }
         val minutes = perMin.entries.filter { it.value[1] >= 20 }.map { it.key to it.value[0].toDouble() / it.value[1] }
-        val found = Formulas.detectActivities(minutes, hrMax)
+        val rhr0 = BaselineProvider().compute(db)?.avgRestingHr?.toInt() ?: Formulas.zoneRestingHr()
+        val motion = MotionTracker.readMinutes(File(csvFile.parentFile, MotionTracker.FILE_NAME))
+            .filter { it.minuteStartUnix * 1000L >= now - 36 * 3_600_000L }
+        val naps = Formulas.detectNaps(minutes, motion, rhr0)
+        val found = Formulas.detectActivities(minutes, hrMax).map { Triple(it.first, it.second, false) } +
+            naps.map { Triple(it.first, it.second, true) }
         if (found.isEmpty()) return 0
 
         val manual = ActivityState.manualStart(context)
         val existing = db.activitySessionDao().getAll()
         val rhr = BaselineProvider().compute(db)?.avgRestingHr?.toInt()
         var saved = 0
-        for ((m0, m1) in found) {
+        for ((m0, m1, nap) in found) {
             val start = m0 * 60_000L
             val end = m1 * 60_000L + 59_999L
             if (now - end < 10 * 60_000L) continue                       // aún puede seguir
@@ -78,10 +84,11 @@ object AutoActivityScanner {
             val session = ActivityRecorder().summarize(
                 csvFile, start, end,
                 ageYears = profile.ageYears(), weightKg = profile.weightKg, sex = profile.sex,
-                type = "Sin clasificar", autoDetected = true, restingHr = rhr
+                type = if (nap) Formulas.NAP_TYPE else "Sin clasificar", autoDetected = true, restingHr = rhr
             ) ?: continue
-            Formulas.updateObservedHrMax(context, session.maxHr)
-            db.activitySessionDao().save(session)
+            if (!nap) Formulas.updateObservedHrMax(context, session.maxHr)
+            // Siesta: sin esfuerzo ni calorías extra (ese rato ya lo cuenta la base del día)
+            db.activitySessionDao().save(if (nap) session.copy(strain = 0.0, caloriesKcal = 0.0) else session)
             saved++
         }
         return saved

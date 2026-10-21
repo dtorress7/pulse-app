@@ -98,6 +98,44 @@ object Formulas {
         return f * bmrPerDay / 1440.0
     }
 
+    // ---------- Siestas (21/10) ----------
+    // Como WHOOP: sueño fuera de la noche principal = siesta (en tu export: 17 siestas de 21 a 151 min, casi todas entre 14:20 y 18:30).
+    // No cuentan en la calificación del sueño ni en la recuperación; restan de la necesidad de sueño de esa noche.
+    // Regla (necesita movimiento grabado): tramo de minutos quietos (≥50 s quieto, giro < 2,5 °/s, 0 pasos; tolera 2 min sueltos) de
+    // ≥ 20 min, que empiece entre las 10:00 y las 21:00, con el pulso mediano ≤ FC en reposo + 12. Sentado despierto (sofá, reunión)
+    // el giro va de 3 a 10 aunque el pulso sea bajo; dormido está en su suelo (1,3–1,7).
+    const val NAP_TYPE = "Siesta"
+    const val NAP_MIN_MINUTES = 20
+
+    fun detectNaps(minutes: List<Pair<Long, Double>>, motion: List<MotionMinute>, rhr: Int): List<Pair<Long, Long>> {
+        val byMin = HashMap<Long, MotionMinute>(motion.size * 2)
+        for (mm in motion) byMin[mm.minuteStartUnix / 60] = mm
+        val hrByMin = HashMap<Long, Double>(minutes.size * 2)
+        for ((k, v) in minutes) hrByMin[k] = v
+        fun still(m: MotionMinute?) = m != null && m.stillSecs >= 50 && m.gyroDps < 2.5f && m.steps == 0
+        val keys = byMin.keys.sorted()
+        val out = ArrayList<Pair<Long, Long>>()
+        var i = 0
+        while (i < keys.size) {
+            if (!still(byMin[keys[i]])) { i++; continue }
+            val a = keys[i]; var b = a
+            var k = a + 1
+            while (true) {
+                if (still(byMin[k])) { b = k; k++ }
+                else if (k - b <= 2 && (still(byMin[k + 1]) || still(byMin[k + 2]))) k++
+                else break
+            }
+            val len = b - a + 1
+            val h = java.util.Calendar.getInstance().apply { timeInMillis = a * 60_000L }.get(java.util.Calendar.HOUR_OF_DAY)
+            if (len >= NAP_MIN_MINUTES && h in 10..20) {
+                val hrs = (a..b).mapNotNull { hrByMin[it] }.sorted()
+                if (hrs.size >= len * 0.6 && hrs[hrs.size / 2] <= rhr + 12) out.add(a to b)
+            }
+            i = keys.indexOfFirst { it > b }.let { if (it < 0) keys.size else it }
+        }
+        return out
+    }
+
     // ---------- Detección automática de actividades (v2, 20/10) ----------
     // Calibrada con los dos funcionales que WHOOP detectó solo (19/10 18:16–18:54 y 20/10 18:20–19:04, horas de la API).
     //  - Tramo = minutos seguidos con el pulso ≥ 26 % de la reserva (≈95 lpm), tolerando 2 min por debajo o sin dato.

@@ -26,7 +26,7 @@ enum SleepDetector {
     /// Solo cuenta como posible sueño lo que pasa entre las 20:00 y las 12:00.
     static func isNightHour(_ timeMillis: Int64) -> Bool {
         let h = TimeUtil.parts(timeMillis).hour
-        return h >= 20 || h < 12
+        return h >= 20 || h < 15   // hasta las 15:00: te puedes despertar a las 12–14 (en tu export, hasta las 14:26)
     }
 
     /// [readings] = (hora en ms, pulso), en cualquier orden.

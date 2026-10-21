@@ -18,8 +18,8 @@ struct MetricsCalculator {
         let eve18 = TimeUtil.startOfDay(now) - 6 * 3_600_000
         // …y hasta las 14:00 de hoy: la noche es la que TERMINA hoy (20/10: un rato en el sofá de 20:28 a 21:58 con el pulso
         // bajo se tomó como "la noche"). Las siestas de la tarde no cuentan como noche.
-        let today14 = eve18 + 20 * 3_600_000
-        let recent = readings.filter { $0.timeMillis >= eve18 && $0.timeMillis <= today14 }
+        let today15 = eve18 + 21 * 3_600_000
+        let recent = readings.filter { $0.timeMillis >= eve18 && $0.timeMillis <= today15 }
         let sleep = SleepDetector.detect(recent.map { ($0.timeMillis, $0.bpm) })
         let restWindow: (Int64, Int64)? = sleep.map { ($0.startMillis, $0.endMillis) }
 
@@ -167,7 +167,10 @@ enum SleepPlanner {
         let strainMinutes = todayStrain.map { Formulas.sleepNeedFromStrain($0) } ?? 0
         let base = baselineForAge(store.getProfile()?.ageYears())
         let debt = debtOverride ?? computeAccumulatedDebt(store: store, base: base)
-        let nap = 0   // pendiente: detección de siestas
+        // Siestas de hoy (AutoActivityScanner, 21/10): restan de la necesidad de esta noche, como en WHOOP
+        let dayStart = TimeUtil.startOfDay(TimeUtil.nowMillis())
+        let nap = store.allSessions().filter { $0.type == Formulas.napType && $0.startMillis >= dayStart }
+            .reduce(0) { $0 + Int(($1.endMillis - $1.startMillis) / 60_000) }
         let total = base + strainMinutes + debt - nap
         return SleepPlan(baselineMinutes: base, strainAdjustmentMinutes: strainMinutes, debtAdjustmentMinutes: debt,
                          napAdjustmentMinutes: nap, totalNeedMinutes: total,

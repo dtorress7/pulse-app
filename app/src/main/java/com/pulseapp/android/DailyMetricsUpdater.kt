@@ -45,7 +45,7 @@ class DailyMetricsUpdater {
             time = yesterdayCal.time
             set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
         }.timeInMillis
-        val nightReadings = allReadings.filter { it.timeMillis in (dayStart - 6 * 3_600_000L)..(dayStart + 14 * 3_600_000L) }
+        val nightReadings = allReadings.filter { it.timeMillis in (dayStart - 6 * 3_600_000L)..(dayStart + 15 * 3_600_000L) }
         val sleep = SleepDetector.detect(nightReadings.map { it.timeMillis to it.bpm })
         // Con movimiento grabado esa noche, el tiempo despierto sale de SleepStager (más fiable que el pulso solo)
         // y la ventana se recorta a cuando estabas dormido (17/10)

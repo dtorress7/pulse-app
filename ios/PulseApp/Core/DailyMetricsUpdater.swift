@@ -12,7 +12,7 @@ enum DailyMetricsUpdater {
 
         // La noche que TERMINÓ ese día: de las 18:00 de la víspera a las 14:00. Y el día natural para el esfuerzo.
         let nightFrom = dayStart - 6 * 3_600_000
-        let nightTo = dayStart + 14 * 3_600_000
+        let nightTo = dayStart + 15 * 3_600_000
         let all = hrLog.readings(from: nightFrom, to: max(nightTo, dayEnd))
         let dayReadings = all.filter { $0.timeMillis >= dayStart && $0.timeMillis < dayEnd }
         if dayReadings.isEmpty { return }

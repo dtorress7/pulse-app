@@ -31,14 +31,18 @@ enum AutoActivityScanner {
             let g = per[k]!
             return g.1 >= 20 ? (k, Double(g.0) / Double(g.1)) : nil
         }
-        let found = Formulas.detectActivities(minutes, hrMax: hrMax)
+        let rhr0 = BaselineProvider.compute(store: store).map { Int($0.avgRestingHr) } ?? Formulas.zoneRestingHr()
+        let motion = MotionTracker.readMinutes(AppPaths.file(MotionTracker.fileName)).filter { $0.minuteStartUnix * 1000 >= now - 36 * 3_600_000 }
+        let naps = Formulas.detectNaps(minutes, motion: motion, rhr: rhr0)
+        let found: [(Int64, Int64, Bool)] = Formulas.detectActivities(minutes, hrMax: hrMax).map { ($0.0, $0.1, false) }
+            + naps.map { ($0.0, $0.1, true) }
         if found.isEmpty { return 0 }
 
         let manual = ActivityState.manualStart()
         let existing = store.allSessions()
         let rhr = BaselineProvider.compute(store: store).map { Int($0.avgRestingHr) }
         var saved = 0
-        for (m0, m1) in found {
+        for (m0, m1, nap) in found {
             let start = m0 * 60_000, end = m1 * 60_000 + 59_999
             if now - end < 10 * 60_000 { continue }                       // aún puede seguir
             if let m = manual, m <= end { continue }                       // la manual manda
@@ -46,9 +50,10 @@ enum AutoActivityScanner {
             guard let session = ActivityRecorder.summarize(
                 hrLog: hrLog, startMillis: start, endMillis: end,
                 ageYears: profile.ageYears(), weightKg: profile.weightKg, sex: profile.sex,
-                type: "Sin clasificar", autoDetected: true, restingHr: rhr) else { continue }
-            Formulas.updateObservedHrMax(session.maxHr)
-            _ = store.saveSession(session)
+                type: nap ? Formulas.napType : "Sin clasificar", autoDetected: true, restingHr: rhr) else { continue }
+            var s = session
+            if nap { s.strain = 0; s.caloriesKcal = 0 } else { Formulas.updateObservedHrMax(session.maxHr) }
+            _ = store.saveSession(s)
             saved += 1
         }
         return saved
@@ -70,6 +75,7 @@ enum AutoActivityScanner {
                 ageYears: profile.ageYears(), weightKg: profile.weightKg, sex: profile.sex,
                 type: old.type, autoDetected: old.autoDetected, restingHr: rhr) else { continue }
             fresh.id = old.id
+            if old.type == Formulas.napType { fresh.strain = 0; fresh.caloriesKcal = 0 }
             store.updateSession(fresh)
         }
         UserDefaults.standard.set(1, forKey: keyRecalc)

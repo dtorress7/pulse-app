@@ -34,10 +34,10 @@ object SleepDetector {
         val asleepMinutes get() = (inBedMinutes - awakeMinutes).coerceAtLeast(0)
     }
 
-    /** Solo cuenta como posible sueño lo que pasa entre las 20:00 y las 12:00. */
+    /** Solo cuenta como posible noche lo que pasa entre las 20:00 y las 15:00. */
     fun isNightHour(timeMillis: Long): Boolean {
         val h = Calendar.getInstance().apply { this.timeInMillis = timeMillis }.get(Calendar.HOUR_OF_DAY)
-        return h >= 20 || h < 12
+        return h >= 20 || h < 15   // hasta las 15:00: te puedes despertar a las 12–14 (en tu export, hasta las 14:26)
     }
 
     private fun isSmallHours(timeMillis: Long): Boolean =

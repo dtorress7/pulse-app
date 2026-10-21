@@ -82,6 +82,43 @@ enum Formulas {
         return f * bmrPerDay / 1440.0
     }
 
+    // ---------- Siestas (21/10), igual que Android (Formulas.detectNaps) ----------
+    // Tramo de minutos quietos (≥50 s, giro < 2,5, 0 pasos; tolera 2 min sueltos) ≥ 20 min que empiece entre las 10:00 y las 21:00,
+    // con el pulso mediano ≤ FC en reposo + 12. No cuenta en sueño ni recuperación; resta de la necesidad de sueño.
+    static let napType = "Siesta"
+
+    static func detectNaps(_ minutes: [(Int64, Double)], motion: [MotionMinute], rhr: Int) -> [(Int64, Int64)] {
+        var byMin = [Int64: MotionMinute](minimumCapacity: motion.count)
+        for mm in motion { byMin[mm.minuteStartUnix / 60] = mm }
+        var hrByMin = [Int64: Double](minimumCapacity: minutes.count)
+        for (k, v) in minutes { hrByMin[k] = v }
+        func still(_ m: MotionMinute?) -> Bool {
+            guard let m = m else { return false }
+            return m.stillSecs >= 50 && m.gyroDps < 2.5 && m.steps == 0
+        }
+        let keys = byMin.keys.sorted()
+        var out = [(Int64, Int64)]()
+        var i = 0
+        while i < keys.count {
+            if !still(byMin[keys[i]]) { i += 1; continue }
+            let a = keys[i]
+            var b = a, k = a + 1
+            while true {
+                if still(byMin[k]) { b = k; k += 1 }
+                else if k - b <= 2 && (still(byMin[k + 1]) || still(byMin[k + 2])) { k += 1 }
+                else { break }
+            }
+            let len = b - a + 1
+            let h = TimeUtil.parts(a * 60_000).hour
+            if len >= 20 && h >= 10 && h <= 20 {
+                let hrs = (a...b).compactMap { hrByMin[$0] }.sorted()
+                if Double(hrs.count) >= Double(len) * 0.6 && hrs[hrs.count / 2] <= Double(rhr + 12) { out.append((a, b)) }
+            }
+            i = keys.firstIndex(where: { $0 > b }) ?? keys.count
+        }
+        return out
+    }
+
     // ---------- Detección automática de actividades (v2, 20/10) ----------
     // Igual que Android (Formulas.kt), calibrada con los funcionales que WHOOP detectó solo (19/10 y 20/10):
     // tramo ≥ 26 % de la reserva (tolera 2 min por debajo), núcleo ≥ 50 % (≥ 8 min), inicio = primer núcleo adelantado

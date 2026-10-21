@@ -91,7 +91,13 @@ class SleepPlanner {
 
         val debtMinutes = debtOverride ?: computeAccumulatedDebt(db, baselineForAge(db.userProfileDao().getOnce()?.ageYears()))
 
-        val napMinutes = 0 // pendiente: necesitaríamos detección de siestas
+        // Siestas de hoy (detectadas por AutoActivityScanner, 21/10): restan de la necesidad de esta noche, como en WHOOP
+        val dayStart = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        val napMinutes = db.activitySessionDao().getAll()
+            .filter { it.type == Formulas.NAP_TYPE && it.startMillis >= dayStart }
+            .sumOf { ((it.endMillis - it.startMillis) / 60_000L).toInt() }
 
         val baseline = baselineForAge(db.userProfileDao().getOnce()?.ageYears())
         val totalNeed = baseline + strainMinutes + debtMinutes - napMinutes

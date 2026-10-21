@@ -222,6 +222,13 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   Ahora elige la ventana con más minutos entre 00:00 y 06:00 (si ninguna, la más larga). Las 6 noches de referencia salen igual; con una
   reunión simulada de 2 h a pulso 60–65 elige la noche (arnés /home/claude/check/ftest8/M.kt).
 
+- **Noche hasta las 15:00 y siestas (21/10, Android + iOS)**. Export: noches de 22:36 a 00:02 de inicio y despertares hasta 14:26; 17 siestas
+  (21–151 min, casi todas 14:20–18:30, una 11:09–13:41). Cambios: `SleepDetector.isNightHour` 20:00–15:00, `analyze` y `DailyMetricsUpdater`
+  hasta las 15:00. `Formulas.detectNaps` (en `AutoActivityScanner`): tramo quieto (≥50 s, giro <2,5, 0 pasos, tolera 2 min) ≥20 min que empieza
+  10:00–21:00 con pulso mediano ≤ FCR+12 → actividad "Siesta" (esfuerzo 0, kcal 0). `SleepPlanner.computeTonightPlan` resta las siestas de hoy
+  de la necesidad (como `need_from_recent_nap` de WHOOP). Sin movimiento grabado no se detectan siestas. Por validar con una siesta real y
+  con la reunión del 21/10 (9:30–11:29) si había movimiento.
+
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
 esfuerzo 11,5, 271 kcal, FC media 127 (la media aritmética de esos segundos es 133: WHOOP no usa la media simple), máx 170,
