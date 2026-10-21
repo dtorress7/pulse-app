@@ -226,8 +226,10 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   (21–151 min, casi todas 14:20–18:30, una 11:09–13:41). Cambios: `SleepDetector.isNightHour` 20:00–15:00, `analyze` y `DailyMetricsUpdater`
   hasta las 15:00. `Formulas.detectNaps` (en `AutoActivityScanner`): tramo quieto (≥50 s, giro <2,5, 0 pasos, tolera 2 min) ≥20 min que empieza
   10:00–21:00 con pulso mediano ≤ FCR+12 → actividad "Siesta" (esfuerzo 0, kcal 0). `SleepPlanner.computeTonightPlan` resta las siestas de hoy
-  de la necesidad (como `need_from_recent_nap` de WHOOP). Sin movimiento grabado no se detectan siestas. Por validar con una siesta real y
-  con la reunión del 21/10 (9:30–11:29) si había movimiento.
+  de la necesidad (como `need_from_recent_nap` de WHOOP). Sin movimiento grabado no se detectan siestas. Por validar con una siesta real.
+  Validado 21/10 con hr_log_19 + motion_minutes_7 (arnés /home/claude/check/ftest8/N.kt): sofá 20/10 20:20–22:05 (giro 3–10, solo ratos
+  quietos sueltos) y reunión 21/10 9:30–11:29 (giro mediano 6,5, FC 65) → NINGÚN tramo quieto ≥20 min, no salen como siesta. Con todo el
+  código nuevo: a las 23:00 del 20/10 la noche mostrada es 19→20 23:12–07:30 (no el sofá) y a las 13:30 del 21/10 es 23:11–07:37, 8:02 (WHOOP 8:02).
 
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
