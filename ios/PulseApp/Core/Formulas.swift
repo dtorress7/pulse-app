@@ -21,6 +21,8 @@ enum Formulas {
 
     /// 0 = borrar (volver a la fórmula por edad).
     static func setObservedHrMax(_ bpm: Int) {
+        // Si cambia, se rehacen zonas/esfuerzo/calorías de las actividades guardadas (AutoActivityScanner)
+        if UserDefaults.standard.integer(forKey: keyHrMax) != bpm { UserDefaults.standard.set(0, forKey: "pulseapp_act_recalc") }
         UserDefaults.standard.set(bpm, forKey: keyHrMax)
     }
 

@@ -75,6 +75,7 @@ struct ProfileView: View {
     @State private var height = ""
     @State private var birthday = Date()
     @State private var sex = "M"
+    @State private var hrMax = ""
     @State private var loaded = false
     @State private var note = ""
 
@@ -84,9 +85,11 @@ struct ProfileView: View {
                 Card {
                     VStack(alignment: .leading, spacing: 12) {
                         CapsLabel(text: "Tus datos")
-                        TextField("Peso (kg)", text: $weight).keyboardType(.decimalPad)
+                        field("Peso (kg)", $weight)
                         Hairline()
-                        TextField("Estatura (cm)", text: $height).keyboardType(.decimalPad)
+                        field("Estatura (cm)", $height)
+                        Hairline()
+                        field("FC máxima (lpm)", $hrMax, placeholder: "auto")
                         Hairline()
                         DatePicker("Nacimiento", selection: $birthday, displayedComponents: [.date])
                         Hairline()
@@ -103,12 +106,21 @@ struct ProfileView: View {
                         .background(Theme.recoveryGreen).cornerRadius(12)
                 }
                 if !note.isEmpty { Text(note).font(Theme.text(12)).foregroundColor(Theme.textSecondary) }
-                Text("Se usan para calorías, zonas de pulso (Tanaka) y VO₂ máx. Todo se queda en tu iPhone.")
+                Text("Se usan para calorías, zonas de pulso, esfuerzo y VO₂ máx. FC máxima: pon la misma que en WHOOP (Ajustes de FC); vacía = la de tu edad. Todo se queda en tu iPhone.")
                     .font(Theme.text(12)).foregroundColor(Theme.textSecondary)
             }
             .navigationTitle("Perfil")
             .navigationBarTitleDisplayMode(.inline)
             .onAppear { load() }
+        }
+    }
+
+    private func field(_ label: String, _ value: Binding<String>, placeholder: String = "") -> some View {
+        HStack {
+            Text(label).font(Theme.text(16)).foregroundColor(Theme.textSecondary)
+            Spacer()
+            TextField(placeholder, text: value).keyboardType(.decimalPad)
+                .multilineTextAlignment(.trailing).frame(maxWidth: 120)
         }
     }
 
@@ -130,6 +142,7 @@ struct ProfileView: View {
             birthday = Date(timeIntervalSince1970: Double(p.birthdayMillis) / 1000.0)
             sex = p.sex
         }
+        if let m = Formulas.observedHrMax() { hrMax = String(m) }
     }
 
     private func save() {
@@ -139,6 +152,12 @@ struct ProfileView: View {
             note = "Revisa peso (30–250 kg) y estatura (120–230 cm)."
             return
         }
+        let hm = Int(hrMax.trimmingCharacters(in: .whitespaces)) ?? 0
+        if hm != 0 && (hm < 140 || hm > 230) {
+            note = "Revisa la FC máxima (140–230 lpm) o déjala vacía."
+            return
+        }
+        Formulas.setObservedHrMax(hm)
         let old = AppStore.shared.getProfile()
         let ms = Int64(birthday.timeIntervalSince1970 * 1000.0)
         AppStore.shared.saveProfile(UserProfile(birthdayMillis: ms, weightKg: w, heightCm: h, sex: sex,

@@ -205,6 +205,19 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   y temperatura de piel. Lo confirma la app de WHOOP, así que WHOOP no pierde nada. Es el modo recomendado.
   Archivos: hr_log_16.csv, motion_minutes_4.csv, whoop_bio_log_2.csv. Arnés: /home/claude/check/ftest6/B.kt.
 
+- **20→21 (7.ª referencia, sofá 22:00–23:10 y desayuno sentado 08:04–08:11)**: WHOOP (API) 23:14:53–07:39:53, cama 8:25, dormido 8:02,
+  despierto 23 / ligero 259 / profundo 98 / REM 126, 15 desp., 96 %, resp 13,4, necesidad 8:33 (7:50+0:23 esfuerzo+0:21 deuda), calificación 90,
+  regularidad 82, recuperación 73 (VFC 91,7, FCR 54). PulseApp iPhone: 22:14–08:12, 8:48, 1:10/5:23/2:13/1:12, rec. 57 (VFC 88 vs base 99).
+  **Causa**: en el sofá el pulso (62–70) estaba tan bajo como dormido y el detector solo mira pulso; al desayunar sentado, igual.
+  **Arreglo (21/10, Android + iOS)**: `SleepStager.motionBounds` sustituye a `extendOnsetByStillness`. Minuto quieto = ≥50 s quieto, giro <2,5, 0 pasos
+  (dormido el giro está en 1,3–1,7; en el sofá 3–10). Ancla = primer tramo quieto ≥15 min (tolera 1 min suelto) que llega a la ventana del pulso;
+  inicio = hacia atrás saltando giros (≤5 min, ≤12 pasos) hasta el primer tramo ≥15; fin = último tramo ≥15 que empieza antes del fin del pulso
+  (si hay movimiento grabado después) + ratos quietos separados por ≤2 min de giros (≤15 pasos). Resultado (inicio/fin vs WHOOP):
+  16 23:55–07:25 (23:54–07:25), 17 01:11–09:08 (01:10–09:08), 18 01:02–09:05 (01:06–09:04), 19 22:37–07:48 (22:36–07:48),
+  20 23:12–07:30 (23:11–07:29), 21 23:11–07:37 (23:14–07:39) → todas ±4 min. 20→21: 24/297/121/64, dormido 8:02 (WHOOP 8:02).
+  Recuperación 57 vs 73: la línea base de VFC (4 noches nuevas, incluida la 19→20 con 91 vs WHOOP 78) sale alta (99 vs ~94 de WHOOP). Se
+  corregirá sola con más noches bien recortadas. iOS: en "Sobre mí" faltaba el campo FC máxima → añadido; cambiarla rehace las actividades.
+
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
 esfuerzo 11,5, 271 kcal, FC media 127 (la media aritmética de esos segundos es 133: WHOOP no usa la media simple), máx 170,

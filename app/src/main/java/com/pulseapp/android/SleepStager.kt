@@ -130,13 +130,77 @@ object SleepStager {
         return computed
     }
 
-    private fun computeNight(hrFile: File, motionFile: File, startMillis0: Long, endMillis: Long): Result? {
+    private fun computeNight(hrFile: File, motionFile: File, startMillis0: Long, endMillis0: Long): Result? {
         val allMotion = MotionTracker.readMinutes(motionFile)
-        val startMillis = extendOnsetByStillness(startMillis0, allMotion)
+        val (startMillis, endMillis) = motionBounds(startMillis0, endMillis0, allMotion)
         val motion = allMotion.filter { it.minuteStartUnix / 60 in (startMillis / 60_000L)..(endMillis / 60_000L) }
         if (motion.isEmpty()) return null
         val readings = parseHr(hrFile, startMillis, endMillis)
         return stage(startMillis, endMillis, readings, motion)
+    }
+
+    /**
+     * Inicio y fin de la noche por QUIETUD (21/10). Minuto quieto = ≥50 s sin moverse, giro < 2,5 °/s y 0 pasos
+     * (dormido el giro está en su suelo, 1,3–1,7; en el sofá viendo la tele va de 3 a 10 aunque el pulso esté tan bajo como dormido).
+     *  - Ancla = el primer tramo quieto de ≥15 min que llega a la ventana del pulso.
+     *  - Inicio = desde el ancla hacia atrás, saltando cambios de postura (≤5 min moviéndose, ≤12 pasos), hasta el primer tramo
+     *    quieto de ≥15 min (20/10: el sofá de 22:14 ya no cuenta → 23:11; 19→20 tras entrenar sigue en 23:11).
+     *  - Fin = final del último tramo quieto de ≥15 min que empieza antes del fin del pulso, si después hay movimiento grabado
+     *    (21/10: sentado desayunando 08:04–08:11 ya no alarga la noche), alargado por ratos quietos separados por ≤2 min de giros.
+     */
+    fun motionBounds(startMillis: Long, endMillis: Long, motion: List<MotionMinute>): Pair<Long, Long> {
+        val byMin = HashMap<Long, MotionMinute>(motion.size * 2)
+        for (mm in motion) byMin[mm.minuteStartUnix / 60] = mm
+        fun still(m: MotionMinute?) = m != null && m.stillSecs >= 50 && m.gyroDps < 2.5f && m.steps == 0
+        val m0 = startMillis / 60_000L; val m1 = endMillis / 60_000L
+        // Tramos quietos (se tolera 1 minuto suelto que no lo sea)
+        val runs = ArrayList<LongArray>()
+        var k = m0 - 180
+        while (k <= m1 + 120) {
+            if (!still(byMin[k])) { k++; continue }
+            val a = k; var b = k
+            var j = k + 1
+            while (j <= m1 + 120) {
+                if (still(byMin[j])) { b = j; j++ }
+                else if (still(byMin[j + 1])) j++
+                else break
+            }
+            runs.add(longArrayOf(a, b)); k = b + 1
+        }
+        val long = runs.filter { it[1] - it[0] + 1 >= 15 }
+        val anchor = long.firstOrNull { it[1] >= m0 && it[0] <= m1 } ?: return startMillis to endMillis
+        // Inicio: hacia atrás desde el ancla
+        var onset = anchor[0]
+        var m = anchor[0] - 1
+        while (true) {
+            var b = m; var steps = 0
+            while (byMin[b] != null && !still(byMin[b]) && m - b < 6) { steps += byMin[b]!!.steps; b-- }
+            if (byMin[b] == null || m - b > 5 || steps > 12) break
+            var q = b
+            while (still(byMin[q])) q--
+            if (b - q >= 15) onset = q + 1
+            if (b == q) break
+            m = q
+        }
+        // Fin: último tramo largo que empieza antes del fin del pulso
+        var end = m1
+        val last = long.filter { it[0] in onset..m1 }.maxByOrNull { it[0] }
+        if (last != null && last[1] < m1) {
+            val after = (last[1] + 1..m1).count { byMin[it] != null }
+            if (after * 2 >= (m1 - last[1]).toInt()) {
+                end = last[1]
+                // Al despertar suele haber ratos quietos cortos entre giros (≤2 min, ≤15 pasos): siguen siendo noche
+                while (true) {
+                    var b = end + 1; var steps = 0
+                    while (byMin[b] != null && !still(byMin[b]) && b - end <= 3) { steps += byMin[b]!!.steps; b++ }
+                    if (b - end - 1 > 2 || steps > 15 || !still(byMin[b])) break
+                    while (still(byMin[b + 1])) b++
+                    end = b
+                }
+                end = minOf(end, m1)
+            }
+        }
+        return onset * 60_000L to end * 60_000L
     }
 
     /**

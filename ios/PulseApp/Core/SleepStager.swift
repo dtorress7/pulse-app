@@ -73,6 +73,65 @@ enum SleepStager {
     private static var cacheValue: Result? = nil
 
     /// Lee los archivos y clasifica la ventana. nil si no hay movimiento o datos suficientes.
+    /// Inicio y fin de la noche por QUIETUD (21/10), igual que Android (SleepStager.motionBounds): minuto quieto = ≥50 s sin
+    /// moverse, giro < 2,5 °/s y 0 pasos. Ancla = primer tramo quieto ≥15 min que llega a la ventana del pulso; inicio = hacia atrás
+    /// saltando giros (≤5 min, ≤12 pasos) hasta el primer tramo ≥15 min; fin = último tramo ≥15 min que empieza antes del fin
+    /// del pulso (si después hay movimiento grabado), alargado por ratos quietos separados por ≤2 min de giros (≤15 pasos).
+    static func motionBounds(_ startMillis: Int64, _ endMillis: Int64, _ motion: [MotionMinute]) -> (Int64, Int64) {
+        var byMin = [Int64: MotionMinute](minimumCapacity: motion.count)
+        for mm in motion { byMin[mm.minuteStartUnix / 60] = mm }
+        func still(_ m: MotionMinute?) -> Bool {
+            guard let m = m else { return false }
+            return m.stillSecs >= 50 && m.gyroDps < 2.5 && m.steps == 0
+        }
+        let m0 = startMillis / 60_000, m1 = endMillis / 60_000
+        var runs = [(Int64, Int64)]()
+        var k = m0 - 180
+        while k <= m1 + 120 {
+            if !still(byMin[k]) { k += 1; continue }
+            let a = k
+            var b = k, j = k + 1
+            while j <= m1 + 120 {
+                if still(byMin[j]) { b = j; j += 1 }
+                else if still(byMin[j + 1]) { j += 1 }
+                else { break }
+            }
+            runs.append((a, b)); k = b + 1
+        }
+        let long = runs.filter { $0.1 - $0.0 + 1 >= 15 }
+        guard let anchor = long.first(where: { $0.1 >= m0 && $0.0 <= m1 }) else { return (startMillis, endMillis) }
+        var onset = anchor.0
+        var m = anchor.0 - 1
+        while true {
+            var b = m, steps = 0
+            while let x = byMin[b], !still(x), m - b < 6 { steps += x.steps; b -= 1 }
+            if byMin[b] == nil || m - b > 5 || steps > 12 { break }
+            var q = b
+            while still(byMin[q]) { q -= 1 }
+            if b - q >= 15 { onset = q + 1 }
+            if b == q { break }
+            m = q
+        }
+        var end = m1
+        if let last = long.filter({ $0.0 >= onset && $0.0 <= m1 }).max(by: { $0.0 < $1.0 }), last.1 < m1 {
+            var after = 0
+            var t = last.1 + 1
+            while t <= m1 { if byMin[t] != nil { after += 1 }; t += 1 }
+            if after * 2 >= Int(m1 - last.1) {
+                end = last.1
+                while true {
+                    var b = end + 1, steps = 0
+                    while let x = byMin[b], !still(x), b - end <= 3 { steps += x.steps; b += 1 }
+                    if b - end - 1 > 2 || steps > 15 || !still(byMin[b]) { break }
+                    while still(byMin[b + 1]) { b += 1 }
+                    end = b
+                }
+                end = min(end, m1)
+            }
+        }
+        return (onset * 60_000, end * 60_000)
+    }
+
     /// Inicio del sueño por QUIETUD (20/10), igual que Android: tras entrenar el pulso sigue alto la primera hora de sueño.
     /// Hacia atrás desde el inicio: ráfagas de ≤5 min con ≤12 pasos (cambios de postura) y, antes de cada una, un tramo
     /// de quietud total (≥50 s quieto, giro <3 °/s, sin pasos) de ≥15 min. 19→20: 23:12 (WHOOP 23:11); las demás noches igual.
@@ -109,13 +168,13 @@ enum SleepStager {
         cacheLock.unlock()
 
         let allMotion = MotionTracker.readMinutes(motionFile)
-        let start = extendOnsetByStillness(startMillis, allMotion)
-        let lo = start / 60_000, hi = endMillis / 60_000
+        let (start, end) = motionBounds(startMillis, endMillis, allMotion)
+        let lo = start / 60_000, hi = end / 60_000
         let motion = allMotion.filter { $0.minuteStartUnix / 60 >= lo && $0.minuteStartUnix / 60 <= hi }
         var computed: Result? = nil
         if !motion.isEmpty {
-            let readings = hrLog.readings(from: start, to: endMillis)
-            computed = stage(startMillis: start, endMillis: endMillis, readings: readings, motion: motion)
+            let readings = hrLog.readings(from: start, to: end)
+            computed = stage(startMillis: start, endMillis: end, readings: readings, motion: motion)
         }
         cacheLock.lock()
         cacheKey = key; cacheValue = computed

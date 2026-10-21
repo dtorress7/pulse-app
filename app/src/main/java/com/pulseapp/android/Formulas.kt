@@ -159,7 +159,9 @@ object Formulas {
 
     /** 0 = borrar (volver a la fórmula por edad). */
     fun setObservedHrMax(context: Context, bpm: Int) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putInt(KEY_HR_MAX, bpm).apply()
+        // Si cambia, se rehacen zonas/esfuerzo/calorías de las actividades guardadas (AutoActivityScanner)
+        val sp = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        if (sp.getInt(KEY_HR_MAX, 0) != bpm) sp.edit().putInt(KEY_HR_MAX, bpm).putInt("act_recalc", 0).apply()
         cachedObserved = bpm
     }
 
