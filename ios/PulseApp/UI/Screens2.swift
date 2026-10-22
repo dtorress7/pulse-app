@@ -8,7 +8,9 @@ struct EditSessionView: View {
     @State private var type = ""
     @State private var loaded = false
     @State private var session: ActivitySession? = nil
-    @State private var saved = false
+    @State private var start = Date()
+    @State private var end = Date()
+    @State private var message = ""
 
     private static let types = ["Sin clasificar", "Fútbol", "Pádel", "Pickleball", "Entrenamiento funcional", "Entrenamiento de fuerza", "Correr", "Ciclismo", "Caminar", "Otro"]
 
@@ -24,10 +26,19 @@ struct EditSessionView: View {
                         if s.autoDetected { Text("Detectada automáticamente").font(Theme.text(12)).foregroundColor(Theme.textSecondary) }
                     }
                 }
+                Card {
+                    VStack(alignment: .leading, spacing: 12) {
+                        CapsLabel(text: "Horas")
+                        DatePicker("Inicio", selection: $start, displayedComponents: [.date, .hourAndMinute])
+                        Hairline()
+                        DatePicker("Fin", selection: $end, displayedComponents: [.date, .hourAndMinute])
+                    }
+                    .foregroundColor(Theme.textPrimary)
+                }
                 Card(padding: 0) {
                     VStack(spacing: 0) {
                         ForEach(0..<EditSessionView.types.count) { i in
-                            Button(action: { choose(EditSessionView.types[i]) }) {
+                            Button(action: { type = EditSessionView.types[i] }) {
                                 HStack {
                                     Text(EditSessionView.types[i]).font(Theme.text(15)).foregroundColor(Theme.textPrimary)
                                     Spacer()
@@ -41,7 +52,14 @@ struct EditSessionView: View {
                         }
                     }
                 }
-                if saved { Text("Guardado").font(Theme.text(12)).foregroundColor(Theme.recoveryGreen) }
+                Button(action: { save() }) {
+                    Text("Guardar").font(Theme.label(17)).foregroundColor(Theme.onAccent)
+                        .frame(maxWidth: Double.infinity).padding(.vertical, 12)
+                        .background(Theme.recoveryGreen).cornerRadius(12)
+                }
+                if !message.isEmpty { Text(message).font(Theme.text(12)).foregroundColor(Theme.textSecondary) }
+                Text("Al guardar se recalculan esfuerzo, zonas y calorías con el pulso de esas horas y el deporte elegido.")
+                    .font(Theme.text(12)).foregroundColor(Theme.textSecondary)
             } else {
                 Card { EmptyNote(text: "No se encontró la actividad.") }
             }
@@ -52,17 +70,34 @@ struct EditSessionView: View {
                 loaded = true
                 session = AppStore.shared.session(id: sessionId)
                 type = session?.type ?? ""
+                if let s = session {
+                    start = Date(timeIntervalSince1970: Double(s.startMillis) / 1000)
+                    end = Date(timeIntervalSince1970: Double(s.endMillis) / 1000)
+                }
             }
         }
     }
 
-    private func choose(_ t: String) {
-        guard var s = session else { return }
-        s.type = t
-        AppStore.shared.updateSession(s)
-        session = s
-        type = t
-        saved = true
+    private func save() {
+        guard let old = session else { return }
+        let startMs = Int64(start.timeIntervalSince1970 * 1000)
+        let endMs = Int64(end.timeIntervalSince1970 * 1000)
+        if endMs <= startMs { message = "La hora de fin debe ser posterior al inicio"; return }
+        let st = AppStore.shared
+        let p = st.getProfile()
+        let rhr = BaselineProvider.compute(store: st).map { Int($0.avgRestingHr) }
+        guard var fresh = ActivityRecorder.summarize(
+            hrLog: WhoopManager.shared.hrLog, startMillis: startMs, endMillis: endMs,
+            ageYears: p?.ageYears() ?? 30, weightKg: p?.weightKg ?? 75, sex: p?.sex ?? "M",
+            type: type, autoDetected: old.autoDetected, restingHr: rhr) else {
+            message = "No hay datos de pulso en ese rango horario"
+            return
+        }
+        fresh.id = old.id
+        if type == Formulas.napType { fresh.strain = 0; fresh.caloriesKcal = 0 } else { Formulas.updateObservedHrMax(fresh.maxHr) }
+        st.updateSession(fresh)
+        session = fresh
+        message = "Actividad actualizada"
         AppModel.shared.refresh()
         HomeStore.shared.invalidate()
     }

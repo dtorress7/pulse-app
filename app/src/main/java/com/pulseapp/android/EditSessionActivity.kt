@@ -20,7 +20,7 @@ class EditSessionActivity : AppCompatActivity() {
         const val EXTRA_SESSION_ID = "session_id"
     }
 
-    private val types = arrayOf("Fútbol", "Pádel", "Pickleball", "Entrenamiento funcional", "Entrenamiento de fuerza", "Otro", "Sin clasificar")
+    private val types = arrayOf("Fútbol", "Pádel", "Pickleball", "Entrenamiento funcional", "Entrenamiento de fuerza", "Correr", "Ciclismo", "Caminar", "Siesta", "Otro", "Sin clasificar")
     private var selectedType: String = "Sin clasificar"
     private var startCal = Calendar.getInstance()
     private var endCal = Calendar.getInstance()
@@ -96,8 +96,10 @@ class EditSessionActivity : AppCompatActivity() {
                         return@launch
                     }
 
-                    Formulas.updateObservedHrMax(this@EditSessionActivity, recalculated.maxHr)
-                    db.activitySessionDao().update(recalculated.copy(id = session.id))
+                    val isNap = selectedType == Formulas.NAP_TYPE
+                    if (!isNap) Formulas.updateObservedHrMax(this@EditSessionActivity, recalculated.maxHr)
+                    val toSave = if (isNap) recalculated.copy(strain = 0.0, caloriesKcal = 0.0) else recalculated
+                    db.activitySessionDao().update(toSave.copy(id = session.id))
                     Toast.makeText(this@EditSessionActivity, "Actividad actualizada", Toast.LENGTH_SHORT).show()
                     finish()
                 }
