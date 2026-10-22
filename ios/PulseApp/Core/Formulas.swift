@@ -157,12 +157,12 @@ enum Formulas {
     }
 
     // ---------- Esfuerzo ----------
-    // Ronda de esfuerzo 22/10 (igual que Android, ver Formulas.kt): carga = Σ min · r · e^(8,41·r), r = reserva de FC;
-    // esfuerzo = 1,47 · ln(1 + carga/4,97) + 2,72 si es fuerza/funcional (carga muscular de WHOOP).
-    static let strainScale = 1.47
-    static let strainTrimpRef = 4.97
-    static let strainExp = 8.41
-    static let strengthBonus = 2.72
+    // Ronda de esfuerzo 22/10 v2 (igual que Android, ver Formulas.kt): carga = Σ min · r · e^(6,694·r), r = reserva de FC;
+    // esfuerzo = 2,014 · ln(1 + (carga + 50 · minutos de fuerza/funcional) / 10,418).
+    static let strainScale = 2.014
+    static let strainTrimpRef = 10.418
+    static let strainExp = 6.694
+    static let strengthLoadPerMin = 50.0
     static let defaultRestingHr = 58
 
     static func isStrength(_ type: String?) -> Bool {
@@ -178,9 +178,16 @@ enum Formulas {
         return minutes * hrr * exp(strainExp * hrr)
     }
 
-    static func strainFromTrimp(_ trimp: Double, strength: Bool = false) -> Double {
-        let v = strainScale * log(1.0 + max(0.0, trimp) / strainTrimpRef) + (strength ? strengthBonus : 0)
+    static func strainFromTrimp(_ trimp: Double, strengthMinutes: Double = 0) -> Double {
+        let v = strainScale * log(1.0 + (max(0.0, trimp) + strengthLoadPerMin * max(0.0, strengthMinutes)) / strainTrimpRef)
         return min(max(v, 0.0), 21.0)
+    }
+
+    /// Esfuerzo del día + la carga muscular de [strengthMinutes] minutos de fuerza/funcional.
+    static func addStrength(_ strain: Double, _ strengthMinutes: Double) -> Double {
+        if strengthMinutes <= 0 { return strain }
+        let t = strainTrimpRef * (exp(strain / strainScale) - 1.0)
+        return strainFromTrimp(t, strengthMinutes: strengthMinutes)
     }
 
     /// [readings] = (hora en ms, pulso), en orden.

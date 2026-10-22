@@ -52,7 +52,8 @@ class ActivityRecorder {
             trimpTotal += Formulas.trimp(deltaMin, readings[i].bpm, rhr, hrMax, sex != "F")
         }
         // Esfuerzo de la actividad: misma escala que el del día (WHOOP: fútbol 2 h ≈ 10,7)
-        val strain = Formulas.strainFromTrimp(trimpTotal, Formulas.isStrength(type))
+        val strain = Formulas.strainFromTrimp(trimpTotal,
+            if (Formulas.isStrength(type)) (endMillis - startMillis) / 60000.0 else 0.0)
 
         val durationMinutes = (endMillis - startMillis) / 60000.0
         // Calorías por tiempo en cada zona (ajustadas con el export de WHOOP); antes Keytel daba ~1,8× más

@@ -36,9 +36,9 @@ enum DailyMetricsUpdater {
         var strain = Formulas.strainOf(readings: dayReadings.map { ($0.timeMillis, $0.bpm) }, restingHr: restingHr,
                                        hrMax: hrMax, male: sex != "F")
         // Día con fuerza/funcional: + carga muscular, como WHOOP (22/10)
-        if store.allSessions().contains(where: { Formulas.isStrength($0.type) && $0.startMillis >= dayStart && $0.startMillis < dayEnd }) {
-            strain = min(strain + Formulas.strengthBonus, 21)
-        }
+        let strengthMin = store.allSessions().filter { Formulas.isStrength($0.type) && $0.startMillis >= dayStart && $0.startMillis < dayEnd }
+            .reduce(0.0) { $0 + Double($1.endMillis - $1.startMillis) / 60000.0 }
+        strain = Formulas.addStrength(strain, strengthMin)
         let sleepMinutes = staged?.asleepMinutes ?? sleep?.asleepMinutes
         let efficiency = staged?.efficiencyPct ?? sleep?.efficiencyPct
         var startMinute: Int? = nil

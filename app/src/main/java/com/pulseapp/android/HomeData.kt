@@ -214,10 +214,9 @@ class HomeDataLoader(private val ctx: Context) {
             val debtAfter = summary.sleepMinutes?.let { ((lastNightNeed - it) / 2.0).let { d -> Math.round(d).toInt().coerceAtLeast(0) } }
                 ?: lastPlan.debtAdjustmentMinutes
             // Día con fuerza/funcional: WHOOP suma carga muscular al esfuerzo del día (22/10)
-            val dayStrain = summary.strain?.let { s ->
-                if (allSessions.any { it.startMillis >= dayStart && it.startMillis < dayEnd && Formulas.isStrength(it.type) })
-                    (s + Formulas.STRENGTH_BONUS).coerceAtMost(21.0) else s
-            }
+            val strengthMin = allSessions.filter { it.startMillis >= dayStart && it.startMillis < dayEnd && Formulas.isStrength(it.type) }
+                .sumOf { (it.endMillis - it.startMillis) / 60000.0 }
+            val dayStrain = summary.strain?.let { Formulas.addStrength(it, strengthMin) }
             val plan = planner.computeTonightPlan(db, dayStrain, wake / 60, wake % 60, debtOverride = debtAfter)
             bedtime = plan.suggestedBedtime
             val prevNights = stored.filter { it.date < date.format(iso) }.takeLast(3)

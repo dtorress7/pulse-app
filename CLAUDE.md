@@ -245,6 +245,13 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   (12,6), func 21/10 10,6 (11,1), fútbol 21/10 9,7 (8,8; antes 13,4). Día (bono si hubo fuerza ese día, en HomeData y DailyMetricsUpdater):
   20/10 13,3 (12,7), 21/10 12,8 (13,3). Las actividades "Sin clasificar" NO llevan el bono hasta ponerles el deporte. `act_recalc` = 2 rehace todo.
   Los días ya guardados conservan el esfuerzo antiguo.
+- **Esfuerzo v2 (22/10, tras la queja del usuario: el bono fijo dejaba func 19 y 20/10 PEOR que antes)**: la carga muscular entra en la misma curva,
+  proporcional a la duración: esfuerzo = 2,014·ln(1 + (carga + 50·min de fuerza)/10,418), carga = Σ min·r·e^(6,694·r). Comparado con la fórmula
+  de antes, TODOS los entrenos quedan mejor o igual: func 19/10 11,6 (WHOOP 11,5; antes 11,7) · func 20/10 12,0 (12,6; 11,9) · func 21/10 11,4
+  (11,1; 10,4) · fútbol 21/10 9,8 (8,8; 13,4) · fútbol 14/10 11,9 (12,6; 14,6) · fútbol 15/10 10,3 (9,6; 13,4) · fútbol 19/10 12,2 (12,8; 15,4) ·
+  func 15/10 manual 11,9 (12,1; 11,3) · pickleball 9,3 (8,7; 13,9) · paseo 3,3 (4,1; 5,2). Error medio 2,2 → 0,56 (dejando uno fuera 0,94).
+  Día: `Formulas.addStrength(esfuerzo, minutos de fuerza del día)`; 20/10 12,1 (12,65), 21/10 12,2 (13,3). `act_recalc` = 3.
+  El "50" topa en el límite de la búsqueda: con solo 4 funcionales no se puede separar bien; revisar con más entrenos.
 - Detección: inicio = primer minuto del tramo elevado (≥26 % reserva). Funcional 21/10 → 18:27:00–19:17:59 y zonas 23:25/26:39/0:53, EXACTO a WHOOP
   (18:27–19:17, 23:24/26:42/0:53); 19/10 y 20/10 siguen exactos. Fútbol 21/10: WHOOP 20:19–22:07 (incluye 20 min de espera con pulso 70–80 y sin
   movimiento grabado), PulseApp 20:42–22:03; kcal 432 vs 421.

@@ -26,7 +26,7 @@ object AutoActivityScanner {
      */
     private suspend fun recalcAllOnce(context: Context, csvFile: File) {
         val sp = context.getSharedPreferences("pulseapp_formulas", Context.MODE_PRIVATE)
-        if (sp.getInt("act_recalc", 0) >= 2 || !csvFile.exists()) return
+        if (sp.getInt("act_recalc", 0) >= 3 || !csvFile.exists()) return
         val db = AppDatabase.getInstance(context)
         val profile = db.userProfileDao().getOnce() ?: return
         Formulas.init(context)
@@ -43,7 +43,7 @@ object AutoActivityScanner {
             val keep = if (old.type == Formulas.NAP_TYPE) fresh.copy(strain = 0.0, caloriesKcal = 0.0) else fresh
             db.activitySessionDao().update(keep.copy(id = old.id))
         }
-        sp.edit().putInt("act_recalc", 2).apply()   // 2 = curva de esfuerzo del 22/10
+        sp.edit().putInt("act_recalc", 3).apply()   // 3 = curva de esfuerzo v2 del 22/10
     }
 
     private suspend fun scanInner(context: Context, csvFile: File, force: Boolean): Int {

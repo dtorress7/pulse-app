@@ -260,10 +260,9 @@ enum HomeDataLoader {
             var debtAfter = lastPlan.debtAdjustmentMinutes
             if let m = s.sleepMinutes { debtAfter = max(Int((Double(lastPlan.totalNeedMinutes - m) / 2).rounded()), 0) }
             // Día con fuerza/funcional: WHOOP suma carga muscular al esfuerzo del día (22/10)
-            var dayStrain = s.strain
-            if allSessions.contains(where: { $0.startMillis >= dayStart && $0.startMillis < dayEnd && Formulas.isStrength($0.type) }) {
-                dayStrain = min(dayStrain + Formulas.strengthBonus, 21)
-            }
+            let strengthMin = allSessions.filter { $0.startMillis >= dayStart && $0.startMillis < dayEnd && Formulas.isStrength($0.type) }
+                .reduce(0.0) { $0 + Double($1.endMillis - $1.startMillis) / 60000.0 }
+            let dayStrain = Formulas.addStrength(s.strain, strengthMin)
             let plan = SleepPlanner.computeTonightPlan(store: store, todayStrain: dayStrain, wakeHour: wake / 60, wakeMinute: wake % 60,
                                                        debtOverride: debtAfter)
             bedtime = plan.suggestedBedtime

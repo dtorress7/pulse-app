@@ -216,14 +216,16 @@ object Formulas {
 
     // RONDA DE ESFUERZO (22/10) con los 10 entrenos de la API de WHOOP (zonas exactas) + 4 con pulso segundo a segundo:
     //   carga = Σ minutos · r · e^(8,41·r), r = (FC − FCR) / (FCmáx − FCR)   (sin umbral: lo suave apenas suma)
-    //   esfuerzo = 1,47 · ln(1 + carga / 4,97)  [+ 2,72 si es fuerza/funcional: WHOOP suma carga MUSCULAR, "cardio 50 % / muscular 50 %"]
-    // Antes (Banister, 0,64·e^(1,92·r), ≥45 % FCmáx, 4,14·ln(1+T/2,6)) daba fútbol 21/10 13,4 (WHOOP 8,8) y pickleball 15,7 (8,7):
-    // contaba demasiado los ratos largos en zona 0–1. Ahora: func 19/10 12,6 (11,5), func 20/10 13,3 (12,6), func 21/10 10,6 (11,1),
-    // fútbol 21/10 9,7 (8,8); con zonas de la API, error medio 0,7 (dejando uno fuera, 1,4; antes 3,5). Día 20/10 13,3 (12,7), 21/10 12,8 (13,3).
-    const val STRAIN_SCALE = 1.47
-    const val STRAIN_TRIMP_REF = 4.97
-    const val STRAIN_EXP = 8.41
-    const val STRENGTH_BONUS = 2.72
+    //   esfuerzo = 2,014 · ln(1 + (carga + 50 · minutos de fuerza) / 10,418)
+    // Fuerza/funcional: WHOOP suma carga MUSCULAR ("cardio 50 % / muscular 50 %"); aquí entra en la misma curva, proporcional a la duración
+    // (v2 22/10: un bono fijo de +2,72 dejaba los funcionales 19 y 20/10 peor que antes; así quedan todos mejor o igual).
+    // Antes (Banister, 0,64·e^(1,92·r), ≥45 % FCmáx, 4,14·ln(1+T/2,6)) daba fútbol 21/10 13,4 (WHOOP 8,8) y pickleball 13,9 (8,7).
+    // Ahora (WHOOP): func 19/10 11,6 (11,5) · func 20/10 12,0 (12,6) · func 21/10 11,4 (11,1) · fútbol 21/10 9,8 (8,8) · fútbol 14/10 11,9 (12,6) ·
+    // fútbol 15/10 10,3 (9,6) · fútbol 19/10 12,2 (12,8) · pickleball 9,3 (8,7) · paseo 3,3 (4,1). Error medio 2,2 → 0,56 (dejando uno fuera 0,94).
+    const val STRAIN_SCALE = 2.014
+    const val STRAIN_TRIMP_REF = 10.418
+    const val STRAIN_EXP = 6.694
+    const val STRENGTH_LOAD_PER_MIN = 50.0
     const val DEFAULT_RESTING_HR = 58
 
     /** Fuerza / funcional: WHOOP les suma carga muscular. */
@@ -241,8 +243,15 @@ object Formulas {
         return minutes * hrr * exp(STRAIN_EXP * hrr)
     }
 
-    fun strainFromTrimp(trimp: Double, strength: Boolean = false): Double =
-        (STRAIN_SCALE * ln(1.0 + max(0.0, trimp) / STRAIN_TRIMP_REF) + if (strength) STRENGTH_BONUS else 0.0).coerceIn(0.0, 21.0)
+    fun strainFromTrimp(trimp: Double, strengthMinutes: Double = 0.0): Double =
+        (STRAIN_SCALE * ln(1.0 + (max(0.0, trimp) + STRENGTH_LOAD_PER_MIN * max(0.0, strengthMinutes)) / STRAIN_TRIMP_REF)).coerceIn(0.0, 21.0)
+
+    /** Esfuerzo del día + la carga muscular de [strengthMinutes] minutos de fuerza/funcional (se suma en la misma curva). */
+    fun addStrength(strain: Double, strengthMinutes: Double): Double {
+        if (strengthMinutes <= 0) return strain
+        val t = STRAIN_TRIMP_REF * (kotlin.math.exp(strain / STRAIN_SCALE) - 1.0)
+        return strainFromTrimp(t, strengthMinutes)
+    }
 
     fun strainOf(
         readings: List<Pair<Long, Int>>, restingHr: Int?, hrMax: Double, male: Boolean = true, maxGapMinutes: Double = 5.0
