@@ -48,14 +48,16 @@ object SleepStager {
     private const val WAKE_MIN_MINUTES = 3
     private const val WAKE_MIN_SPIKE = 12.0
 
-    // Profundo / REM
-    private const val LOCAL_WINDOW = 91
-    private const val DEEP_HRV = 0.0
-    private const val DEEP_HRV_SLOPE = 0.3
+    // Profundo / REM — RONDA GRANDE 22/10: ajustados a la vez con las 7 noches con movimiento y WHOOP (16→22/10).
+    // Error medio por noche: ligero 34→14 min, profundo 21→16, REM 28→13, VFC 4,3→4,3 ms (antes: ventana 91, profundo 0/0,3/−0,5,
+    // REM −0,2/0,4/0). Arnés: /home/claude/check/tune (TStager.kt + Tune.kt).
+    private const val LOCAL_WINDOW = 61
+    private const val DEEP_HRV = -0.05
+    private const val DEEP_HRV_SLOPE = 0.0
     private const val DEEP_HR = -0.5
-    private const val REM_HRV = -0.2
-    private const val REM_HRV_SLOPE = 0.4
-    private const val REM_HR = 0.0
+    private const val REM_HRV = -0.1
+    private const val REM_HRV_SLOPE = 0.3
+    private const val REM_HR = -1.0
     private const val REM_NO_FIRST_MIN = 45
     private const val DEEP_NO_LAST_MIN = 45
     private const val MIN_RUN = 4

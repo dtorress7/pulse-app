@@ -213,7 +213,12 @@ class HomeDataLoader(private val ctx: Context) {
             // Deuda tras la noche de hoy: la mitad de lo que faltó para la necesidad de esa noche
             val debtAfter = summary.sleepMinutes?.let { ((lastNightNeed - it) / 2.0).let { d -> Math.round(d).toInt().coerceAtLeast(0) } }
                 ?: lastPlan.debtAdjustmentMinutes
-            val plan = planner.computeTonightPlan(db, summary.strain, wake / 60, wake % 60, debtOverride = debtAfter)
+            // Día con fuerza/funcional: WHOOP suma carga muscular al esfuerzo del día (22/10)
+            val dayStrain = summary.strain?.let { s ->
+                if (allSessions.any { it.startMillis >= dayStart && it.startMillis < dayEnd && Formulas.isStrength(it.type) })
+                    (s + Formulas.STRENGTH_BONUS).coerceAtMost(21.0) else s
+            }
+            val plan = planner.computeTonightPlan(db, dayStrain, wake / 60, wake % 60, debtOverride = debtAfter)
             bedtime = plan.suggestedBedtime
             val prevNights = stored.filter { it.date < date.format(iso) }.takeLast(3)
                 .mapNotNull { r -> r.sleepStartMinuteOfDay?.let { s -> r.sleepEndMinuteOfDay?.let { e -> s to e } } }
@@ -233,7 +238,7 @@ class HomeDataLoader(private val ctx: Context) {
             val liveSteps = withContext(Dispatchers.IO) { Ui.stepsToday(ctx) }
             todayRecord = DayRecord(
                 date, summary.avgHrv, summary.restingHr, summary.respiratoryRate, summary.sleepMinutes, summary.sleepEfficiencyPct,
-                summary.sleepStartMinuteOfDay, summary.sleepEndMinuteOfDay, summary.strain, recovery, score,
+                summary.sleepStartMinuteOfDay, summary.sleepEndMinuteOfDay, dayStrain, recovery, score,
                 plan.totalNeedMinutes, debtAfter, consistency, liveSteps.takeIf { it > 0 }, kcalFor(date, elapsed), vo2,
                 light = summary.stages?.lightMinutes, deep = summary.stages?.deepMinutes, rem = summary.stages?.remMinutes,
                 awake = summary.stages?.awakeMinutes ?: summary.awakeMinutes, wakeEpisodes = summary.stages?.awakenings,

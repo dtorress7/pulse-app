@@ -139,8 +139,8 @@ enum Formulas {
                 j += 1
             }
             let coreIdx = (s0...e0).filter { minutes[$0].1 >= core }
-            if coreIdx.count >= 8, var s = coreIdx.first, var e = coreIdx.last {
-                while s > s0 && minutes[s - 1].1 >= z1 && minutes[s].0 - minutes[s - 1].0 == 1 { s -= 1 }
+            if coreIdx.count >= 8, var e = coreIdx.last {
+                let s = s0   // inicio = primer minuto del tramo elevado (22/10, como Android)
                 var low = Double.greatestFiniteMagnitude
                 if e < e0 {
                     for k in (e + 1)...e0 {
@@ -157,22 +157,29 @@ enum Formulas {
     }
 
     // ---------- Esfuerzo ----------
-    static let strainScale = 4.14
-    static let strainTrimpRef = 2.6
-    static let minHrFraction = 0.45
+    // Ronda de esfuerzo 22/10 (igual que Android, ver Formulas.kt): carga = Σ min · r · e^(8,41·r), r = reserva de FC;
+    // esfuerzo = 1,47 · ln(1 + carga/4,97) + 2,72 si es fuerza/funcional (carga muscular de WHOOP).
+    static let strainScale = 1.47
+    static let strainTrimpRef = 4.97
+    static let strainExp = 8.41
+    static let strengthBonus = 2.72
     static let defaultRestingHr = 58
 
+    static func isStrength(_ type: String?) -> Bool {
+        guard let t = type?.lowercased() else { return false }
+        return t.contains("funcional") || t.contains("fuerza") || t.contains("crossfit") || t.contains("gimnasio") || t.contains("pesas")
+    }
+
     static func trimp(minutes: Double, hr: Int, restingHr: Int, hrMax: Double, male: Bool = true) -> Double {
-        if minutes <= 0 || Double(hr) < minHrFraction * hrMax { return 0 }
+        if minutes <= 0 { return 0 }
         let reserve = max(hrMax - Double(restingHr), 20.0)
         let hrr = min(max((Double(hr) - Double(restingHr)) / reserve, 0.0), 1.1)
         if hrr <= 0 { return 0 }
-        if male { return minutes * hrr * 0.64 * exp(1.92 * hrr) }
-        return minutes * hrr * 0.86 * exp(1.67 * hrr)
+        return minutes * hrr * exp(strainExp * hrr)
     }
 
-    static func strainFromTrimp(_ trimp: Double) -> Double {
-        let v = strainScale * log(1.0 + max(0.0, trimp) / strainTrimpRef)
+    static func strainFromTrimp(_ trimp: Double, strength: Bool = false) -> Double {
+        let v = strainScale * log(1.0 + max(0.0, trimp) / strainTrimpRef) + (strength ? strengthBonus : 0)
         return min(max(v, 0.0), 21.0)
     }
 

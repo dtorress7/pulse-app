@@ -26,13 +26,14 @@ enum SleepStager {
     private static let wakeMinMinutes = 3
     private static let wakeMinSpike = 12.0
 
-    private static let localWindow = 91
-    private static let deepHrv = 0.0
-    private static let deepHrvSlope = 0.3
+    // Ronda grande 22/10 (igual que Android): ajustados con las 7 noches con movimiento y WHOOP.
+    private static let localWindow = 61
+    private static let deepHrv = -0.05
+    private static let deepHrvSlope = 0.0
     private static let deepHr = -0.5
-    private static let remHrv = -0.2
-    private static let remHrvSlope = 0.4     // 17/10: REM más fácil al final de la noche
-    private static let remHr = 0.0
+    private static let remHrv = -0.1
+    private static let remHrvSlope = 0.3
+    private static let remHr = -1.0
     private static let remNoFirstMin = 45
     private static let deepNoLastMin = 45
     private static let minRun = 4

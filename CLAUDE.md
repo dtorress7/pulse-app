@@ -231,6 +231,25 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   quietos sueltos) y reunión 21/10 9:30–11:29 (giro mediano 6,5, FC 65) → NINGÚN tramo quieto ≥20 min, no salen como siesta. Con todo el
   código nuevo: a las 23:00 del 20/10 la noche mostrada es 19→20 23:12–07:30 (no el sofá) y a las 13:30 del 21/10 es 23:11–07:37, 8:02 (WHOOP 8:02).
 
+- **RONDA GRANDE de fases (22/10, 7 noches con movimiento 16→22/10)**: 21→22 WHOOP (API) 23:13–07:18, 39/273/112/63, VFC 85,2, FCR 56,
+  resp 13,4, calificación 91, regularidad 88, recuperación 54; PulseApp iPhone 23:22–07:17, 31/360/61/23 (REM 23!), VFC 96, rec. 70.
+  Ajuste conjunto con /home/claude/check/tune (copia de SleepStager con parámetros variables + búsqueda en rejilla, VFC con NightMetrics):
+  LOCAL_WINDOW 91→61, DEEP_HRV 0→−0,05, DEEP_HRV_SLOPE 0,3→0, DEEP_HR −0,5, REM_HRV −0,2→−0,1, REM_HRV_SLOPE 0,4→0,3, REM_HR 0→−1.
+  Error medio (7 noches): ligero 34→14 min, profundo 21→16, REM 28→13, VFC 4,3→4,3 ms. 21→22 ahora 31/284/91/69, VFC 91 (WHOOP 85).
+  Por noche (P vs W): 16 34/245/93/78 vs 33/240/126/52 · 17 23/249/91/114 vs 15/206/126/131 · 18 35/250/109/89 vs 28/243/107/100 ·
+  19 38/273/109/131 vs 37/271/111/132 · 20 52/271/90/85 vs 31/292/101/74 · 21 24/270/103/109 vs 23/259/98/126 · 22 31/284/91/69 vs 39/273/112/63.
+- **RONDA de esfuerzo (22/10)**: con los 10 entrenos de la API (zonas exactas) WHOOP da mucho menos a los ratos largos en zona 0–1 (pickleball 8,7,
+  fútbol 21/10 8,8) y SUMA carga muscular a funcional/fuerza ("cardio 50 % / muscular 50 %"). Nueva curva (Android + iOS): carga = Σ min·r·e^(8,41·r),
+  r = reserva de FC, sin umbral; esfuerzo = 1,47·ln(1+carga/4,97) + 2,72 si `Formulas.isStrength(tipo)` (funcional/fuerza/crossfit/gimnasio/pesas).
+  Error medio con zonas de la API 3,5 → 0,7 (1,4 dejando uno fuera). Segundo a segundo (ventanas de WHOOP): func 19/10 12,6 (11,5), func 20/10 13,3
+  (12,6), func 21/10 10,6 (11,1), fútbol 21/10 9,7 (8,8; antes 13,4). Día (bono si hubo fuerza ese día, en HomeData y DailyMetricsUpdater):
+  20/10 13,3 (12,7), 21/10 12,8 (13,3). Las actividades "Sin clasificar" NO llevan el bono hasta ponerles el deporte. `act_recalc` = 2 rehace todo.
+  Los días ya guardados conservan el esfuerzo antiguo.
+- Detección: inicio = primer minuto del tramo elevado (≥26 % reserva). Funcional 21/10 → 18:27:00–19:17:59 y zonas 23:25/26:39/0:53, EXACTO a WHOOP
+  (18:27–19:17, 23:24/26:42/0:53); 19/10 y 20/10 siguen exactos. Fútbol 21/10: WHOOP 20:19–22:07 (incluye 20 min de espera con pulso 70–80 y sin
+  movimiento grabado), PulseApp 20:42–22:03; kcal 432 vs 421.
+- Archivos que hacen falta cada día: SOLO hr_log.csv y motion_minutes.csv (WHOOP sale de la API). service_log solo si hay problemas de conexión.
+
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
 esfuerzo 11,5, 271 kcal, FC media 127 (la media aritmética de esos segundos es 133: WHOOP no usa la media simple), máx 170,

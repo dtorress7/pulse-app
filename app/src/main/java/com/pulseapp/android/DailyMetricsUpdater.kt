@@ -63,7 +63,12 @@ class DailyMetricsUpdater {
             NightMetrics.hrv(sleepWindowReadings.map { it.timeMillis to it.rr }, staged)
         } else null
         val vo2Max = restingHr?.let { 15.3 * (hrMax / it) }
-        val strain = Formulas.strainOf(dayReadings.map { it.timeMillis to it.bpm }, restingHr, hrMax, sex != "F")
+        val strainHr = Formulas.strainOf(dayReadings.map { it.timeMillis to it.bpm }, restingHr, hrMax, sex != "F")
+        // Día con fuerza/funcional: + carga muscular, como WHOOP (22/10)
+        val strength = db.activitySessionDao().getAll().any {
+            Formulas.isStrength(it.type) && dayFormat.format(Date(it.startMillis)) == yesterdayKey
+        }
+        val strain = if (strength) (strainHr + Formulas.STRENGTH_BONUS).coerceAtMost(21.0) else strainHr
         val sleepMinutes = staged?.asleepMinutes ?: sleep?.asleepMinutes
 
         var sleepStartMinute: Int? = null

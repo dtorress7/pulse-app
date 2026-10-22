@@ -140,7 +140,7 @@ object Formulas {
     // Calibrada con los dos funcionales que WHOOP detectó solo (19/10 18:16–18:54 y 20/10 18:20–19:04, horas de la API).
     //  - Tramo = minutos seguidos con el pulso ≥ 26 % de la reserva (≈95 lpm), tolerando 2 min por debajo o sin dato.
     //  - Núcleo = minutos ≥ 50 % de la reserva. Vale si el tramo tiene ≥ 8 min de núcleo y dura ≥ 12 min (IA de WHOOP: mínimo 12).
-    //  - Inicio = primer minuto de núcleo, adelantado mientras los anteriores sigan ≥ zona 1.
+    //  - Inicio = primer minuto del tramo elevado.
     //  - Fin = último minuto de núcleo, o más tarde si después el pulso VUELVE A SUBIR ≥ 5 lpm sobre el mínimo desde entonces
     //    (sigues haciendo series aunque más suaves). Si solo va bajando (te estás recuperando), acaba en el último minuto de núcleo.
     const val ACT_ELEVATED_HRR = 0.26
@@ -171,8 +171,9 @@ object Formulas {
             }
             val coreIdx = (s0..e0).filter { minutes[it].second >= core }
             if (coreIdx.size >= ACT_MIN_CORE) {
-                var s = coreIdx.first()
-                while (s > s0 && minutes[s - 1].second >= z1 && minutes[s].first - minutes[s - 1].first == 1L) s--
+                // Inicio = primer minuto del tramo elevado (22/10: funcional 21/10 empieza a las 18:27 con 102 lpm, como WHOOP;
+                // antes, "adelantar mientras ≥ zona 1" daba 18:33). 19/10 y 20/10 siguen exactos.
+                val s = s0
                 var e = coreIdx.last()
                 var low = Double.MAX_VALUE
                 for (k in e + 1..e0) {
@@ -213,22 +214,35 @@ object Formulas {
 
     // ---------- Esfuerzo ----------
 
-    const val STRAIN_SCALE = 4.14
-    const val STRAIN_TRIMP_REF = 2.6
-    const val MIN_HR_FRACTION = 0.45
+    // RONDA DE ESFUERZO (22/10) con los 10 entrenos de la API de WHOOP (zonas exactas) + 4 con pulso segundo a segundo:
+    //   carga = Σ minutos · r · e^(8,41·r), r = (FC − FCR) / (FCmáx − FCR)   (sin umbral: lo suave apenas suma)
+    //   esfuerzo = 1,47 · ln(1 + carga / 4,97)  [+ 2,72 si es fuerza/funcional: WHOOP suma carga MUSCULAR, "cardio 50 % / muscular 50 %"]
+    // Antes (Banister, 0,64·e^(1,92·r), ≥45 % FCmáx, 4,14·ln(1+T/2,6)) daba fútbol 21/10 13,4 (WHOOP 8,8) y pickleball 15,7 (8,7):
+    // contaba demasiado los ratos largos en zona 0–1. Ahora: func 19/10 12,6 (11,5), func 20/10 13,3 (12,6), func 21/10 10,6 (11,1),
+    // fútbol 21/10 9,7 (8,8); con zonas de la API, error medio 0,7 (dejando uno fuera, 1,4; antes 3,5). Día 20/10 13,3 (12,7), 21/10 12,8 (13,3).
+    const val STRAIN_SCALE = 1.47
+    const val STRAIN_TRIMP_REF = 4.97
+    const val STRAIN_EXP = 8.41
+    const val STRENGTH_BONUS = 2.72
     const val DEFAULT_RESTING_HR = 58
 
+    /** Fuerza / funcional: WHOOP les suma carga muscular. */
+    fun isStrength(type: String?): Boolean {
+        val t = type?.lowercase() ?: return false
+        return "funcional" in t || "fuerza" in t || "crossfit" in t || "gimnasio" in t || "pesas" in t
+    }
+
+    @Suppress("UNUSED_PARAMETER")
     fun trimp(minutes: Double, hr: Int, restingHr: Int, hrMax: Double, male: Boolean = true): Double {
-        if (minutes <= 0 || hr < MIN_HR_FRACTION * hrMax) return 0.0
+        if (minutes <= 0) return 0.0
         val reserve = (hrMax - restingHr).coerceAtLeast(20.0)
         val hrr = ((hr - restingHr) / reserve).coerceIn(0.0, 1.1)
         if (hrr <= 0.0) return 0.0
-        return if (male) minutes * hrr * 0.64 * exp(1.92 * hrr)
-        else minutes * hrr * 0.86 * exp(1.67 * hrr)
+        return minutes * hrr * exp(STRAIN_EXP * hrr)
     }
 
-    fun strainFromTrimp(trimp: Double): Double =
-        (STRAIN_SCALE * ln(1.0 + max(0.0, trimp) / STRAIN_TRIMP_REF)).coerceIn(0.0, 21.0)
+    fun strainFromTrimp(trimp: Double, strength: Boolean = false): Double =
+        (STRAIN_SCALE * ln(1.0 + max(0.0, trimp) / STRAIN_TRIMP_REF) + if (strength) STRENGTH_BONUS else 0.0).coerceIn(0.0, 21.0)
 
     fun strainOf(
         readings: List<Pair<Long, Int>>, restingHr: Int?, hrMax: Double, male: Boolean = true, maxGapMinutes: Double = 5.0

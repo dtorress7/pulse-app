@@ -259,7 +259,12 @@ enum HomeDataLoader {
             // Deuda tras la noche de hoy: la mitad de lo que faltó para la necesidad de esa noche
             var debtAfter = lastPlan.debtAdjustmentMinutes
             if let m = s.sleepMinutes { debtAfter = max(Int((Double(lastPlan.totalNeedMinutes - m) / 2).rounded()), 0) }
-            let plan = SleepPlanner.computeTonightPlan(store: store, todayStrain: s.strain, wakeHour: wake / 60, wakeMinute: wake % 60,
+            // Día con fuerza/funcional: WHOOP suma carga muscular al esfuerzo del día (22/10)
+            var dayStrain = s.strain
+            if let v = dayStrain, allSessions.contains(where: { $0.startMillis >= dayStart && $0.startMillis < dayEnd && Formulas.isStrength($0.type) }) {
+                dayStrain = min(v + Formulas.strengthBonus, 21)
+            }
+            let plan = SleepPlanner.computeTonightPlan(store: store, todayStrain: dayStrain, wakeHour: wake / 60, wakeMinute: wake % 60,
                                                        debtOverride: debtAfter)
             bedtime = plan.suggestedBedtime
             var consistency: Int? = nil
@@ -284,7 +289,7 @@ enum HomeDataLoader {
             r.hrv = s.avgHrv; r.rhr = s.restingHr; r.resp = s.respiratoryRate
             r.sleepMinutes = s.sleepMinutes; r.efficiency = s.sleepEfficiencyPct
             r.sleepStartMinute = s.sleepStartMinuteOfDay; r.sleepEndMinute = s.sleepEndMinuteOfDay
-            r.strain = s.strain
+            r.strain = dayStrain
             r.needTonight = plan.totalNeedMinutes
             r.consistency = consistency
             let live = Steps.today(live: WhoopManager.shared.stepsToday)

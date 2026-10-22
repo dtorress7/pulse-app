@@ -33,8 +33,12 @@ enum DailyMetricsUpdater {
         let avgHrv: Double? = sleepWindowReadings.isEmpty ? nil : NightMetrics.hrv(sleepWindowReadings, staged: staged)
         var vo2: Double? = nil
         if let r = restingHr, r > 0 { vo2 = 15.3 * (hrMax / Double(r)) }
-        let strain = Formulas.strainOf(readings: dayReadings.map { ($0.timeMillis, $0.bpm) }, restingHr: restingHr,
+        var strain = Formulas.strainOf(readings: dayReadings.map { ($0.timeMillis, $0.bpm) }, restingHr: restingHr,
                                        hrMax: hrMax, male: sex != "F")
+        // Día con fuerza/funcional: + carga muscular, como WHOOP (22/10)
+        if store.allSessions().contains(where: { Formulas.isStrength($0.type) && $0.startMillis >= dayStart && $0.startMillis < dayEnd }) {
+            strain = min(strain + Formulas.strengthBonus, 21)
+        }
         let sleepMinutes = staged?.asleepMinutes ?? sleep?.asleepMinutes
         let efficiency = staged?.efficiencyPct ?? sleep?.efficiencyPct
         var startMinute: Int? = nil
