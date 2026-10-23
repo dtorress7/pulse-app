@@ -69,7 +69,10 @@ enum AutoActivityScanner {
         }
         let rhr = BaselineProvider.compute(store: store).map { Int($0.avgRestingHr) }
         if let r = rhr { Formulas.setZoneRestingHr(r) }
+        let importUntil = WhoopImport.importedUntil()
         for old in store.allSessions() {
+            // Las importadas de WHOOP se quedan con los números de WHOOP
+            if !importUntil.isEmpty && TimeUtil.dayKey(old.startMillis) <= importUntil { continue }
             guard var fresh = ActivityRecorder.summarize(
                 hrLog: hrLog, startMillis: old.startMillis, endMillis: old.endMillis,
                 ageYears: profile.ageYears(), weightKg: profile.weightKg, sex: profile.sex,

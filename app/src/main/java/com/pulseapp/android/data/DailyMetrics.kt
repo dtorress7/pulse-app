@@ -22,5 +22,10 @@ data class DailyMetrics(
     val remMinutes: Int? = null,
     val awakeMinutes: Int? = null,
     val wakeEpisodes: Int? = null,
-    val latencyMinutes: Int? = null
+    val latencyMinutes: Int? = null,
+    // Notas oficiales de WHOOP de ese día, solo en los días importados del export (versión 10, 23/10). En los de PulseApp, null.
+    val whoopRecovery: Int? = null,
+    val whoopSleepScore: Int? = null,
+    val whoopConsistency: Int? = null,
+    val whoopSleepNeed: Int? = null
 )

@@ -18,7 +18,7 @@ class DailyMetricsUpdater {
         private const val REST_GRACE_MINUTES = 20
         private const val REST_MIN_DURATION_MINUTES = 90
         private const val DISCONNECT_GAP_MINUTES = 3
-        private const val RECALC_FLAG = "night_recalc_v1"
+        const val RECALC_FLAG = "night_recalc_v1"
     }
 
     private val dayFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)

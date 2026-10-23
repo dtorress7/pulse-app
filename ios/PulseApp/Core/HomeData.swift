@@ -217,16 +217,21 @@ enum HomeDataLoader {
             let last7 = Array(before.suffix(7))
             let baseline = BaselineProvider.computeFrom(Array(before.reversed()))
             var r = DayRecord(date: d)
-            if row.avgHrv != nil || row.restingHr != nil {
+            // Días importados de WHOOP (23/10): se muestran las notas oficiales de WHOOP; si no, las calcula PulseApp
+            if let w = row.whoopRecovery {
+                r.recovery = w
+            } else if row.avgHrv != nil || row.restingHr != nil {
                 r.recovery = Formulas.recovery(hrv: row.avgHrv, restingHr: row.restingHr, respiratoryRate: row.respiratoryRate, baseline: baseline).total
             }
             let prevStrain = byDate[Day.add(d, -1)]?.strain
             let debtBefore = SleepPlanner.debtFrom(Array(before.suffix(14)), base: base)
             let strainAdj = Formulas.sleepNeedFromStrain(prevStrain ?? 0)
-            let needLastNight = base + strainAdj + debtBefore
+            let needLastNight = row.whoopSleepNeed ?? (base + strainAdj + debtBefore)
             // Regularidad de esa noche: ella y las 3 anteriores
-            let consistency = Formulas.sleepConsistency(HomeDataLoader.nights(last7 + [row]))
-            if let m = row.sleepMinutes {
+            let consistency = row.whoopConsistency ?? Formulas.sleepConsistency(HomeDataLoader.nights(last7 + [row]))
+            if let w = row.whoopSleepScore {
+                r.sleepScore = w
+            } else if let m = row.sleepMinutes {
                 r.sleepScore = Formulas.sleepScore(hoursVsNeedPct: min(m * 100 / max(needLastNight, 1), 100),
                                                    efficiencyPct: row.sleepEfficiencyPct, consistencyPct: consistency)
             }
@@ -371,14 +376,13 @@ enum HomeDataLoader {
         // ---------- Monitor de salud ----------
         let twoWeeks = Day.add(date, -14)
         let hist = records.values.filter { $0.date < date && $0.date >= twoWeeks }
-        let newMethod = BaselineProvider.newMethodSince
         let vitals = [
             vital("resp", "Frecuencia respiratoria", "lungs.fill", day.resp, "rpm", 1,
-                  hist.filter { $0.date >= newMethod }.compactMap { $0.resp }, goodWhenHigh: false),
+                  hist.filter { BaselineProvider.sameScale($0.date) }.compactMap { $0.resp }, goodWhenHigh: false),
             vital("rhr", "FCR", "heart.fill", day.rhr.map { Double($0) }, "lpm", 0,
                   hist.compactMap { $0.rhr.map { Double($0) } }, goodWhenHigh: false),
             vital("hrv", "VFC", "waveform.path.ecg", day.hrv, "ms", 0,
-                  hist.filter { $0.date >= newMethod }.compactMap { $0.hrv }, goodWhenHigh: true)
+                  hist.filter { BaselineProvider.sameScale($0.date) }.compactMap { $0.hrv }, goodWhenHigh: true)
         ]
         let withRange = vitals.filter { $0.ok != nil }
         let healthOk = withRange.filter { $0.ok == true }.count
@@ -398,7 +402,7 @@ enum HomeDataLoader {
         let int0: (Double) -> String = { String(format: "%.0f", $0) }
         let pct: (Double) -> String = { String(format: "%.0f %%", $0) }
         let thousands: (Double) -> String = { Fmt.thousands(Int64($0.rounded())) }
-        add(PanelKeys.hrv, "waveform.path.ecg", day.hrv, avgOf(previous.filter { $0.date >= newMethod }.compactMap { $0.hrv }), true, int0, 0.5)
+        add(PanelKeys.hrv, "waveform.path.ecg", day.hrv, avgOf(previous.filter { BaselineProvider.sameScale($0.date) }.compactMap { $0.hrv }), true, int0, 0.5)
         add(PanelKeys.rhr, "heart.fill", day.rhr.map { Double($0) }, avgOf(previous.compactMap { $0.rhr.map { Double($0) } }), false, int0, 0.5)
         add(PanelKeys.steps, "figure.walk", day.steps.map { Double($0) }, avgOf(previous.compactMap { $0.steps.map { Double($0) } }), true, thousands, 0.5)
 

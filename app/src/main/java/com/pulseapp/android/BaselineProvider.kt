@@ -40,6 +40,9 @@ class BaselineProvider {
          * para no mezclar escalas.
          */
         const val NEW_METHOD_SINCE = "2026-10-15"
+
+        /** VFC/respiración de ese día en la escala de WHOOP: calculada con el método nuevo o importada de WHOOP (23/10). */
+        fun sameScale(date: String): Boolean = date >= NEW_METHOD_SINCE || date <= Formulas.whoopImportUntil()
     }
 
     suspend fun compute(db: AppDatabase): PersonalBaseline? = computeFrom(db.dailyMetricsDao().getLastDays(LOOKBACK_DAYS))
@@ -51,7 +54,7 @@ class BaselineProvider {
     fun computeFrom(lastDaysNewestFirst: List<com.pulseapp.android.data.DailyMetrics>): PersonalBaseline? {
         // Solo noches de verdad (≥ 3 h dormido): un día sin noche registrada no debe mover tu media
         val days = lastDaysNewestFirst.take(LOOKBACK_DAYS).filter { (it.sleepMinutes ?: 0) >= 180 }
-        val newMethod = days.filter { it.date >= NEW_METHOD_SINCE }
+        val newMethod = days.filter { sameScale(it.date) }
         val validHrv = newMethod.mapNotNull { it.avgHrv?.takeIf { v -> v > 0 } }
         val validRhr = days.mapNotNull { it.restingHr?.toDouble() }
         val validResp = newMethod.mapNotNull { it.respiratoryRate?.takeIf { r -> r in 8.0..25.0 } }

@@ -12,7 +12,7 @@ enum DailyMetricsUpdater {
                               ageYears: ageYears, weightKg: weightKg, sex: sex) { store.saveDay(d) }
     }
 
-    private static let recalcKey = "pulseapp_night_recalc"
+    static let recalcKey = "pulseapp_night_recalc"
 
     /// Una sola vez tras actualizar (23/10, VFC y recuperación nuevas): rehace con las fórmulas de ahora los días guardados
     /// que tengan pulso guardado, para que la línea base de VFC esté en la misma escala. Sin pulso, se dejan igual.

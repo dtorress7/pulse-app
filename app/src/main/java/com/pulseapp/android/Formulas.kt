@@ -51,6 +51,19 @@ object Formulas {
         cachedObserved = sp.getInt(KEY_HR_MAX, 0)
         cachedZoneRhr = sp.getInt(KEY_RHR_ZONE, DEFAULT_RESTING_HR)
         cachedBmr = sp.getFloat(KEY_BMR, 0f).toDouble()
+        cachedImportUntil = sp.getString(KEY_IMPORT_UNTIL, "") ?: ""
+    }
+
+    // ---------- Historial importado de WHOOP (23/10) ----------
+    private const val KEY_IMPORT_UNTIL = "whoop_import_until"
+    @Volatile private var cachedImportUntil = ""
+
+    /** Último día importado del export de WHOOP ("" = ninguno). Hasta ese día los datos son de WHOOP. */
+    fun whoopImportUntil(): String = cachedImportUntil
+
+    fun setWhoopImportUntil(context: Context, date: String) {
+        cachedImportUntil = date
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY_IMPORT_UNTIL, date).apply()
     }
 
     // ---------- Zonas de FC como WHOOP (20/10) ----------

@@ -179,15 +179,16 @@ class HomeDataLoader(private val ctx: Context) {
             val before = rowsBefore(d)
             val last7 = before.takeLast(7)
             val baseline = BaselineProvider().computeFrom(before.reversed())
-            val recovery = if (row.avgHrv != null || row.restingHr != null)
+            // Días importados de WHOOP (23/10): se muestran las notas oficiales de WHOOP; si no, las calcula PulseApp
+            val recovery = row.whoopRecovery ?: if (row.avgHrv != null || row.restingHr != null)
                 Formulas.recovery(row.avgHrv, row.restingHr, row.respiratoryRate, baseline).total else null
             val prevStrain = byDate[d.minusDays(1).format(iso)]?.strain
             val debtBefore = SleepPlanner.debtFrom(before.takeLast(14), base)
-            val needLastNight = base + Formulas.sleepNeedFromStrain(prevStrain ?: 0.0) + debtBefore
+            val needLastNight = row.whoopSleepNeed ?: (base + Formulas.sleepNeedFromStrain(prevStrain ?: 0.0) + debtBefore)
             // Regularidad de esa noche: ella y las 3 anteriores
-            val consistency = Formulas.sleepConsistency((last7 + row).mapNotNull { r ->
+            val consistency = row.whoopConsistency ?: Formulas.sleepConsistency((last7 + row).mapNotNull { r ->
                 r.sleepStartMinuteOfDay?.let { s -> r.sleepEndMinuteOfDay?.let { e -> s to e } } })
-            val score = row.sleepMinutes?.let {
+            val score = row.whoopSleepScore ?: row.sleepMinutes?.let {
                 Formulas.sleepScore((it * 100 / needLastNight.coerceAtLeast(1)).coerceAtMost(100), row.sleepEfficiencyPct, consistency)
             }
             val debtAfter = SleepPlanner.nextDebt(debtBefore, base, prevStrain, row.sleepMinutes)
@@ -297,14 +298,13 @@ class HomeDataLoader(private val ctx: Context) {
 
         // ---------- Monitor de salud ----------
         val hist = records.values.filter { it.date < date && it.date >= date.minusDays(14) }
-        val newMethod = BaselineProvider.NEW_METHOD_SINCE
         val vitals = listOf(
             vital("resp", "Frecuencia respiratoria", R.drawable.ic_lungs, day.resp, "rpm", 1,
-                hist.filter { it.date.format(iso) >= newMethod }.mapNotNull { it.resp }, goodWhenHigh = false),
+                hist.filter { BaselineProvider.sameScale(it.date.format(iso)) }.mapNotNull { it.resp }, goodWhenHigh = false),
             vital("rhr", "FCR", R.drawable.ic_rhr, day.rhr?.toDouble(), "lpm", 0,
                 hist.mapNotNull { it.rhr?.toDouble() }, goodWhenHigh = false),
             vital("hrv", "VFC", R.drawable.ic_hrv, day.hrv, "ms", 0,
-                hist.filter { it.date.format(iso) >= newMethod }.mapNotNull { it.hrv }, goodWhenHigh = true)
+                hist.filter { BaselineProvider.sameScale(it.date.format(iso)) }.mapNotNull { it.hrv }, goodWhenHigh = true)
         )
         val withRange = vitals.filter { it.ok != null }
         val healthOk = withRange.count { it.ok == true }
@@ -329,7 +329,7 @@ class HomeDataLoader(private val ctx: Context) {
         val int0 = { v: Double -> "%.0f".format(v) }
         val pct = { v: Double -> "%.0f %%".format(v) }
         add(PanelKeys.HRV, R.drawable.ic_hrv, day.hrv,
-            avgOf(previous.filter { it.date.format(iso) >= newMethod }.mapNotNull { it.hrv }), true, int0, 0.5)
+            avgOf(previous.filter { BaselineProvider.sameScale(it.date.format(iso)) }.mapNotNull { it.hrv }), true, int0, 0.5)
         add(PanelKeys.RHR, R.drawable.ic_rhr, day.rhr?.toDouble(), avgOf(previous.mapNotNull { it.rhr?.toDouble() }), false, int0, 0.5)
         add(PanelKeys.STEPS, R.drawable.ic_steps, day.steps?.toDouble(),
             avgOf(previous.mapNotNull { it.steps?.toDouble() }), true, { Ui.thousands(Math.round(it)) }, 0.5)

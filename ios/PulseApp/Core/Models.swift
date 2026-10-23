@@ -33,6 +33,11 @@ struct DailyMetrics: Codable, Equatable {
     var awakeMinutes: Int? = nil
     var wakeEpisodes: Int? = nil
     var latencyMinutes: Int? = nil
+    // Notas oficiales de WHOOP, solo en días importados del export (23/10). En los de PulseApp, nil.
+    var whoopRecovery: Int? = nil
+    var whoopSleepScore: Int? = nil
+    var whoopConsistency: Int? = nil
+    var whoopSleepNeed: Int? = nil
 }
 
 struct ActivitySession: Codable, Equatable, Identifiable {

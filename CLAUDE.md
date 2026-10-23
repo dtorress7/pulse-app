@@ -18,7 +18,7 @@ El usuario habla español: responde siempre en español, claro y paso a paso.
 Kotlin, minSdk 26, target/compile 34, Java 17. Room 2.6.1 con **KSP** (kapt no funciona).
 `gradle.properties`: `android.useAndroidX=true`, `android.enableJetifier=false`, `org.gradle.jvmargs=-Xmx2048m`.
 Archivos Gradle en **Groovy**. Usar `Locale.US` al escribir números en CSV. Trabajo pesado en `Dispatchers.IO`.
-Base de datos: versión 9, migraciones 1→9 registradas en `AppDatabase.kt` (9 = fases de cada noche en daily_metrics).
+Base de datos: versión 10, migraciones 1→10 registradas en `AppDatabase.kt` (9 = fases de cada noche; 10 = whoopRecovery/whoopSleepScore/whoopConsistency/whoopSleepNeed de los días importados).
 
 ## Pantallas y archivos principales (`app/src/main/java/com/pulseapp/android/`)
 - `MainActivity` (inicio: Recuperación, Esfuerzo/Strain, Sueño, Estrés, calorías, actividades),
@@ -271,6 +271,18 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   → 13,8; día WHOOP 16,25 → 14,2; mañana 23/10 00:29–08:06 WHOOP 2,6 → 1,9. Candidata: carga = Σ min·(r·e^(4,886 r) + 0,1134),
   esfuerzo = 4,932·ln(1 + (carga + 12,12·min fuerza)/95,6): 13 de 14 casos mejor (MAE 0,83 → 0,40), pero el paseo 17/10 (solo por zonas) baja
   3,3 → 1,2 (WHOOP 4,1). No se aplica hasta tener paseos/actividad suave con pulso segundo a segundo. Script scratchpad v/str5.py.
+
+- **Método de VFC que describe la IA de WHOOP (23/10)**: media ponderada de varios tramos de SWS con más peso al último. Probado con
+  NUESTRAS fases (arnés ftest9/W.kt, 9 noches): profundo ponderado MAE 4,5 calibrado (6,2 dejando una fuera), último SWS 6,4, ×2/×3 al último
+  5,4/6,4, tramos más estables 2,9–3,3 → todos peores que el método actual (media de tramos de 2 min, 1,9 / 2,4). Nuestras fases no
+  coinciden minuto a minuto con las de WHOOP; revisar cuando las fases estén afinadas.
+- **Importar historial de WHOOP (23/10, Android `WhoopImport.kt` + iOS `Core/WhoopImport.swift`, Más → "Importar historial de WHOOP")**:
+  zip del export (lector de zip propio en iOS con Compression) o CSV sueltos. Ciclo con noche → fila del día de la vigilia (hasta AYER), con
+  VFC/FCR/sueño/fases/resp/esfuerzo/kcal + notas oficiales (recuperación, calificación, regularidad, necesidad) que HomeData muestra tal cual
+  en esos días. Entrenos (zonas por %) y siestas → actividades; WHOOP manda en solapes. Copia de lo sustituido en whoop_import_backup_*.csv/json.
+  `whoop_import_until` (prefs) → `BaselineProvider.sameScale` cuenta esos días; recalcAllOnce de actividades y el recálculo de noches no los
+  tocan. Export del 23/10: 199 días (07/04 → 22/10), 246 entrenos, 21 siestas. Con ese historial la línea base es VFC 88 / FCR 57,6 y la
+  noche 22→23 daría 71 (WHOOP 70).
 
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,

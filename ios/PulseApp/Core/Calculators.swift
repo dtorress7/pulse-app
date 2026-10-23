@@ -17,6 +17,9 @@ enum BaselineProvider {
     /// 23/10: las noches guardadas se recalculan con la VFC nueva (DailyMetricsUpdater.recalcPastNightsOnce): cuentan desde el 15/10.
     static let newMethodSince = "2026-10-15"
 
+    /// VFC/respiración de ese día en la escala de WHOOP: método nuevo o importada de WHOOP (23/10).
+    static func sameScale(_ date: String) -> Bool { return date >= newMethodSince || date <= WhoopImport.importedUntil() }
+
     static func compute(store: AppStore) -> PersonalBaseline? {
         return computeFrom(store.lastDays(lookbackDays))
     }
@@ -25,7 +28,7 @@ enum BaselineProvider {
     /// Para un día pasado D se le pasan los días anteriores a D: así su recuperación sale igual que la habría dado ese día.
     static func computeFrom(_ lastDaysNewestFirst: [DailyMetrics]) -> PersonalBaseline? {
         let days = Array(lastDaysNewestFirst.prefix(lookbackDays)).filter { ($0.sleepMinutes ?? 0) >= 180 }
-        let newMethod = days.filter { $0.date >= newMethodSince }
+        let newMethod = days.filter { sameScale($0.date) }
         let validHrv = newMethod.compactMap { d -> Double? in
             if let v = d.avgHrv, v > 0 { return v }
             return nil

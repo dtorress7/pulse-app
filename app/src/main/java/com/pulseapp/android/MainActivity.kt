@@ -73,6 +73,46 @@ class MainActivity : AppCompatActivity() {
             arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
         }
 
+    /** Importar el export de WHOOP (zip o CSV), 23/10. */
+    private val whoopImportLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) runWhoopImport(uri)
+    }
+
+    private fun askWhoopImport() {
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Importar historial de WHOOP")
+            .setMessage("Elige el archivo que te manda WHOOP al exportar tus datos (my_whoop_data_….zip) o su physiological_cycles.csv.\n\n" +
+                "Tus noches, recuperación, esfuerzo, sueño y entrenos de WHOOP pasan a PulseApp hasta ayer. Donde ya había datos de " +
+                "PulseApp, manda WHOOP (se guarda una copia de lo sustituido). Desde hoy, cada noche la mide PulseApp sobre ese historial.")
+            .setPositiveButton("Elegir archivo") { _, _ -> whoopImportLauncher.launch(arrayOf("*/*")) }
+            .setNegativeButton("Cancelar", null)
+            .show()
+    }
+
+    private fun runWhoopImport(uri: android.net.Uri) {
+        lifecycleScope.launch {
+            val result = runCatching {
+                withContext(Dispatchers.IO) {
+                    val name = contentResolver.query(uri, null, null, null, null)?.use { c ->
+                        val i = c.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                        if (i >= 0 && c.moveToFirst()) c.getString(i) else null
+                    }
+                    val files = contentResolver.openInputStream(uri)?.use { WhoopImport.readInput(it, name) } ?: emptyMap()
+                    WhoopImport.import(this@MainActivity, files)
+                }
+            }
+            val msg = result.fold({ r ->
+                if (r.days == 0 && r.sessions == 0) "No he encontrado datos de WHOOP en ese archivo. Elige el zip del export o physiological_cycles.csv."
+                else "Importado de WHOOP:\n• ${r.days} días (${r.from} → ${r.until})\n• ${r.sessions} entrenos y ${r.naps} siestas" +
+                    (if (r.replacedDays + r.replacedSessions > 0) "\n\nSustituidos ${r.replacedDays} días y ${r.replacedSessions} actividades de PulseApp " +
+                        "(copia en ${r.backup?.name})." else "")
+            }, { e -> "No se pudo importar: ${e.message}" })
+            androidx.appcompat.app.AlertDialog.Builder(this@MainActivity)
+                .setTitle("Historial de WHOOP").setMessage(msg).setPositiveButton("Cerrar", null).show()
+            refresh()
+        }
+    }
+
     private val permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { _ ->
         val btOk = Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
             ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
@@ -165,6 +205,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.dayLabel).setOnClickListener { if (dayOffset != 0) { dayOffset = 0; refresh() } }
 
         findViewById<View>(R.id.rowExport).setOnClickListener { exportCsv() }
+        findViewById<View>(R.id.rowWhoopImport).setOnClickListener { askWhoopImport() }
         findViewById<View>(R.id.rowWhoopExperimental).setOnClickListener(openWhoop)
         findViewById<View>(R.id.rowScan).setOnClickListener(openWhoop)
         findViewById<View>(R.id.rowSummary).setOnClickListener { showSummaryDialog() }

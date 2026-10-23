@@ -34,7 +34,11 @@ object AutoActivityScanner {
             CalorieCalculator().basalMetabolicRate(profile.ageYears(), profile.weightKg, profile.heightCm, profile.sex))
         val rhr = BaselineProvider().compute(db)?.avgRestingHr?.toInt()
         rhr?.let { Formulas.setZoneRestingHr(context, it) }
+        val importUntil = Formulas.whoopImportUntil()
+        val dayFmt = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
         for (old in db.activitySessionDao().getAll()) {
+            // Las importadas de WHOOP se quedan con los números de WHOOP
+            if (importUntil.isNotEmpty() && dayFmt.format(java.util.Date(old.startMillis)) <= importUntil) continue
             val fresh = ActivityRecorder().summarize(
                 csvFile, old.startMillis, old.endMillis,
                 ageYears = profile.ageYears(), weightKg = profile.weightKg, sex = profile.sex,

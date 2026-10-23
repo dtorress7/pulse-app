@@ -35,6 +35,7 @@ struct HomeView: View {
     @State private var showMessage = false
     @State private var showImporter = false
     @State private var importing = false
+    @State private var showWhoopInfo = false
 
     static let types = ["Fútbol", "Pádel", "Pickleball", "Entrenamiento funcional", "Entrenamiento de fuerza", "Otro"]
     private let ticker = Timer.publish(every: 2, on: .main, in: .common).autoconnect()
@@ -111,12 +112,18 @@ struct HomeView: View {
             Text("En azul, el esfuerzo de cada día (0–21, escala de la izquierda). En círculos, la recuperación de esa mañana (0–100 %, a la derecha): verde ≥ 67 %, amarillo 34–66 %, rojo < 34 %.")
         })
         .alert("PulseApp", isPresented: $showMessage, actions: { Button("OK", action: {}) }, message: { Text(message) })
+        .alert("Importar historial de WHOOP", isPresented: $showWhoopInfo, actions: {
+            Button("Elegir archivo") { DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { showImporter = true } }
+            Button("Cancelar", role: .cancel) {}
+        }, message: {
+            Text("Elige el zip que te manda WHOOP al exportar tus datos (my_whoop_data_….zip) o su physiological_cycles.csv.\n\nTus noches, recuperación, esfuerzo, sueño y entrenos de WHOOP pasan a PulseApp hasta ayer. Donde ya había datos de PulseApp, manda WHOOP (se guarda una copia de lo sustituido). Desde hoy, cada noche la mide PulseApp sobre ese historial.")
+        })
         .alert("Antes de empezar: ¿quién lleva la pulsera?", isPresented: $showSetup, actions: {
             Button("Completar ahora") { showProfile = true }
         }, message: {
             Text("Necesito tu fecha de nacimiento, peso, altura y sexo. Con ellos calculo tu FC máxima y tus zonas, el esfuerzo, las calorías, el VO₂ máx y cuánto sueño necesitas.")
         })
-        .fileImporter(isPresented: $showImporter, allowedContentTypes: [.commaSeparatedText, .plainText, .text, .data],
+        .fileImporter(isPresented: $showImporter, allowedContentTypes: [.zip, .commaSeparatedText, .plainText, .text, .data],
                       allowsMultipleSelection: true) { result in
             if case .success(let urls) = result { importAndroid(urls) }
         }
@@ -626,6 +633,10 @@ struct HomeView: View {
                     if !importing { showImporter = true }
                 }
                 WDivider()
+                moreRow("clock.arrow.circlepath", "Importar historial de WHOOP") {
+                    if !importing { showWhoopInfo = true }
+                }
+                WDivider()
                 ShareLink(item: AppPaths.file(AppPaths.hrLog)) {
                     moreRowContent("square.and.arrow.up", "Exportar CSV")
                 }
@@ -689,7 +700,13 @@ struct HomeView: View {
             return
         }
         importing = true
+        let isWhoop = WhoopImport.looksLikeWhoop(local)
         HomeStore.shared.run({ () -> String in
+            if isWhoop {
+                let r = WhoopImport.importFiles(local)
+                try? FileManager.default.removeItem(at: dir)
+                return r.text
+            }
             let r = AndroidImport.importFiles(local)
             try? FileManager.default.removeItem(at: dir)
             return r.text
