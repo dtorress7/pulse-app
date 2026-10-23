@@ -284,6 +284,20 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   tocan. Export del 23/10: 199 días (07/04 → 22/10), 246 entrenos, 21 siestas. Con ese historial la línea base es VFC 88 / FCR 57,6 y la
   noche 22→23 daría 71 (WHOOP 70).
 
+- **Hipnograma de WHOOP minuto a minuto (23/10)**: en la app de WHOOP, Sueño → "El sueño de anoche" muestra 4 barras (despierto/ligero/
+  profundo/REM) sobre el tiempo en cama. Se leen de las capturas (pista x = 64…764 en 828 px de ancho, o ×ancho/828; tramo sólido = máx canal >100;
+  inicio/fin en cama de get_sleeps). Validado con las horas que leyó el usuario a mano (±1 min). Datos de 8 noches 16→23/10 en
+  /home/claude/check/hyp (lab.pkl = etiqueta WHOOP por minuto; scripts dig*.py, feat*.py, model*.py).
+  - Método actual de fases: solo 49 % de minutos en la misma fase que WHOOP; del profundo de WHOOP acierta ~20–40 %. WHOOP pone el profundo en
+    las primeras 3–4 h y el REM al final; PulseApp ponía profundo a las 5–7 h. Rasgos que separan (medias): profundo = pulso muy estable
+    (sd 2,1 vs 3,6 ligero), 118 min sin moverse, progreso 0,23; REM = pulso +3,3 sobre la mediana local, ln RMSSD −0,25, poco después de moverse.
+  - Candidato (no aplicado): árboles (HistGradientBoosting 150×prof. 3, 17 rasgos de pulso/VFC/movimiento/tiempo) + Viterbi (permanencia 0,9)
+    + sesgo por fase; validación dejando cada noche fuera: acuerdo 81 % (actual 49 %), MAE totales D/L/P/R 8,8/18,2/16,6/22,6 frente a
+    12,4/14,9/18,0/12,2 del actual (ajustado SOBRE esas noches). REM total peor (noches 16 y 18: +42/+34) → no se aplica hasta mejorar el REM
+    con más noches etiquetadas.
+  - VFC con las fases EXACTAS de WHOOP: último profundo sin calibrar MAE 9,8; profundo ponderado calibrado (dejando una fuera) 1,9 = igual que el
+    método actual. Conclusión: la VFC actual ya está al nivel posible con nuestros RR; la diferencia restante viene del reprocesado de WHOOP en la nube.
+
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
 esfuerzo 11,5, 271 kcal, FC media 127 (la media aritmética de esos segundos es 133: WHOOP no usa la media simple), máx 170,
