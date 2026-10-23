@@ -352,6 +352,9 @@ de PulseApp (hr_log, motion_minutes). Perfil: 1,69 m, 68 kg, FCmáx 195.
 - Siesta tomada como noche (20/10, 20:28–21:58 en el sofá): `MetricsCalculator.analyze` ahora mira de las 18:00 de ayer a las 14:00 de hoy.
 
 ## Pendiente (en orden)
+0. **Próxima versión (pedido 23/10)**: en Inicio, deslizar hacia abajo para actualizar como WHOOP: al tirar aparece una flecha ↓ encima de
+   la marca y, al soltar, el logo de PulseApp girando mientras recarga (Android + iOS). Capturas de WHOOP: flecha sobre "WHOOP", luego logo
+   cargando, y el aviso "DATOS ACTUALIZADOS · SINCRONIZADO CON 16:46 ✓".
 1. Ajustar el contador de pasos con una prueba de 100 pasos contados.
 2. ~~Orden de parar el IMU~~ HECHO: 106 `[0,0]` (ver Acelerómetro).
 3. ~~Clasificador de sueño en 4 fases~~ HECHO v1 (16/10, ver arriba). Falta validar la colocación con más noches y usar fases en recuperación (VFC en profundo).
