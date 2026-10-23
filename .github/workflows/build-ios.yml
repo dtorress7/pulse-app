@@ -22,6 +22,11 @@ jobs:
       - name: Generar proyecto
         run: xcodegen generate
 
+      - name: Comprobar el modelo de fases (Swift = Python)
+        run: |
+          swiftc -O PulseApp/Core/SleepModel.swift Tests/main.swift -o sleepcheck
+          ./sleepcheck Tests/sleep_ref.json PulseApp/Resources/sleep_model.json
+
       - name: Compilar (sin firmar)
         run: |
           set -o pipefail

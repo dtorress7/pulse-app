@@ -291,7 +291,14 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   - Método actual de fases: solo 49 % de minutos en la misma fase que WHOOP; del profundo de WHOOP acierta ~20–40 %. WHOOP pone el profundo en
     las primeras 3–4 h y el REM al final; PulseApp ponía profundo a las 5–7 h. Rasgos que separan (medias): profundo = pulso muy estable
     (sd 2,1 vs 3,6 ligero), 118 min sin moverse, progreso 0,23; REM = pulso +3,3 sobre la mediana local, ln RMSSD −0,25, poco después de moverse.
-  - Candidato (no aplicado): árboles (HistGradientBoosting 150×prof. 3, 17 rasgos de pulso/VFC/movimiento/tiempo) + Viterbi (permanencia 0,9)
+  - **APLICADO (23/10, a petición del usuario: el REM solo es visual)**: `SleepModel.kt` / `Core/SleepModel.swift` + `sleep_model.json`
+    (Android `app/src/main/resources`, iOS `Resources`). `SleepStager.stage` usa el modelo para ligero/profundo/REM y las REGLAS de antes
+    para despierto (las capturas pierden los despertares de 1 px: el modelo solo daba 3–4 despertares). Kotlin = Python en 3903/3903 minutos
+    (ftest11/P.kt); Swift se comprueba en CI (`ios/Tests/main.swift`, paso "Comprobar el modelo de fases"). Dentro de muestra con el pipeline
+    de la app: 16 34/234/129/53 (W 33/240/126/52) · 17 23/197/116/141 (15/206/126/131) · 18 35/258/89/101 · 19 38/278/104/131 · 20 52/278/95/73
+    · 21 24/262/99/121 · 22 31/260/120/64 · 23 31/248/97/79 (W 24/245/102/84). Si no carga el modelo, vuelven las reglas.
+    Reentrenar con más noches: check/hyp (dig2.py para leer capturas, lab.py, feat*.py, final.py exporta el modelo y ref_out.json).
+  - Candidato (aplicado arriba): árboles (HistGradientBoosting 150×prof. 3, 17 rasgos de pulso/VFC/movimiento/tiempo) + Viterbi (permanencia 0,9)
     + sesgo por fase; validación dejando cada noche fuera: acuerdo 81 % (actual 49 %), MAE totales D/L/P/R 8,8/18,2/16,6/22,6 frente a
     12,4/14,9/18,0/12,2 del actual (ajustado SOBRE esas noches). REM total peor (noches 16 y 18: +42/+34) → no se aplica hasta mejorar el REM
     con más noches etiquetadas.

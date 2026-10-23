@@ -350,7 +350,14 @@ object SleepStager {
             xl[i] = lrm[i] - ll
         }
 
-        // ---- Clasificación ----
+        // ---- Clasificación (23/10): modelo aprendido del hipnograma de WHOOP; si no se puede cargar, las reglas de antes ----
+        // Los despertares siguen saliendo de las reglas de arriba (ajustadas a los totales y al número de despertares de WHOOP):
+        // en las capturas los despertares cortos son líneas de 1 px y el modelo aprendió menos minutos despierto de la cuenta.
+        modelStages(m0, n, readings, motion)?.let { ms ->
+            for (k in 0 until n) ms[k] = if (aw[k]) AWAKE else if (ms[k] == AWAKE) LIGHT else ms[k]
+            val (a0, b0) = trimBounds(ms)
+            return Result(m0 + a0, ms.copyOfRange(a0, b0))
+        }
         val st = IntArray(n) { if (aw[it]) AWAKE else LIGHT }
         for (i in 0 until n) {
             if (aw[i]) continue
@@ -373,6 +380,21 @@ object SleepStager {
         // Recorte: fuera el rato en la cama antes de dormirse y después de despertarse
         val (a, b) = trimBounds(st)
         return Result(m0 + a, st.copyOfRange(a, b))
+    }
+
+    /** Fases con SleepModel (pulso y RR de cada segundo + movimiento de cada minuto de la ventana). */
+    private fun modelStages(m0: Long, n: Int, readings: List<HrReading>, motion: List<MotionMinute>): IntArray? {
+        val secs = List(n) { ArrayList<SleepModel.Second>() }
+        for (r in readings) {
+            val i = (r.timeMillis / 60_000L - m0).toInt()
+            if (i in 0 until n) secs[i].add(SleepModel.Second(r.bpm, r.rr))
+        }
+        val mot = arrayOfNulls<SleepModel.Minute>(n)
+        for (mm in motion) {
+            val i = (mm.minuteStartUnix / 60 - m0).toInt()
+            if (i in 0 until n) mot[i] = SleepModel.Minute(mm.stillSecs.toDouble(), mm.gyroDps.toString().toDouble(), mm.steps.toDouble())
+        }
+        return SleepModel.classify(secs, mot.toList())
     }
 
     /** [inicio, fin) de la noche: del primer tramo de ≥[ONSET_RUN] min sin despertar al último minuto dormido. */

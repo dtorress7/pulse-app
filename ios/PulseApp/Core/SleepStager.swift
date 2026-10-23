@@ -329,7 +329,24 @@ enum SleepStager {
             xl[i] = lrm[i] - ll
         }
 
-        // ---- Clasificación ----
+        // ---- Clasificación (23/10): modelo aprendido del hipnograma de WHOOP (igual que Android); despertares de las reglas ----
+        var secs = [[SleepModel.Second]](repeating: [], count: n)
+        for r in readings {
+            let i = Int(r.timeMillis / 60_000 - m0)
+            if i >= 0 && i < n { secs[i].append(SleepModel.Second(bpm: r.bpm, rr: r.rr)) }
+        }
+        var mot = [SleepModel.Minute?](repeating: nil, count: n)
+        for mm in motion {
+            let i = Int(mm.minuteStartUnix / 60 - m0)
+            if i >= 0 && i < n {
+                mot[i] = SleepModel.Minute(still: Double(mm.stillSecs), gyro: Double("\(mm.gyroDps)") ?? Double(mm.gyroDps), steps: Double(mm.steps))
+            }
+        }
+        if var ms = SleepModel.classify(secs, mot) {
+            for k in 0..<n { ms[k] = aw[k] ? awake : (ms[k] == awake ? light : ms[k]) }
+            let (a0, b0) = trimBounds(ms)
+            return Result(startMinute: m0 + Int64(a0), stages: Array(ms[a0..<b0]))
+        }
         var st = [Int](repeating: light, count: n)
         for i in 0..<n where aw[i] { st[i] = awake }
         for i in 0..<n {
