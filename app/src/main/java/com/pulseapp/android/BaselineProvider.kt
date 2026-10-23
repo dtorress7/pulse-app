@@ -34,11 +34,12 @@ class BaselineProvider {
         private const val MIN_RESP_SD = 0.4
 
         /**
-         * Desde el 17/10 la VFC sale del sueño profundo y la respiración del análisis espectral (valores más altos
+         * 23/10: la VFC nueva (NightMetrics) se recalcula para todas las noches con pulso guardado (desde el 14/10), así que
+         * cuentan las noches desde el 15/10. Antes (17/10): desde el 17/10 la VFC salía del sueño profundo y la respiración del análisis espectral (valores más altos
          * y en la escala de WHOOP). Los días guardados antes con el método viejo no entran en esas dos medias
-         * para no mezclar escalas (hasta tener 3 noches nuevas se usa la referencia 86 ms).
+         * para no mezclar escalas.
          */
-        const val NEW_METHOD_SINCE = "2026-10-17"
+        const val NEW_METHOD_SINCE = "2026-10-15"
     }
 
     suspend fun compute(db: AppDatabase): PersonalBaseline? = computeFrom(db.dailyMetricsDao().getLastDays(LOOKBACK_DAYS))
@@ -55,15 +56,16 @@ class BaselineProvider {
         val validRhr = days.mapNotNull { it.restingHr?.toDouble() }
         val validResp = newMethod.mapNotNull { it.respiratoryRate?.takeIf { r -> r in 8.0..25.0 } }
 
-        if (validHrv.size < MIN_DAYS_REQUIRED || validRhr.size < MIN_DAYS_REQUIRED) {
-            return null
-        }
-        // getLastDays devuelve de más reciente a más antiguo: se invierte para la media ponderada
+        if (validHrv.isEmpty() || validRhr.isEmpty()) return null
+        // getLastDays devuelve de más reciente a más antiguo: se invierte para la media ponderada.
+        // 23/10: la media empieza en tu línea base de WHOOP antes de usar PulseApp (88 ms / 58,5 lpm) y cada noche la mueve,
+        // como si tuviera tu historial. Antes empezaba en la 1.ª noche propia: con pocas noches la media quedaba baja
+        // (las dos primeras fueron 69 y 76) y la recuperación salía ~10–15 puntos alta. Con 9 noches: error medio 12,7 → 3,8.
         val lnHrv = validHrv.map { ln(it) }
-        val lnHrvEwma = ewma(lnHrv.reversed())
+        val lnHrvEwma = ewma(lnHrv.reversed(), ln(Formulas.FALLBACK_HRV))
         return PersonalBaseline(
             avgHrv = kotlin.math.exp(lnHrvEwma),
-            avgRestingHr = ewma(validRhr.reversed()),
+            avgRestingHr = ewma(validRhr.reversed(), Formulas.FALLBACK_RHR),
             daysUsed = minOf(validHrv.size, validRhr.size),
             lnHrvMean = lnHrvEwma,
             lnHrvSd = maxOf(sd(lnHrv), MIN_LN_HRV_SD),
@@ -73,9 +75,9 @@ class BaselineProvider {
         )
     }
 
-    private fun ewma(oldestFirst: List<Double>): Double {
-        var m = oldestFirst.first()
-        for (v in oldestFirst.drop(1)) m += EWMA_ALPHA * (v - m)
+    private fun ewma(oldestFirst: List<Double>, prior: Double): Double {
+        var m = prior
+        for (v in oldestFirst) m += EWMA_ALPHA * (v - m)
         return m
     }
 

@@ -205,12 +205,14 @@ enum Formulas {
     }
 
     // ---------- Recuperación ----------
-    static let kHrv = 5.5
-    static let kRhr = 0.028
-    static let bias = 0.84
-    /// Referencias mientras no haya 3 noches propias: tu media reciente en WHOOP (VFC 86 ms, FC reposo 59 lpm).
-    static let fallbackHrv = 86.0
-    static let fallbackRhr = 59.0
+    /// 23/10 (igual que Android): lineal, ajustada con 199 noches de WHOOP (error medio en validación cruzada 4,8):
+    ///   recuperación = 64,28 + 89,74 · (ln VFC − media) − 0,4625 · (FCR − media)
+    static let recBias = 64.2755
+    static let recKHrv = 89.7396
+    static let recKRhr = 0.4625
+    /// Línea base de partida: la de WHOOP el 14/10, antes de usar PulseApp (VFC 88 ms, FC reposo 58,5 lpm).
+    static let fallbackHrv = 88.0
+    static let fallbackRhr = 58.5
 
     struct RecoveryResult {
         let total: Int
@@ -226,13 +228,13 @@ enum Formulas {
         if let h = hrv, h > 0 { delta = log(h) - lnRef }
         var rhrDelta: Double? = nil
         if let r = restingHr { rhrDelta = Double(r) - (b?.avgRestingHr ?? fallbackRhr) }
-        var logit = bias + kHrv * (delta ?? -0.1) - kRhr * (rhrDelta ?? 0.0)
+        var score = recBias + recKHrv * (delta ?? -0.1) - recKRhr * (rhrDelta ?? 0.0)
         var penalty = false
         if let rr = respiratoryRate, rr >= 8.0, rr <= 25.0, let bb = b, let m = bb.respMean, let sd = bb.respSd {
             let z = (rr - m) / sd
-            if z > 2.0 { logit -= 0.5 * (z - 2.0); penalty = true }
+            if z > 2.0 { score -= 12.0 * (z - 2.0); penalty = true }
         }
-        let raw = Int(100.0 / (1.0 + exp(-logit)))
+        let raw = Int(score.rounded(.down))
         let total = min(max(raw, 1), 99)
         var pct: Double? = nil
         if let d = delta { pct = (exp(d) - 1) * 100 }

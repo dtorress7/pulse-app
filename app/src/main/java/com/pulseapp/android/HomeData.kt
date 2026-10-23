@@ -143,6 +143,10 @@ class HomeDataLoader(private val ctx: Context) {
 
         val summary = if (isToday) withContext(Dispatchers.IO) { MetricsCalculator(ageYears = age, male = male).analyze(hrFile) } else null
 
+        // Tras actualizar (23/10): rehace una vez las noches guardadas con la VFC y la recuperación nuevas
+        if (isToday) withContext(Dispatchers.IO) {
+            DailyMetricsUpdater().recalcPastNightsOnce(db, hrFile, age, profile?.weightKg ?: 75f, profile?.sex ?: "M")
+        }
         // Días guardados (la fila D = noche que termina D + esfuerzo de D), de más antiguo a más reciente
         val stored = db.dailyMetricsDao().getLastDays(80).sortedBy { it.date }
         val byDate = stored.associateBy { it.date }

@@ -3,14 +3,21 @@ package com.pulseapp.android
 import kotlin.math.sqrt
 
 /**
- * VFC de la noche como WHOOP (17/10). WHOOP no usa toda la noche: da más peso al sueño profundo.
- * Comprobado con 2 noches: RMSSD de toda la noche 70 / 87 ms frente a WHOOP 80 / 108; RMSSD medio de los
- * tramos de PROFUNDO 87 / 104 ms. Con fases (≥20 min de profundo) se usa la media de los tramos de profundo,
- * ponderada por su duración; sin fases, toda la ventana de sueño.
+ * VFC de la noche como WHOOP (23/10, validado con 9 noches 14→23/10 frente a la API de WHOOP).
+ * Antes (17/10) se usaba la media de los tramos de sueño PROFUNDO: dependía de acertar las fases y fallaba
+ * hasta 10 ms (22→23: 87 vs 97). Ahora no depende de las fases:
+ *   1. RMSSD de cada tramo de 2 min de la ventana de sueño (≥60 latidos válidos, saltos >20 % fuera).
+ *   2. media de esos RMSSD → m.
+ *   3. VFC = 0,07664 · m^1,6237 (WHOOP limpia más los artefactos y su escala crece más deprisa que la nuestra).
+ * Error medio 1,7 ms (dejando cada noche fuera del ajuste, 2,2 ms); el método anterior, 5,3 ms.
  */
 object NightMetrics {
 
-    private const val MIN_DEEP_MINUTES = 20
+    private const val WINDOW_MS = 120_000L
+    private const val MIN_RR_PER_WINDOW = 60
+    private const val MIN_WINDOWS = 10
+    const val HRV_K = 0.0766391
+    const val HRV_EXP = 1.6237416
 
     /** RMSSD descartando intervalos que cambian >20 % respecto al anterior (artefactos). */
     fun rmssd(rrRaw: List<Double>): Double? {
@@ -27,32 +34,16 @@ object NightMetrics {
         return sqrt(sumSq / (rr.size - 1))
     }
 
-    /** [readings] = (hora en ms, intervalos RR) de la ventana de sueño, en orden. */
+    /** [readings] = (hora en ms, intervalos RR) de la ventana de sueño, en orden. [staged] ya no se usa (se deja la firma). */
+    @Suppress("UNUSED_PARAMETER")
     fun hrv(readings: List<Pair<Long, List<Double>>>, staged: SleepStager.Result?): Double? {
-        val whole = rmssd(readings.flatMap { it.second })
-        if (staged == null || staged.deepMinutes < MIN_DEEP_MINUTES) return whole
-        val st = staged.stages
-        val n = st.size
-        // RR de cada minuto de la noche
-        val perMinute = Array(n) { ArrayList<Double>() }
+        val windows = LinkedHashMap<Long, ArrayList<Double>>()
         for ((t, rr) in readings) {
-            val i = (t / 60_000L - staged.startMinute).toInt()
-            if (i in 0 until n) perMinute[i].addAll(rr)
+            if (rr.isEmpty()) continue
+            windows.getOrPut(t / WINDOW_MS) { ArrayList() }.addAll(rr.filter { it in 300.0..2000.0 })
         }
-        var weighted = 0.0
-        var weight = 0
-        var i = 0
-        while (i < n) {
-            var j = i
-            while (j < n && st[j] == st[i]) j++
-            if (st[i] == SleepStager.DEEP) {
-                val rr = ArrayList<Double>()
-                for (k in i until j) rr.addAll(perMinute[k])
-                val v = rmssd(rr)
-                if (v != null) { weighted += v * (j - i); weight += j - i }
-            }
-            i = j
-        }
-        return if (weight >= MIN_DEEP_MINUTES) weighted / weight else whole
+        val values = windows.values.filter { it.size >= MIN_RR_PER_WINDOW }.mapNotNull { rmssd(it) }
+        if (values.size < MIN_WINDOWS) return null
+        return HRV_K * Math.pow(values.average(), HRV_EXP)
     }
 }

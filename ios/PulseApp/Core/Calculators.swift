@@ -14,7 +14,8 @@ enum BaselineProvider {
 
     /// VFC y respiración solo de noches calculadas con el método del 17/10 (VFC del sueño profundo, respiración espectral),
     /// igual que Android: las anteriores tienen otra escala y desplazarían tu media.
-    static let newMethodSince = "2026-10-17"
+    /// 23/10: las noches guardadas se recalculan con la VFC nueva (DailyMetricsUpdater.recalcPastNightsOnce): cuentan desde el 15/10.
+    static let newMethodSince = "2026-10-15"
 
     static func compute(store: AppStore) -> PersonalBaseline? {
         return computeFrom(store.lastDays(lookbackDays))
@@ -37,14 +38,15 @@ enum BaselineProvider {
             if let r = d.respiratoryRate, r >= 8.0, r <= 25.0 { return r }
             return nil
         }
-        if validHrv.count < minDaysRequired || validRhr.count < minDaysRequired { return nil }
-        // lastDays viene de más reciente a más antiguo: se invierte para la media ponderada
+        if validHrv.isEmpty || validRhr.isEmpty { return nil }
+        // lastDays viene de más reciente a más antiguo: se invierte para la media ponderada.
+        // 23/10: la media parte de tu línea base de WHOOP antes de PulseApp (88 ms / 58,5 lpm), igual que Android.
         let lnHrv = validHrv.map { log($0) }
-        let lnEwma = ewma(Array(lnHrv.reversed()))
+        let lnEwma = ewma(Array(lnHrv.reversed()), prior: log(Formulas.fallbackHrv))
         let respOk = validResp.count >= minDaysRequired
         return PersonalBaseline(
             avgHrv: exp(lnEwma),
-            avgRestingHr: ewma(Array(validRhr.reversed())),
+            avgRestingHr: ewma(Array(validRhr.reversed()), prior: Formulas.fallbackRhr),
             daysUsed: min(validHrv.count, validRhr.count),
             lnHrvMean: lnEwma,
             lnHrvSd: max(sd(lnHrv), minLnHrvSd),
@@ -53,9 +55,9 @@ enum BaselineProvider {
             respSd: respOk ? max(sd(validResp), minRespSd) : nil)
     }
 
-    private static func ewma(_ oldestFirst: [Double]) -> Double {
-        var m = oldestFirst[0]
-        for v in oldestFirst.dropFirst() { m += ewmaAlpha * (v - m) }
+    private static func ewma(_ oldestFirst: [Double], prior: Double) -> Double {
+        var m = prior
+        for v in oldestFirst { m += ewmaAlpha * (v - m) }
         return m
     }
 
@@ -198,44 +200,40 @@ enum RespiratoryRateCalculator {
 /// VFC de la noche como WHOOP (17/10): con fases (≥20 min de profundo), media de los RMSSD de los tramos de
 /// sueño profundo ponderada por su duración; si no, toda la ventana. Tus 2 noches: 87 / 104 ms (WHOOP 80 / 108)
 /// frente a 70 / 87 de toda la noche.
+/// VFC de la noche como WHOOP (23/10, igual que Android): media del RMSSD de tramos de 2 min (≥60 latidos)
+/// → VFC = 0,07664 · m^1,6237. No depende de las fases. 9 noches: error medio 1,9 ms (antes 5,3).
 enum NightMetrics {
-    private static let minDeepMinutes = 20
+    private static let windowMs: Int64 = 120_000
+    private static let minRrPerWindow = 60
+    private static let minWindows = 10
+    static let hrvK = 0.0766391
+    static let hrvExp = 1.6237416
 
     static func hrv(_ readings: [HrReading], staged: SleepStager.Result?) -> Double? {
-        let whole = MetricsCalculator.computeRMSSD(readings.flatMap { $0.rr })
-        guard let r = staged, r.deepMinutes >= minDeepMinutes else { return whole }
-        let st = r.stages
-        let n = st.count
-        var perMinute = [[Double]](repeating: [], count: n)
-        for x in readings {
-            let i = Int(x.timeMillis / 60_000 - r.startMinute)
-            if i >= 0 && i < n { perMinute[i].append(contentsOf: x.rr) }
+        var windows = [Int64: [Double]]()
+        for x in readings where !x.rr.isEmpty {
+            windows[x.timeMillis / windowMs, default: []].append(contentsOf: x.rr.filter { $0 >= 300 && $0 <= 2000 })
         }
-        var weighted = 0.0
-        var weight = 0
-        var i = 0
-        while i < n {
-            var j = i
-            while j < n && st[j] == st[i] { j += 1 }
-            if st[i] == SleepStager.deep {
-                var rr = [Double]()
-                for k in i..<j { rr.append(contentsOf: perMinute[k]) }
-                if let v = MetricsCalculator.computeRMSSD(rr) { weighted += v * Double(j - i); weight += j - i }
-            }
-            i = j
+        var values = [Double]()
+        for k in windows.keys.sorted() {
+            guard let rr = windows[k], rr.count >= minRrPerWindow, let v = MetricsCalculator.computeRMSSD(rr) else { continue }
+            values.append(v)
         }
-        return weight >= minDeepMinutes ? weighted / Double(weight) : whole
+        if values.count < minWindows { return nil }
+        let mean = values.reduce(0, +) / Double(values.count)
+        return hrvK * pow(mean, hrvExp)
     }
 }
 
 // MARK: - Estrés
 
-/// Estrés 0–3 por ventanas de 5 minutos de las últimas 24 h: pulso y VFC frente a tu línea base.
-///   score = 4,8 · (0,7 · subida de pulso + 0,3 · caída de VFC)   (noche 14→15: 54/38/8 % vs WHOOP 53/42/5 %)
+/// Estrés 0–3 por ventanas de 5 minutos de las últimas 24 h: pulso y VFC frente a tu línea base (23/10, igual que Android,
+/// ajustado con la curva de WHOOP del 22→23/10 y el estrés del sueño de 4 noches):
+///   z = 3,4 · (FC − FCR base) / (FCmáx − FCR base) + 0,2 · ln(VFC base / VFC);  estrés = 0,3 + 2,7 · (1 − e^(−z))
 enum StressCalculator {
-    static let scale = 4.8
-    static let wHr = 0.7
-    static let wHrv = 0.3
+    static let minScore = 0.3
+    static let kHr = 3.4
+    static let kHrv = 0.2
 
     static func analyze(hrLog: HrLog, restingHr: Int?, baseline: PersonalBaseline?) -> StressSummary {
         let now = TimeUtil.nowMillis()
@@ -290,10 +288,11 @@ enum StressCalculator {
     }
 
     private static func computeScore(avgHr: Double, windowHrv: Double?, baselineRhr: Double, baselineHrv: Double) -> Float {
-        let hrUp = max((avgHr - baselineRhr) / baselineRhr, 0.0)
-        var hrvDown = hrUp
-        if let h = windowHrv, h > 0 { hrvDown = max(log(baselineHrv / h), 0.0) }
-        let s = scale * (wHr * hrUp + wHrv * hrvDown)
+        let hrMax = Double(Formulas.observedHrMax() ?? 195)
+        let reserve = max(hrMax - baselineRhr, 60.0)
+        var z = kHr * (avgHr - baselineRhr) / reserve
+        if let h = windowHrv, h > 0 { z += kHrv * log(baselineHrv / h) }
+        let s = minScore + (3.0 - minScore) * (1.0 - exp(-max(z, 0.0)))
         return Float(min(max(s, 0.0), 3.0))
     }
 

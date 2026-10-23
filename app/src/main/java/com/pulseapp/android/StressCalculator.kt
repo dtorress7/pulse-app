@@ -5,6 +5,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import kotlin.math.exp
 import kotlin.math.ln
 import kotlin.math.sqrt
 
@@ -20,21 +21,22 @@ data class StressSummary(
 /**
  * Estrés 0–3 por ventanas de 5 minutos: pulso y VFC de la ventana frente a tu línea base.
  *
- * Ajustado con tu noche del 14→15/10 frente a WHOOP (WHOOP: 53 % bajo, 42 % medio, 5 % alto;
- * antes salíamos 90 % bajo):  score = 4,8 · (0,7 · subida de pulso + 0,3 · caída de VFC)
- *   subida de pulso = (FC − FC reposo base) / FC reposo base   (solo si sube)
- *   caída de VFC    = ln(VFC base / VFC de la ventana)            (solo si baja)
- * Con esa noche da 54 % / 38 % / 8 %. Bases: tu media personal; si aún no hay, 58 lpm y 86 ms.
- * Solo se usan las últimas 24 h (antes se mezclaban días distintos en la misma gráfica).
+ * 23/10, ajustado con la curva de WHOOP del 22/10 21:38 → 23/10 09:32 (fútbol, noche y mañana; 135 ventanas) y validado
+ * con el estrés del sueño de 4 noches de WHOOP (medio 25/10/104/~200 min → 25/10/115/190):
+ *   z = 3,4 · (FC − FCR base) / (FCmáx − FCR base) + 0,2 · ln(VFC base / VFC de la ventana)
+ *   estrés = 0,3 + 2,7 · (1 − e^(−z))   (z < 0 → 0,3)
+ * WHOOP nunca baja de ~0,3 dormido y se satura poco a poco: antes (4,8·(0,7·subida de pulso + 0,3·caída de VFC))
+ * dormido salía 0 y cualquier pulso >100 daba 3,0. Error medio frente a la curva de WHOOP: 0,34 → 0,15.
+ * Solo se usan las últimas 24 h.
  */
 class StressCalculator {
 
     private data class Reading(val timeMillis: Long, val bpm: Int, val rr: List<Double>)
 
     companion object {
-        const val SCALE = 4.8
-        const val W_HR = 0.7
-        const val W_HRV = 0.3
+        const val FLOOR = 0.3
+        const val K_HR = 3.4
+        const val K_HRV = 0.2
     }
 
     fun analyze(file: File, restingHr: Int?, baseline: PersonalBaseline? = null): StressSummary {
@@ -116,9 +118,10 @@ class StressCalculator {
     }
 
     private fun computeScore(avgHr: Double, windowHrv: Double?, baselineRhr: Double, baselineHrv: Double): Float {
-        val hrUp = ((avgHr - baselineRhr) / baselineRhr).coerceAtLeast(0.0)
-        val hrvDown = if (windowHrv != null && windowHrv > 0) ln(baselineHrv / windowHrv).coerceAtLeast(0.0) else hrUp
-        return (SCALE * (W_HR * hrUp + W_HRV * hrvDown)).toFloat().coerceIn(0f, 3f)
+        val reserve = (Formulas.hrMaxOrDefault() - baselineRhr).coerceAtLeast(60.0)
+        var z = K_HR * (avgHr - baselineRhr) / reserve
+        if (windowHrv != null && windowHrv > 0) z += K_HRV * ln(baselineHrv / windowHrv)
+        return (FLOOR + (3.0 - FLOOR) * (1.0 - exp(-z.coerceAtLeast(0.0)))).toFloat().coerceIn(0f, 3f)
     }
 
     /** RMSSD descartando saltos > 20 % (artefactos), mínimo 10 diferencias válidas. */

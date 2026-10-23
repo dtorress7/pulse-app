@@ -18,6 +18,7 @@ class DailyMetricsUpdater {
         private const val REST_GRACE_MINUTES = 20
         private const val REST_MIN_DURATION_MINUTES = 90
         private const val DISCONNECT_GAP_MINUTES = 3
+        private const val RECALC_FLAG = "night_recalc_v1"
     }
 
     private val dayFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
@@ -26,16 +27,42 @@ class DailyMetricsUpdater {
     suspend fun updateYesterdayIfNeeded(
         db: AppDatabase, csvFile: File, ageYears: Int, weightKg: Float, sex: String
     ) {
+        recalcPastNightsOnce(db, csvFile, ageYears, weightKg, sex)
         val yesterdayCal = Calendar.getInstance()
         yesterdayCal.add(Calendar.DAY_OF_YEAR, -1)
         val yesterdayKey = dayFormat.format(yesterdayCal.time)
 
         val existing = db.dailyMetricsDao().getByDate(yesterdayKey)
         if (existing != null) return
+        computeDay(db, parseCsv(csvFile), csvFile, yesterdayKey, ageYears, weightKg, sex)?.let { db.dailyMetricsDao().save(it) }
+    }
 
-        val allReadings = parseCsv(csvFile)
-        val dayReadings = allReadings.filter { dayFormat.format(Date(it.timeMillis)) == yesterdayKey }
-        if (dayReadings.isEmpty()) return
+    /**
+     * Una sola vez tras actualizar (23/10, VFC nueva y recuperación nueva): rehace con las fórmulas de ahora todos los días
+     * guardados que tengan pulso en hr_log.csv (desde el 14/10), para que tu línea base de VFC esté en la misma escala que
+     * las noches nuevas. Los días sin pulso se dejan como estaban.
+     */
+    suspend fun recalcPastNightsOnce(db: AppDatabase, csvFile: File, ageYears: Int, weightKg: Float, sex: String) {
+        val flag = File(csvFile.parentFile, RECALC_FLAG)
+        if (flag.exists() || !csvFile.exists()) return
+        val all = parseCsv(csvFile)
+        val today = dayFormat.format(Date())
+        for (row in db.dailyMetricsDao().getLastDays(60)) {
+            if (row.date >= today) continue
+            val fresh = computeDay(db, all, csvFile, row.date, ageYears, weightKg, sex) ?: continue
+            db.dailyMetricsDao().save(fresh)
+        }
+        runCatching { flag.writeText("1") }
+    }
+
+    private suspend fun computeDay(
+        db: AppDatabase, allReadings: List<Reading>, csvFile: File, yesterdayKey: String, ageYears: Int, weightKg: Float, sex: String
+    ): DailyMetrics? {
+        val yesterdayCal = Calendar.getInstance().apply { time = dayFormat.parse(yesterdayKey)!! }
+        val d0 = yesterdayCal.timeInMillis
+        val d1 = (yesterdayCal.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR, 1) }.timeInMillis
+        val dayReadings = allReadings.filter { it.timeMillis in d0 until d1 }
+        if (dayReadings.isEmpty()) return null
 
         val hrMax = Formulas.hrMax(ageYears)
 
@@ -88,8 +115,7 @@ class DailyMetricsUpdater {
         val durationMinutes = dayReadings.size / 60.0
         val calories = estimateCalories(avgHr, durationMinutes, ageYears, weightKg, sex)
 
-        db.dailyMetricsDao().save(
-            DailyMetrics(
+        return DailyMetrics(
                 date = yesterdayKey,
                 restingHr = restingHr,
                 avgHrv = avgHrv,
@@ -108,7 +134,6 @@ class DailyMetricsUpdater {
                 wakeEpisodes = staged?.awakenings,
                 latencyMinutes = if (staged != null && sleep != null) ((staged.startMillis - sleep.startMillis) / 60_000L).toInt().coerceAtLeast(0) else null
             )
-        )
     }
 
     private fun estimateCalories(avgHr: Double, durationMinutes: Double, age: Int, weightKg: Float, sex: String): Double {

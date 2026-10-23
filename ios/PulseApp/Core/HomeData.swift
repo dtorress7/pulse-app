@@ -181,6 +181,11 @@ enum HomeDataLoader {
 
         let summary: DailySummary? = isToday ? MetricsCalculator(ageYears: age, male: male).analyze(hrLog: hrLog) : nil
 
+        // Tras actualizar (23/10): rehace una vez las noches guardadas con la VFC y la recuperación nuevas
+        if isToday {
+            DailyMetricsUpdater.recalcPastNightsOnce(store: store, hrLog: hrLog, motionFile: motionFile, ageYears: age,
+                                                     weightKg: profile?.weightKg ?? 75, sex: profile?.sex ?? "M")
+        }
         // Días guardados (la fila D = noche que termina D + esfuerzo de D), de más antiguo a más reciente
         let stored = store.lastDays(80).sorted { $0.date < $1.date }
         var byDate = [String: DailyMetrics]()

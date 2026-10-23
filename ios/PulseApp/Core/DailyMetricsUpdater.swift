@@ -4,10 +4,31 @@ import Foundation
 enum DailyMetricsUpdater {
 
     static func updateYesterdayIfNeeded(store: AppStore, hrLog: HrLog, motionFile: URL, ageYears: Int, weightKg: Double, sex: String) {
+        recalcPastNightsOnce(store: store, hrLog: hrLog, motionFile: motionFile, ageYears: ageYears, weightKg: weightKg, sex: sex)
         let now = TimeUtil.nowMillis()
         let yesterdayKey = TimeUtil.dayKey(TimeUtil.addDays(now, -1))
         if store.getDay(yesterdayKey) != nil { return }
-        guard let dayStart = TimeUtil.parseDayKey(yesterdayKey) else { return }
+        if let d = computeDay(store: store, hrLog: hrLog, motionFile: motionFile, key: yesterdayKey,
+                              ageYears: ageYears, weightKg: weightKg, sex: sex) { store.saveDay(d) }
+    }
+
+    private static let recalcKey = "pulseapp_night_recalc"
+
+    /// Una sola vez tras actualizar (23/10, VFC y recuperación nuevas): rehace con las fórmulas de ahora los días guardados
+    /// que tengan pulso guardado, para que la línea base de VFC esté en la misma escala. Sin pulso, se dejan igual.
+    static func recalcPastNightsOnce(store: AppStore, hrLog: HrLog, motionFile: URL, ageYears: Int, weightKg: Double, sex: String) {
+        if UserDefaults.standard.integer(forKey: recalcKey) >= 1 { return }
+        let today = TimeUtil.dayKey(TimeUtil.nowMillis())
+        for row in store.lastDays(60) where row.date < today {
+            if let d = computeDay(store: store, hrLog: hrLog, motionFile: motionFile, key: row.date,
+                                  ageYears: ageYears, weightKg: weightKg, sex: sex) { store.saveDay(d) }
+        }
+        UserDefaults.standard.set(1, forKey: recalcKey)
+    }
+
+    private static func computeDay(store: AppStore, hrLog: HrLog, motionFile: URL, key yesterdayKey: String,
+                                   ageYears: Int, weightKg: Double, sex: String) -> DailyMetrics? {
+        guard let dayStart = TimeUtil.parseDayKey(yesterdayKey) else { return nil }
         let dayEnd = TimeUtil.addDays(dayStart, 1)
 
         // La noche que TERMINÓ ese día: de las 18:00 de la víspera a las 14:00. Y el día natural para el esfuerzo.
@@ -15,7 +36,7 @@ enum DailyMetricsUpdater {
         let nightTo = dayStart + 15 * 3_600_000
         let all = hrLog.readings(from: nightFrom, to: max(nightTo, dayEnd))
         let dayReadings = all.filter { $0.timeMillis >= dayStart && $0.timeMillis < dayEnd }
-        if dayReadings.isEmpty { return }
+        if dayReadings.isEmpty { return nil }
 
         let hrMax = Formulas.hrMax(ageYears: ageYears)
         let nightReadings = all.filter { $0.timeMillis >= nightFrom && $0.timeMillis <= nightTo }
@@ -59,14 +80,14 @@ enum DailyMetricsUpdater {
         var latency: Int? = nil
         if let st = staged, let sl = sleep { latency = max(Int((st.startMillis - sl.startMillis) / 60_000), 0) }
 
-        store.saveDay(DailyMetrics(date: yesterdayKey, restingHr: restingHr, avgHrv: avgHrv, sleepMinutes: sleepMinutes,
+        return DailyMetrics(date: yesterdayKey, restingHr: restingHr, avgHrv: avgHrv, sleepMinutes: sleepMinutes,
                                    strain: strain, vo2Max: vo2, caloriesKcal: calories,
                                    sleepStartMinuteOfDay: startMinute, sleepEndMinuteOfDay: endMinute,
                                    sleepEfficiencyPct: efficiency, respiratoryRate: resp,
                                    lightMinutes: staged?.lightMinutes, deepMinutes: staged?.deepMinutes,
                                    remMinutes: staged?.remMinutes, awakeMinutes: staged?.awakeMinutes,
                                    wakeEpisodes: staged?.awakenings,
-                                   latencyMinutes: latency))
+                                   latencyMinutes: latency)
     }
 }
 

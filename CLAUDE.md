@@ -51,21 +51,25 @@ Peso/altura/edad/sexo → calorías (Mifflin + Keytel). Sexo → TRIMP. Recupera
   Zonas 0–5 por % FCmáx (<50, 50–60, 60–70, 70–80, 80–90, >90).
 - Esfuerzo = TRIMP Banister con reserva de FC, sólo minutos con FC ≥ 45 % FCmáx → 4,14·ln(1+TRIMP/2,6), máx 21.
   Misma curva para día y actividades. Error vs WHOOP: fútbol 0,7, global 1,7 (173 entrenos).
-- Recuperación = sigmoide(0,84 + 5,5·(ln VFC − EWMA14 ln VFC previas) − 0,028·(FCR − EWMA FCR)) − penalización si
-  respiración z>2. Sin línea base: referencia 86 ms y 59 lpm. El SUEÑO NO entra (en sus datos no cambia la nota).
-  Comprobado en Kotlin con 155 noches: MAE 6,4, ±10 puntos 84 %, color igual 85 %.
+- Recuperación (23/10) = 64,28 + 89,74·(ln VFC − EWMA14 ln VFC) − 0,4625·(FCR − EWMA FCR), suelo, 1–99; −12 por cada z>2 de respiración.
+  Ajustada con 199 noches (export + API): validación cruzada 4,8 (la sigmoide de antes 5,9; últimas 39 noches 4,3 vs 6,6).
+  La EWMA de la línea base PARTE de 88 ms / 58,5 lpm (línea base de WHOOP el 14/10) y cada noche propia la mueve
+  (antes empezaba en la 1.ª noche propia → base baja y recuperación +10–15). PulseApp 15→23/10: MAE 12,7 → 3,8. El sueño NO entra.
 - Calificación sueño = 0,281·horas vs necesidad (máx 100) + 0,202·eficiencia + 0,288·regularidad + 19,6 (MAE 1,9).
   Es lo que muestra el anillo de Sueño del inicio. Regularidad = 100 − sd(hora de dormirse, 7 noches)/120·100.
 - FC reposo = mediana de la ventana de sueño (cuadra con WHOOP: 58 vs 57, 59 vs 59).
-- VFC (17/10, `NightMetrics`) = con fases (≥20 min de profundo): media de los RMSSD de los tramos de PROFUNDO ponderada por duración;
-  sin fases, RMSSD de toda la ventana. Filtra saltos >20 %. 15→16: 87 (WHOOP 80); 16→17: 104 (WHOOP 108). Toda la noche daba 70 / 87.
-  `BaselineProvider` solo usa VFC y respiración de días ≥ `NEW_METHOD_SINCE` (2026-10-17) para no mezclar escalas.
+- VFC (23/10, `NightMetrics`) = 0,07664 · m^1,6237, m = media del RMSSD de tramos de 2 min (≥60 RR, saltos >20 % fuera) de la ventana
+  de sueño. NO depende de las fases (antes: tramos de profundo → 22→23 dio 87 vs WHOOP 97). 9 noches 15→23/10 con el código de la app:
+  MAE 1,9 ms (máx 3,9), dejando una fuera 2,2; FCR (mediana) MAE 0,7. Arnés /home/claude/check/ftest9/V.kt.
+  Al instalar: `DailyMetricsUpdater.recalcPastNightsOnce` (archivo `night_recalc_v1` / iOS `pulseapp_night_recalc`) rehace todos los días
+  con pulso guardado; `NEW_METHOD_SINCE` = 2026-10-15.
+  `BaselineProvider` solo usa VFC y respiración de días ≥ `NEW_METHOD_SINCE` para no mezclar escalas.
 - Sueño (`SleepDetector`, ajustado 15/10 con la noche 14→15 vs WHOOP): 20:00–12:00, medias por minuto suavizadas 3 min,
   umbral 1,30 × media del 10 % más bajo, tolera 30 min por encima, hueco >10 min = desconexión, mínimo 90 min, la última
   ventana. Resultado: 23:20–07:24, 39 min despierto, 91 % (WHOOP 23:17–07:20, 42 min, 92 %). VFC de esa ventana ≈ 69 (WHOOP 69),
   FC reposo mediana 64 (WHOOP 64). Ciclo del día = desde que te duermes (o 00:00): esfuerzo y FC media solo de ese ciclo
   (antes usaba todo el archivo). `DailyMetricsUpdater` guarda la noche que TERMINA ese día (18:00 víspera → 14:00).
-  `BaselineProvider` solo usa días con ≥ 3 h dormido. Sin 3 noches propias: referencia 86 ms / 59 lpm (media reciente WHOOP).
+  `BaselineProvider` solo usa días con ≥ 3 h dormido. La media parte de 88 ms / 58,5 lpm (ver Recuperación).
 - Necesidad de sueño = 470 min + max(0, strain−8)·6 + deuda. **Deuda (18/10, ajustada con 152 noches del export)** = max(0, (necesidad
   de esa noche − dormido) / 2) (`SleepPlanner.nextDebt`, MAE 1,5 min; la de antes ×0,7 sobre la base salía el doble). Sin dato esa noche: deuda/2.
   Hora de despertar editable (7:30 por defecto).
@@ -75,8 +79,10 @@ Peso/altura/edad/sexo → calorías (Mifflin + Keytel). Sexo → TRIMP. Recupera
   revisar el −7 en la ronda grande.
 - Calorías = Mifflin-St Jeor × (min transcurridos/1440) × 1,15 + kcal de actividades (Keytel).
 - VO2máx = 15,3 × FCmáx / FC reposo, se recalcula sólo los martes.
-- Estrés (15/10): ventanas de 5 min de las últimas 24 h, 4,8·(0,7·(FC−FCRbase)/FCRbase + 0,3·ln(VFCbase/VFC)) → 0–3.
-  Noche 14→15: 54/38/8 % vs WHOOP 53/42/5 %. Gráfica: eje = últimas 24 h, se corta en huecos >15 min.
+- Estrés (23/10): ventanas de 5 min, z = 3,4·(FC−FCRbase)/(FCmáx−FCRbase) + 0,2·ln(VFCbase/VFC); estrés = 0,3 + 2,7·(1−e^(−max(z,0))).
+  Ajustado con la curva de WHOOP digitalizada de la captura (22/10 21:38 → 23/10 09:32, 135 ventanas): MAE 0,34 → 0,15. Estrés del sueño
+  (alto/medio): 18/10 0/25 (WHOOP 0/25), 19/10 0/10 (0/10), 20/10 0/115 (25/104), 15/10 0/190 (~24/~200), 23/10 0/40 (alto 0 %).
+  Gráfica: eje = últimas 24 h, se corta en huecos >15 min.
 - Actividad automática: media 4 min >60 % FCmáx durante 8 min empieza; <55 % 5 min termina.
 - SpO₂ es imposible offline (los canales rojo/IR no se muestrean a la vez). Las puntuaciones oficiales de WHOOP
   se calculan en su nube y no se pueden leer.
@@ -256,6 +262,15 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   (18:27–19:17, 23:24/26:42/0:53); 19/10 y 20/10 siguen exactos. Fútbol 21/10: WHOOP 20:19–22:07 (incluye 20 min de espera con pulso 70–80 y sin
   movimiento grabado), PulseApp 20:42–22:03; kcal 432 vs 421.
 - Archivos que hacen falta cada día: SOLO hr_log.csv y motion_minutes.csv (WHOOP sale de la API). service_log solo si hay problemas de conexión.
+
+- **22→23 (8.ª referencia, fútbol 22:02–23:30 la víspera)**: WHOOP 00:29–08:05, 24/245/102/84, VFC 97,4, FCR 57, resp 13,2, recuperación 70,
+  calificación 83 (77/78/96/0). PulseApp (versión del 22/10): 00:30–08:05, 31/276/78/70, VFC 87, FCR 57, resp 12,3, recuperación 58, calificación 80.
+  Arreglado (23/10): VFC 95,5, recuperación ≈71–72, estrés (ver Fórmulas). Fases: profundo −24 (pendiente). Reajustar fases con 8 noches no
+  mejora todo a la vez (lo mejor: L 11,5/D 17,9/R 16,8 vs actual 16,4/16,6/12,9) → no se toca; hace falta un cambio de estructura.
+- **Esfuerzo 22/10 (pendiente de ronda)**: funcional 18:07–18:42 WHOOP 8,6 (zonas 0–1) → PulseApp 10,5 como funcional; fútbol 22:02–23:30 WHOOP 15,1
+  → 13,8; día WHOOP 16,25 → 14,2; mañana 23/10 00:29–08:06 WHOOP 2,6 → 1,9. Candidata: carga = Σ min·(r·e^(4,886 r) + 0,1134),
+  esfuerzo = 4,932·ln(1 + (carga + 12,12·min fuerza)/95,6): 13 de 14 casos mejor (MAE 0,83 → 0,40), pero el paseo 17/10 (solo por zonas) baja
+  3,3 → 1,2 (WHOOP 4,1). No se aplica hasta tener paseos/actividad suave con pulso segundo a segundo. Script scratchpad v/str5.py.
 
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,

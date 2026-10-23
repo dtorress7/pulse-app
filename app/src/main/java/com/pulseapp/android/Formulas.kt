@@ -2,6 +2,7 @@ package com.pulseapp.android
 
 import android.content.Context
 import kotlin.math.exp
+import kotlin.math.floor
 import kotlin.math.ln
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -193,6 +194,9 @@ object Formulas {
 
     fun hrMax(context: Context, ageYears: Int): Double { init(context); return hrMax(ageYears) }
 
+    /** FC máx sin saber la edad (estrés): la registrada, o 195 (la tuya en WHOOP) si no hay. */
+    fun hrMaxOrDefault(): Double = if (cachedObserved > 0) cachedObserved.toDouble() else 195.0
+
     fun observedHrMax(context: Context): Int? =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt(KEY_HR_MAX, 0).takeIf { it > 0 }
 
@@ -269,16 +273,20 @@ object Formulas {
 
     // ---------- Recuperación ----------
 
-    const val K_HRV = 5.5
-    const val K_RHR = 0.028
-    const val BIAS = 0.84
     /**
-     * Referencias mientras no haya 3 noches propias: tu media reciente en WHOOP (9–14/10: VFC 119, 70, 68, 113, 101, 62
-     * → media geométrica 86 ms; FC reposo 54, 61, 63, 57, 56, 64 → 59 lpm). Con 95 ms (media de 30 días) la
-     * recuperación del 15/10 salía 33 % frente al 43 % de WHOOP; con estas, ~38 %.
+     * Recuperación (23/10): lineal, ajustada con 199 noches de WHOOP (export abr–sep + API sep–oct), validación cruzada
+     * 4,8 puntos de error medio (la sigmoide de antes: 5,9; en las 39 noches más recientes 4,3 frente a 6,6):
+     *   recuperación = 64,28 + 89,74 · (ln VFC − media ln VFC) − 0,4625 · (FCR − media FCR)
      */
-    const val FALLBACK_HRV = 86.0
-    const val FALLBACK_RHR = 59.0
+    const val REC_BIAS = 64.2755
+    const val REC_K_HRV = 89.7396
+    const val REC_K_RHR = 0.4625
+    /**
+     * Línea base de partida (23/10): la de WHOOP el 14/10, antes de usar PulseApp (media ponderada de 14 días de tus
+     * 30 noches anteriores en WHOOP: VFC 88 ms, FC reposo 58,5). BaselineProvider parte de aquí y cada noche propia la mueve.
+     */
+    const val FALLBACK_HRV = 88.0
+    const val FALLBACK_RHR = 58.5
 
     data class RecoveryResult(
         val total: Int,
@@ -292,13 +300,13 @@ object Formulas {
         val lnRef = b?.lnHrvMean ?: ln(FALLBACK_HRV)
         val delta = hrv?.takeIf { it > 0 }?.let { ln(it) - lnRef }
         val rhrDelta = if (restingHr != null) restingHr - (b?.avgRestingHr ?: FALLBACK_RHR) else null
-        var logit = BIAS + K_HRV * (delta ?: -0.1) - K_RHR * (rhrDelta ?: 0.0)
+        var score = REC_BIAS + REC_K_HRV * (delta ?: -0.1) - REC_K_RHR * (rhrDelta ?: 0.0)
         var penalty = false
         if (respiratoryRate != null && respiratoryRate in 8.0..25.0 && b?.respMean != null && b.respSd != null) {
             val z = (respiratoryRate - b.respMean) / b.respSd
-            if (z > 2.0) { logit -= 0.5 * (z - 2.0); penalty = true }
+            if (z > 2.0) { score -= 12.0 * (z - 2.0); penalty = true }
         }
-        val total = (100.0 / (1.0 + exp(-logit))).toInt().coerceIn(1, 99)
+        val total = floor(score).toInt().coerceIn(1, 99)
         return RecoveryResult(total, delta?.let { (exp(it) - 1) * 100 }, rhrDelta, penalty, b != null)
     }
 
