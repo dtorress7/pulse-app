@@ -259,7 +259,6 @@ enum WhoopImport {
         store.saveSessions(newSessions)
 
         if let until = newDays.keys.max() { UserDefaults.standard.set(until, forKey: keyUntil) }
-        UserDefaults.standard.set(1, forKey: DailyMetricsUpdater.recalcKey)   // que el recálculo de noches no pise lo importado
 
         result.days = newDays.count
         result.sessions = newSessions.count - naps

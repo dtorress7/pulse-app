@@ -233,8 +233,6 @@ object WhoopImport {
 
         val until = newDays.keys.maxOrNull()
         if (until != null) Formulas.setWhoopImportUntil(context, until)
-        // Que el recálculo de noches con el pulso guardado no pise lo importado
-        context.getExternalFilesDir(null)?.let { File(it, DailyMetricsUpdater.RECALC_FLAG).writeText("1") }
         return Result(newDays.size, newSessions.size - naps, naps, replacedDays.size, replacedSessions.size,
             newDays.keys.minOrNull(), until, backup)
     }

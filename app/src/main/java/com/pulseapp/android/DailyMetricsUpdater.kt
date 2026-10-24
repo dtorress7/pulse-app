@@ -18,7 +18,7 @@ class DailyMetricsUpdater {
         private const val REST_GRACE_MINUTES = 20
         private const val REST_MIN_DURATION_MINUTES = 90
         private const val DISCONNECT_GAP_MINUTES = 3
-        const val RECALC_FLAG = "night_recalc_v1"
+        const val RECALC_FLAG = "night_recalc_v2"   // v2 (24/10): VFC del sueño profundo y fases nuevas
     }
 
     private val dayFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
@@ -47,8 +47,10 @@ class DailyMetricsUpdater {
         if (flag.exists() || !csvFile.exists()) return
         val all = parseCsv(csvFile)
         val today = dayFormat.format(Date())
+        val importUntil = Formulas.whoopImportUntil()
         for (row in db.dailyMetricsDao().getLastDays(60)) {
             if (row.date >= today) continue
+            if (importUntil.isNotEmpty() && row.date <= importUntil) continue   // los días importados se quedan con lo de WHOOP
             val fresh = computeDay(db, all, csvFile, row.date, ageYears, weightKg, sex) ?: continue
             db.dailyMetricsDao().save(fresh)
         }

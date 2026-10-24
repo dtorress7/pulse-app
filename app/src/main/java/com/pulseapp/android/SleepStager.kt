@@ -63,8 +63,10 @@ object SleepStager {
     private const val MIN_RUN = 4
 
     private const val MIN_WINDOW_MINUTES = 90
-    /** La noche empieza en el primer tramo de al menos estos minutos sin despertar. */
-    private const val ONSET_RUN = 15
+    /** La noche empieza en el primer tramo de al menos estos minutos sin despertar (24/10: 15 → 10). */
+    private const val ONSET_RUN = 10
+    /** Tramo quieto antes de un cambio de postura que adelanta el inicio (24/10: 15 → 10; la noche 23→24 empezaba 15 min tarde). */
+    private const val ONSET_STILL = 10
     private const val MIN_MOTION_COVERAGE = 0.6
 
     class Result(val startMinute: Long, val stages: IntArray) {
@@ -180,7 +182,7 @@ object SleepStager {
             if (byMin[b] == null || m - b > 5 || steps > 12) break
             var q = b
             while (still(byMin[q])) q--
-            if (b - q >= 15) onset = q + 1
+            if (b - q >= ONSET_STILL) onset = q + 1
             if (b == q) break
             m = q
         }

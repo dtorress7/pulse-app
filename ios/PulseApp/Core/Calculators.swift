@@ -203,16 +203,49 @@ enum RespiratoryRateCalculator {
 /// VFC de la noche como WHOOP (17/10): con fases (≥20 min de profundo), media de los RMSSD de los tramos de
 /// sueño profundo ponderada por su duración; si no, toda la ventana. Tus 2 noches: 87 / 104 ms (WHOOP 80 / 108)
 /// frente a 70 / 87 de toda la noche.
-/// VFC de la noche como WHOOP (23/10, igual que Android): media del RMSSD de tramos de 2 min (≥60 latidos)
-/// → VFC = 0,07664 · m^1,6237. No depende de las fases. 9 noches: error medio 1,9 ms (antes 5,3).
+/// VFC de la noche como WHOOP (24/10, igual que Android): media ponderada del RMSSD de los tramos de profundo (≥5 min) de las fases
+/// del modelo → 7,9966 · p^0,55945 (error medio 1,5 ms con 10 noches). Sin fases o con <10 min de profundo: el método del 23/10
+/// (tramos de 2 min de toda la noche → 0,07664 · m^1,6237).
 enum NightMetrics {
     private static let windowMs: Int64 = 120_000
     private static let minRrPerWindow = 60
     private static let minWindows = 10
     static let hrvK = 0.0766391
     static let hrvExp = 1.6237416
+    static let deepK = 7.9965785
+    static let deepExp = 0.5594471
 
     static func hrv(_ readings: [HrReading], staged: SleepStager.Result?) -> Double? {
+        if let st = staged, let v = deepHrv(readings, staged: st) { return v }
+        return wholeNightHrv(readings)
+    }
+
+    static func deepHrv(_ readings: [HrReading], staged r: SleepStager.Result) -> Double? {
+        let st = r.stages
+        let n = st.count
+        var perMinute = [[Double]](repeating: [], count: n)
+        for x in readings {
+            let i = Int(x.timeMillis / 60_000 - r.startMinute)
+            if i >= 0 && i < n { perMinute[i].append(contentsOf: x.rr.filter { $0 >= 300 && $0 <= 2000 }) }
+        }
+        var weighted = 0.0
+        var weight = 0
+        var i = 0
+        while i < n {
+            var j = i
+            while j < n && st[j] == st[i] { j += 1 }
+            if st[i] == SleepStager.deep && j - i >= 5 {
+                var rr = [Double]()
+                for k in i..<j { rr.append(contentsOf: perMinute[k]) }
+                if rr.count > 2, let v = MetricsCalculator.computeRMSSD(rr) { weighted += v * Double(j - i); weight += j - i }
+            }
+            i = j
+        }
+        if weight < 10 { return nil }
+        return deepK * pow(weighted / Double(weight), deepExp)
+    }
+
+    static func wholeNightHrv(_ readings: [HrReading]) -> Double? {
         var windows = [Int64: [Double]]()
         for x in readings where !x.rr.isEmpty {
             windows[x.timeMillis / windowMs, default: []].append(contentsOf: x.rr.filter { $0 >= 300 && $0 <= 2000 })

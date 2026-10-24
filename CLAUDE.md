@@ -305,6 +305,19 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   - VFC con las fases EXACTAS de WHOOP: último profundo sin calibrar MAE 9,8; profundo ponderado calibrado (dejando una fuera) 1,9 = igual que el
     método actual. Conclusión: la VFC actual ya está al nivel posible con nuestros RR; la diferencia restante viene del reprocesado de WHOOP en la nube.
 
+- **23→24 (9.ª referencia, noche larga 23:47–11:03, en cama 11:15)**: WHOOP dormido 10:57, 18/418/107/132, 9 despert., 97 %, VFC 91,9, FCR 57,
+  resp 13,2, calificación 83 (100/58/97/0), recuperación 60. PulseApp (versión 23/10): 00:02–11:13, 10:37, 34/417/63/157, VFC 101 (+13,9 % sobre
+  88,7), FCR 57, resp 12,9, calificación 83 (100/57/94/0), recuperación 76.
+  **Cambios 24/10 (Android + iOS):**
+  - VFC = media ponderada del RMSSD de los tramos de PROFUNDO (≥5 min) de las fases del modelo → 7,9966·p^0,55945 (NightMetrics.deepHrv);
+    sin fases o <10 min de profundo → método de toda la noche. 9 noches con fases del modelo entrenado SIN esa noche: MAE 1,5 (toda la noche:
+    3,3; con 9 noches la noche larga 24 daba +9). Con el pipeline de la app (10 noches): MAE 1,52, 24 → 94 (WHOOP 92). Con las fases EXACTAS de
+    WHOOP: 1,7. Recálculo de noches v2 (`night_recalc_v2` / iOS 2) que ya NO toca los días importados de WHOOP (antes el import lo bloqueaba).
+  - Modelo de fases reentrenado con 9 noches (sesgo 1,5/0/−0,3/0,3). Validación dejando fuera: 24 72 % (profundo 74/110), resto 77–90 %.
+  - Inicio: ONSET_RUN y tramo quieto previo 15 → 10 min. 24 empieza 23:48 (WHOOP 23:47); las otras 8 noches salen igual.
+  - Recuperación con los valores EXACTOS de WHOOP del 24: la fórmula da 67 (WHOOP 60); 22/10 61 (54), 23/10 73 (70). Probado añadir
+    respiración, calificación, horas, temperatura, SpO2, esfuerzo de ayer: nada mejora (CV 4,84–4,91). Error propio de la fórmula ±5–7.
+
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
 esfuerzo 11,5, 271 kcal, FC media 127 (la media aritmética de esos segundos es 133: WHOOP no usa la media simple), máx 170,
