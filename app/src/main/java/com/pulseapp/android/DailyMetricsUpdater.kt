@@ -18,7 +18,7 @@ class DailyMetricsUpdater {
         private const val REST_GRACE_MINUTES = 20
         private const val REST_MIN_DURATION_MINUTES = 90
         private const val DISCONNECT_GAP_MINUTES = 3
-        const val RECALC_FLAG = "night_recalc_v2"   // v2 (24/10): VFC del sueño profundo y fases nuevas
+        const val RECALC_FLAG = "night_recalc_v3"   // v3 (24/10): VFC del sueño profundo, fases nuevas y esfuerzo v3
     }
 
     private val dayFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)

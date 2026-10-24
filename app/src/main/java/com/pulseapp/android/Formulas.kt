@@ -239,10 +239,16 @@ object Formulas {
     // Antes (Banister, 0,64·e^(1,92·r), ≥45 % FCmáx, 4,14·ln(1+T/2,6)) daba fútbol 21/10 13,4 (WHOOP 8,8) y pickleball 13,9 (8,7).
     // Ahora (WHOOP): func 19/10 11,6 (11,5) · func 20/10 12,0 (12,6) · func 21/10 11,4 (11,1) · fútbol 21/10 9,8 (8,8) · fútbol 14/10 11,9 (12,6) ·
     // fútbol 15/10 10,3 (9,6) · fútbol 19/10 12,2 (12,8) · pickleball 9,3 (8,7) · paseo 3,3 (4,1). Error medio 2,2 → 0,56 (dejando uno fuera 0,94).
-    const val STRAIN_SCALE = 2.014
-    const val STRAIN_TRIMP_REF = 10.418
-    const val STRAIN_EXP = 6.694
-    const val STRENGTH_LOAD_PER_MIN = 50.0
+    // Esfuerzo v3 (24/10, 15 casos con pulso segundo a segundo o zonas de la API: 13 entrenos + 2 días): carga por minuto =
+    // r·e^(5,005·r) + 0,0951 (r = reserva de FC; el 0,0951 hace que también cuente el rato tranquilo, como WHOOP: mañana 23/10
+    // 2,6 = WHOOP 2,6) → esfuerzo = 4,252·ln(1 + (carga + 13,21·min de fuerza)/68,87). Error medio 0,83 → 0,35 (dejando uno
+    // fuera 0,50): fútbol 22/10 15,1 (WHOOP 15,1; antes 13,8), fútbol 23/10 7,6 (7,6; antes 8,9), funcional 22/10 9,4 (8,6; 10,5),
+    // día 22/10 16,4 (16,3; 14,2). Solo empeora el paseo 17/10, calculado por zonas (1,4 vs 4,1): pendiente de un paseo grabado.
+    const val STRAIN_SCALE = 4.2521579
+    const val STRAIN_TRIMP_REF = 68.866895
+    const val STRAIN_EXP = 5.0047056
+    const val STRAIN_BASE_PER_MIN = 0.0950999
+    const val STRENGTH_LOAD_PER_MIN = 13.206237
     const val DEFAULT_RESTING_HR = 58
 
     /** Fuerza / funcional: WHOOP les suma carga muscular. */
@@ -256,8 +262,7 @@ object Formulas {
         if (minutes <= 0) return 0.0
         val reserve = (hrMax - restingHr).coerceAtLeast(20.0)
         val hrr = ((hr - restingHr) / reserve).coerceIn(0.0, 1.1)
-        if (hrr <= 0.0) return 0.0
-        return minutes * hrr * exp(STRAIN_EXP * hrr)
+        return minutes * (hrr * exp(STRAIN_EXP * hrr) + STRAIN_BASE_PER_MIN)
     }
 
     fun strainFromTrimp(trimp: Double, strengthMinutes: Double = 0.0): Double =

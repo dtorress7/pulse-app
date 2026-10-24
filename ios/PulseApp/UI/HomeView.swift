@@ -12,6 +12,12 @@ struct HomeView: View {
     @State private var data: HomeData? = nil
     @State private var loadingOffset: Int? = nil
     @State private var lastRefresh = Date.distantPast
+    // Deslizar para actualizar (24/10, como WHOOP)
+    @State private var pullAmount: CGFloat = 0
+    @State private var pullRefreshing = false
+    @State private var pullArmed = true
+    @State private var showSyncBanner = false
+    @State private var syncTime = ""
     @State private var showLoading = true
     @State private var loadingShownAt = Date()
     @State private var showSticky = false
@@ -46,6 +52,10 @@ struct HomeView: View {
                 Theme.wBackground.ignoresSafeArea()
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
+                        Color.clear.frame(height: 0)
+                            .background(GeometryReader { g in
+                                Color.clear.preference(key: PullOffsetKey.self, value: g.frame(in: .named("homeScroll")).minY)
+                            })
                         header
                         Text("PULSE").font(Theme.medium(24)).tracking(24 * 0.32).foregroundColor(Theme.textPrimary)
                             .frame(maxWidth: .infinity).padding(.top, 18)
@@ -72,6 +82,15 @@ struct HomeView: View {
                     let show = y < 20
                     if show != showSticky { withAnimation(.easeInOut(duration: 0.15)) { showSticky = show } }
                 }
+                .onPreferenceChange(PullOffsetKey.self) { y in
+                    // y = cuánto baja el contenido al tirar estando arriba del todo (10 = posición normal)
+                    let pull = max(0, y - 10)
+                    pullAmount = pull
+                    if pull < 8 { pullArmed = true }
+                    if pull >= 80 && pullArmed && !pullRefreshing { pullArmed = false; startPullRefresh() }
+                }
+                pullIndicator
+                if showSyncBanner { syncBanner.transition(.opacity).zIndex(5) }
                 if showSticky { stickyHeader.transition(.opacity) }
                 if showLoading {
                     LoadingView().ignoresSafeArea().transition(.opacity).zIndex(10)
@@ -135,6 +154,60 @@ struct HomeView: View {
                 // Si cancela, se guarda igualmente como "Sin clasificar" para no perder el registro
                 if let p = pendingStop { saveSession(p.0, p.1, "Sin clasificar") }
                 pendingStop = nil
+            }
+        }
+    }
+
+    // MARK: - Deslizar para actualizar (como WHOOP: flecha al tirar, logo girando mientras recarga, aviso al terminar)
+
+    private var pullIndicator: some View {
+        let f = min(pullAmount / 80, 1)
+        return ZStack {
+            if pullRefreshing {
+                Image("LaunchLogo").resizable().scaledToFit().frame(width: 38, height: 38)
+                    .modifier(SpinModifier())
+            } else {
+                Image(systemName: "arrow.down").font(.system(size: 20, weight: .regular)).foregroundColor(Theme.textSecondary)
+                    .rotationEffect(.degrees(f >= 1 ? 180 : 0))
+            }
+        }
+        .frame(width: 44, height: 44)
+        .padding(.top, 58 + min(pullAmount, 100) * 0.25)
+        .opacity(pullRefreshing ? 1 : Double(f))
+        .allowsHitTesting(false)
+    }
+
+    private var syncBanner: some View {
+        HStack {
+            Image(systemName: "cloud").foregroundColor(Theme.textPrimary)
+            Text("DATOS ACTUALIZADOS").font(Theme.label(15)).tracking(1.6).foregroundColor(Theme.textPrimary)
+            Spacer()
+            VStack(alignment: .trailing, spacing: 2) {
+                Text("SINCRONIZADO ✓").font(Theme.label(13)).tracking(1).foregroundColor(Theme.textPrimary)
+                Text(syncTime).font(Theme.label(14)).foregroundColor(Theme.recoveryGreen)
+            }
+        }
+        .padding(.horizontal, 18).padding(.vertical, 14)
+        .background(Color.black).cornerRadius(16)
+        .padding(.horizontal, 16).padding(.top, 58)
+    }
+
+    private func startPullRefresh() {
+        pullRefreshing = true
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        WhoopManager.shared.requestHistoryNow()   // lo último que tenga la pulsera, si está conectada
+        let started = Date()
+        let offset = dayOffset
+        HomeStore.shared.invalidate()
+        HomeStore.shared.load(offset, maxAge: 0) { d in
+            if offset == dayOffset { data = d }
+            let wait = max(0, 1.2 - Date().timeIntervalSince(started))
+            DispatchQueue.main.asyncAfter(deadline: .now() + wait) {
+                pullRefreshing = false
+                let f = DateFormatter(); f.dateFormat = "HH:mm"
+                syncTime = f.string(from: Date())
+                withAnimation(.easeOut(duration: 0.2)) { showSyncBanner = true }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.4) { withAnimation(.easeIn(duration: 0.25)) { showSyncBanner = false } }
             }
         }
     }
@@ -758,6 +831,21 @@ struct HomeView: View {
                 showMessage = true
             }
         })
+    }
+}
+
+private struct PullOffsetKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
+}
+
+/// Giro continuo del logo mientras actualiza.
+private struct SpinModifier: ViewModifier {
+    @State private var on = false
+    func body(content: Content) -> some View {
+        content.rotationEffect(.degrees(on ? 360 : 0))
+            .animation(.linear(duration: 0.9).repeatForever(autoreverses: false), value: on)
+            .onAppear { on = true }
     }
 }
 

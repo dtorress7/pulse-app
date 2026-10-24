@@ -318,6 +318,11 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   - Recuperación con los valores EXACTOS de WHOOP del 24: la fórmula da 67 (WHOOP 60); 22/10 61 (54), 23/10 73 (70). Probado añadir
     respiración, calificación, horas, temperatura, SpO2, esfuerzo de ayer: nada mejora (CV 4,84–4,91). Error propio de la fórmula ±5–7.
 
+- **Esfuerzo v3 APLICADO (24/10, a petición del usuario antes del partido)**: carga/min = r·e^(5,0047 r) + 0,0951, esfuerzo =
+  4,2522·ln(1 + (carga + 13,206·min fuerza)/68,867), máx 21 (`Formulas.trimp/strainFromTrimp`, Android + iOS). 15 casos: MAE 0,35, dejando
+  uno fuera 0,50; fútbol 23/10 7,6 (WHOOP 7,6; antes 8,9). Paseo 17/10 (por zonas) 1,4 vs 4,1 → revisar con un paseo grabado.
+  `act_recalc` = 4 rehace las actividades (no las importadas); `night_recalc_v3` / iOS 3 rehace los días medidos por PulseApp.
+
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
 esfuerzo 11,5, 271 kcal, FC media 127 (la media aritmética de esos segundos es 133: WHOOP no usa la media simple), máx 170,
@@ -365,9 +370,11 @@ de PulseApp (hr_log, motion_minutes). Perfil: 1,69 m, 68 kg, FCmáx 195.
 - Siesta tomada como noche (20/10, 20:28–21:58 en el sofá): `MetricsCalculator.analyze` ahora mira de las 18:00 de ayer a las 14:00 de hoy.
 
 ## Pendiente (en orden)
-0. **Próxima versión (pedido 23/10)**: en Inicio, deslizar hacia abajo para actualizar como WHOOP: al tirar aparece una flecha ↓ encima de
-   la marca y, al soltar, el logo de PulseApp girando mientras recarga (Android + iOS). Capturas de WHOOP: flecha sobre "WHOOP", luego logo
-   cargando, y el aviso "DATOS ACTUALIZADOS · SINCRONIZADO CON 16:46 ✓".
+0. ~~Deslizar para actualizar~~ HECHO 24/10: Android `ui/PullScrollView` (umbral 80 dp, flecha ↓ que gira al pasar el umbral, logo girando,
+   pide historial a la pulsera y recalcula; aviso negro "DATOS ACTUALIZADOS · SINCRONIZADO ✓ HH:MM" 2,2 s). iOS: `PullOffsetKey` en HomeView
+   (se dispara al pasar 80 pt), `SpinModifier`, `requestHistoryNow`, mismo aviso.
+0b. **Cambio de hora**: hr_log.csv guarda hora LOCAL sin zona → el 25/10 la hora 02:00–03:00 se repite y se pierde ~1 h (se queda la 1.ª pasada).
+   Arreglo correcto = guardar con zona/UTC y adaptar TODOS los lectores (Android + iOS). Pendiente, antes del cambio de marzo.
 1. Ajustar el contador de pasos con una prueba de 100 pasos contados.
 2. ~~Orden de parar el IMU~~ HECHO: 106 `[0,0]` (ver Acelerómetro).
 3. ~~Clasificador de sueño en 4 fases~~ HECHO v1 (16/10, ver arriba). Falta validar la colocación con más noches y usar fases en recuperación (VFC en profundo).

@@ -212,6 +212,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.rowProfile).setOnClickListener(openProfile)
 
         setupStickyHeader()
+        setupPullToRefresh()
         Ui.setupTabBar(this, Ui.Tab.HOME)
 
         // La conexión es la WHOOP vinculada (modo propietario). El modo Bluetooth estándar ya no se usa.
@@ -279,6 +280,9 @@ class MainActivity : AppCompatActivity() {
 
     // ---------------------------------------------------------------- datos
 
+    /** Se llaman al terminar el siguiente refresh() (deslizar para actualizar). */
+    private val afterRefresh = ArrayList<() -> Unit>()
+
     private fun refresh() {
         if (loading) return
         loading = true
@@ -295,6 +299,7 @@ class MainActivity : AppCompatActivity() {
             } finally {
                 loading = false
                 if (offset != dayOffset) refresh()
+                else if (afterRefresh.isNotEmpty()) { val l = afterRefresh.toList(); afterRefresh.clear(); l.forEach { it() } }
             }
         }
     }
@@ -478,6 +483,58 @@ class MainActivity : AppCompatActivity() {
     }
 
     // ---------------------------------------------------------------- cabecera fija
+
+    // ---------------------------------------------------------------- deslizar para actualizar (24/10, como WHOOP)
+
+    private fun setupPullToRefresh() {
+        val scroll = findViewById<com.pulseapp.android.ui.PullScrollView>(R.id.mainScroll)
+        val indicator = findViewById<View>(R.id.pullIndicator)
+        val arrow = findViewById<View>(R.id.pullArrow)
+        val logo = findViewById<View>(R.id.pullLogo)
+        scroll.onPull = { f ->
+            if (!scroll.refreshing) {
+                indicator.alpha = f.coerceIn(0f, 1f)
+                indicator.translationY = (f.coerceAtMost(1.2f) - 1f) * Ui.dp(this, 12f)
+                arrow.rotation = if (f >= 1f) 180f else 0f   // pasado el umbral: "suelta para actualizar"
+            }
+        }
+        scroll.onRefresh = {
+            arrow.visibility = View.GONE
+            logo.visibility = View.VISIBLE
+            indicator.alpha = 1f
+            val spin = android.view.animation.RotateAnimation(0f, 360f,
+                android.view.animation.Animation.RELATIVE_TO_SELF, 0.5f, android.view.animation.Animation.RELATIVE_TO_SELF, 0.5f).apply {
+                duration = 900; repeatCount = android.view.animation.Animation.INFINITE
+                interpolator = android.view.animation.LinearInterpolator()
+            }
+            logo.startAnimation(spin)
+            // Pide a la pulsera lo último que tenga guardado (si está conectada) y recalcula Inicio
+            if (WhoopBackgroundService.isRunning) WhoopBackgroundService.start(this, WhoopBackgroundService.ACTION_HISTORY)
+            val started = System.currentTimeMillis()
+            afterRefresh.add {
+                val wait = (1200L - (System.currentTimeMillis() - started)).coerceAtLeast(0L)
+                scroll.postDelayed({
+                    logo.clearAnimation(); logo.visibility = View.GONE; arrow.visibility = View.VISIBLE; arrow.rotation = 0f
+                    indicator.animate().alpha(0f).setDuration(150).start()
+                    scroll.finishRefresh()
+                    showSyncBanner()
+                }, wait)
+            }
+            lastRefresh = 0L
+            refresh()
+        }
+    }
+
+    private fun showSyncBanner() {
+        val banner = findViewById<View>(R.id.syncBanner)
+        findViewById<TextView>(R.id.syncBannerTime).text =
+            "SINCRONIZADO ✓\n" + java.text.SimpleDateFormat("HH:mm", java.util.Locale("es")).format(java.util.Date())
+        banner.alpha = 0f
+        banner.visibility = View.VISIBLE
+        banner.animate().alpha(1f).setDuration(180).withEndAction {
+            banner.postDelayed({ banner.animate().alpha(0f).setDuration(250).withEndAction { banner.visibility = View.GONE }.start() }, 2200)
+        }.start()
+    }
 
     private fun setupStickyHeader() {
         val scroll = findViewById<ScrollView>(R.id.mainScroll)
