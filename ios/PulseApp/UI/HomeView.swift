@@ -13,9 +13,7 @@ struct HomeView: View {
     @State private var loadingOffset: Int? = nil
     @State private var lastRefresh = Date.distantPast
     // Deslizar para actualizar (24/10, como WHOOP)
-    @State private var pullAmount: CGFloat = 0
     @State private var pullRefreshing = false
-    @State private var pullArmed = true
     @State private var showSyncBanner = false
     @State private var syncTime = ""
     @State private var showLoading = true
@@ -52,10 +50,6 @@ struct HomeView: View {
                 Theme.wBackground.ignoresSafeArea()
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
-                        Color.clear.frame(height: 0)
-                            .background(GeometryReader { g in
-                                Color.clear.preference(key: PullOffsetKey.self, value: g.frame(in: .named("homeScroll")).minY)
-                            })
                         header
                         Text("PULSE").font(Theme.medium(24)).tracking(24 * 0.32).foregroundColor(Theme.textPrimary)
                             .frame(maxWidth: .infinity).padding(.top, 18)
@@ -82,14 +76,10 @@ struct HomeView: View {
                     let show = y < 20
                     if show != showSticky { withAnimation(.easeInOut(duration: 0.15)) { showSticky = show } }
                 }
-                .onPreferenceChange(PullOffsetKey.self) { y in
-                    // y = cuánto baja el contenido al tirar estando arriba del todo (10 = posición normal)
-                    let pull = max(0, y - 10)
-                    pullAmount = pull
-                    if pull < 8 { pullArmed = true }
-                    if pull >= 80 && pullArmed && !pullRefreshing { pullArmed = false; startPullRefresh() }
-                }
-                pullIndicator
+                // Deslizar para actualizar: el gesto nativo de iOS (fiable en todas las versiones); mientras recarga, el logo gira
+                // encima de PULSE y al terminar sale el aviso "DATOS ACTUALIZADOS".
+                .refreshable { await pullRefresh() }
+                if pullRefreshing { pullIndicator.transition(.opacity).zIndex(4) }
                 if showSyncBanner { syncBanner.transition(.opacity).zIndex(5) }
                 if showSticky { stickyHeader.transition(.opacity) }
                 if showLoading {
@@ -161,20 +151,11 @@ struct HomeView: View {
     // MARK: - Deslizar para actualizar (como WHOOP: flecha al tirar, logo girando mientras recarga, aviso al terminar)
 
     private var pullIndicator: some View {
-        let f = min(pullAmount / 80, 1)
-        return ZStack {
-            if pullRefreshing {
-                Image("LaunchLogo").resizable().scaledToFit().frame(width: 38, height: 38)
-                    .modifier(SpinModifier())
-            } else {
-                Image(systemName: "arrow.down").font(.system(size: 20, weight: .regular)).foregroundColor(Theme.textSecondary)
-                    .rotationEffect(.degrees(f >= 1 ? 180 : 0))
-            }
-        }
-        .frame(width: 44, height: 44)
-        .padding(.top, 58 + min(pullAmount, 100) * 0.25)
-        .opacity(pullRefreshing ? 1 : Double(f))
-        .allowsHitTesting(false)
+        Image("LaunchLogo").resizable().scaledToFit().frame(width: 38, height: 38)
+            .modifier(SpinModifier())
+            .frame(width: 44, height: 44)
+            .padding(.top, 58)
+            .allowsHitTesting(false)
     }
 
     private var syncBanner: some View {
@@ -192,24 +173,29 @@ struct HomeView: View {
         .padding(.horizontal, 16).padding(.top, 58)
     }
 
-    private func startPullRefresh() {
-        pullRefreshing = true
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        WhoopManager.shared.requestHistoryNow()   // lo último que tenga la pulsera, si está conectada
-        let started = Date()
-        let offset = dayOffset
-        HomeStore.shared.invalidate()
-        HomeStore.shared.load(offset, maxAge: 0) { d in
-            if offset == dayOffset { data = d }
-            let wait = max(0, 1.2 - Date().timeIntervalSince(started))
-            DispatchQueue.main.asyncAfter(deadline: .now() + wait) {
-                pullRefreshing = false
-                let f = DateFormatter(); f.dateFormat = "HH:mm"
-                syncTime = f.string(from: Date())
-                withAnimation(.easeOut(duration: 0.2)) { showSyncBanner = true }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2.4) { withAnimation(.easeIn(duration: 0.25)) { showSyncBanner = false } }
-            }
+    /// Al soltar: pide a la pulsera lo último, recalcula Inicio y espera (mínimo 1,2 s) antes de cerrar el gesto.
+    private func pullRefresh() async {
+        await MainActor.run {
+            withAnimation(.easeOut(duration: 0.15)) { pullRefreshing = true }
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            WhoopManager.shared.requestHistoryNow()   // lo último que tenga la pulsera, si está conectada
         }
+        let started = Date()
+        let offset = await MainActor.run { dayOffset }
+        HomeStore.shared.invalidate()
+        let d: HomeData = await withCheckedContinuation { cont in
+            HomeStore.shared.load(offset, maxAge: 0) { cont.resume(returning: $0) }
+        }
+        let wait = max(0, 1.2 - Date().timeIntervalSince(started))
+        if wait > 0 { try? await Task.sleep(nanoseconds: UInt64(wait * 1_000_000_000)) }
+        await MainActor.run {
+            if offset == dayOffset { data = d }
+            withAnimation(.easeIn(duration: 0.15)) { pullRefreshing = false }
+            let f = DateFormatter(); f.dateFormat = "HH:mm"
+            syncTime = f.string(from: Date())
+            withAnimation(.easeOut(duration: 0.2)) { showSyncBanner = true }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.4) { withAnimation(.easeIn(duration: 0.25)) { showSyncBanner = false } }
     }
 
     // MARK: - Datos
@@ -832,11 +818,6 @@ struct HomeView: View {
             }
         })
     }
-}
-
-private struct PullOffsetKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
 }
 
 /// Giro continuo del logo mientras actualiza.
