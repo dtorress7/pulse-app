@@ -375,7 +375,8 @@ de PulseApp (hr_log, motion_minutes). Perfil: 1,69 m, 68 kg, FCmáx 195.
    (se dispara al pasar 80 pt), `SpinModifier`, `requestHistoryNow`, mismo aviso.
 0b. **Cambio de hora**: hr_log.csv guarda hora LOCAL sin zona → el 25/10 la hora 02:00–03:00 se repite y se pierde ~1 h (se queda la 1.ª pasada).
    Arreglo correcto = guardar con zona/UTC y adaptar TODOS los lectores (Android + iOS). Pendiente, antes del cambio de marzo.
-1. Ajustar el contador de pasos con una prueba de 100 pasos contados.
+1. ~~Prueba de 100 pasos~~ HECHA 24/10 16:34 (iPhone): 5166 → 5266 = 100 contados de 100 reales (motion_minutes: 16:34 90 pasos, 16:35 59).
+   Andando normal (84–115 pasos/min) cuenta bien; no se toca. Falta: andar rápido/escaleras y falsos pasos al mover el brazo (14/10: 91 falsos).
 2. ~~Orden de parar el IMU~~ HECHO: 106 `[0,0]` (ver Acelerómetro).
 3. ~~Clasificador de sueño en 4 fases~~ HECHO v1 (16/10, ver arriba). Falta validar la colocación con más noches y usar fases en recuperación (VFC en profundo).
 4. Integrar movimiento en Sueño, Recuperación, Strain, actividades automáticas y pasos en el inicio.
