@@ -414,6 +414,11 @@ de PulseApp (hr_log, motion_minutes). Perfil: 1,69 m, 68 kg, FCmáx 195.
    (inevitable: la muñeca no ve las piernas) y solo con el brazo suma a ratos 4–20/min (13:01–13:07). Racha mínima con ritmo 4 → 8
    (`ImuStepCounter.MIN_RUN` / iOS `minRun`; se suman los 8 al llegar). 12–25 % de los pasos de cada día están en minutos con < 20 pasos:
    validar con los pasos diarios de WHOOP.
+   25/10 13:21: WHOOP NO contó esos pasos sentado. Gravedad media por minuto (motion_minutes): andando de verdad gx ≥ 0,8 en el 97 % de
+   127 minutos (mediana 0,95: brazo colgando); sentado simulando gx −0,13…0,50. Posible filtro por orientación (contar solo con el brazo
+   abajo) pero falta saber qué pasa andando con el móvil en la mano / manos en los bolsillos (12:42–12:43 y 12:55–12:57: 72/59/26/42 pasos con
+   gx −0,77…−0,14, sin explicar). iOS: botón "Grabar prueba de pasos (20 min)" en Mi WHOOP → imu_prueba.csv (crudo 100 Hz,
+   `ImuTestRecorder`) para afinarlo con una prueba guiada antes de tocar el contador.
 2. ~~Orden de parar el IMU~~ HECHO: 106 `[0,0]` (ver Acelerómetro).
 3. ~~Clasificador de sueño en 4 fases~~ HECHO v1 (16/10, ver arriba). Falta validar la colocación con más noches y usar fases en recuperación (VFC en profundo).
 4. Integrar movimiento en Sueño, Recuperación, Strain, actividades automáticas y pasos en el inicio.

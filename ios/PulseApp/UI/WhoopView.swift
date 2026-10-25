@@ -8,6 +8,7 @@ struct WhoopView: View {
     @State private var ack = WhoopSettings.ackMode
     @State private var logLines = ServiceLog.shared.snapshot(150)
     @State private var showClear = false
+    @State private var testTick = 0
 
     var body: some View {
         NavigationStack {
@@ -62,6 +63,20 @@ struct WhoopView: View {
                 Text("Activa el acelerómetro (más batería de la pulsera). Necesario para las fases del sueño y los pasos.")
                     .font(Theme.text(11)).foregroundColor(Theme.textSecondary)
                 Hairline()
+                let recording = ImuTestRecorder.isRecording && testTick >= 0
+                Button(action: {
+                    if recording { ImuTestRecorder.stop() } else { ImuTestRecorder.start(minutes: 20) }
+                    testTick += 1
+                }) {
+                    Text(recording ? "Grabando prueba de pasos… hasta las \(Fmt.clock(ImuTestRecorder.untilMillis)) (tocar para parar)"
+                                   : "Grabar prueba de pasos (20 min)")
+                        .font(Theme.label(14)).foregroundColor(recording ? Theme.onAccent : Theme.textPrimary)
+                        .frame(maxWidth: Double.infinity).padding(.vertical, 9)
+                        .background(recording ? Theme.alertAmber : Theme.track).cornerRadius(10)
+                }
+                Text("Guarda el acelerómetro crudo en imu_prueba.csv (necesita «Movimiento y pasos» activado). Después mándalo desde Exportar.")
+                    .font(Theme.text(11)).foregroundColor(Theme.textSecondary)
+                Hairline()
                 Text(WhoopSettings.ackLabel(ack)).font(Theme.text(14)).foregroundColor(Theme.textPrimary)
                 HStack(spacing: 8) {
                     ackButton(0, "WHOOP guarda")
@@ -97,7 +112,7 @@ struct WhoopView: View {
     }
 
     private var exportCard: some View {
-        let names = [AppPaths.hrLog, AppPaths.motion, AppPaths.historyRaw, AppPaths.bioLog, AppPaths.serviceLog]
+        let names = [AppPaths.hrLog, AppPaths.motion, ImuTestRecorder.fileName, AppPaths.historyRaw, AppPaths.bioLog, AppPaths.serviceLog]
         let existing = names.filter { FileManager.default.fileExists(atPath: AppPaths.file($0).path) }
         return Card {
             VStack(alignment: .leading, spacing: 10) {

@@ -244,6 +244,7 @@ final class WhoopFrameHandler {
         // El crudo (100 lecturas/s) no se guarda: se guarda el resumen por minuto (pasos, intensidad, quieto, postura).
         imuMessages += 1
         if let sec = WhoopImuDecoder.decode(message) {
+            ImuTestRecorder.append(sec)   // solo durante una prueba de pasos (Mi WHOOP)
             if let m = motion.feed(sec), imuMessages % 300 < 60 {
                 log("🚶 Minuto: \(m.steps) pasos · \(Int(m.enmoMg)) mg")
             }
