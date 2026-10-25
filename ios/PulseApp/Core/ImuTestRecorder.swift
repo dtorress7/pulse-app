@@ -11,10 +11,20 @@ enum ImuTestRecorder {
     static var untilMillis: Int64 { return Int64(UserDefaults.standard.double(forKey: key)) }
     static var isRecording: Bool { return TimeUtil.nowMillis() < untilMillis }
 
+    /// 25/10: ya NO borra lo grabado antes (cada prueba se añade detrás con una línea "#inicio,ms"); solo empieza de cero
+    /// si el archivo pasa de 40 MB. Así varias pruebas seguidas llegan juntas en un solo archivo.
     static func start(minutes: Int) {
         let url = AppPaths.file(fileName)
         queue.sync {
-            try? "ms,ax,ay,az,gx,gy,gz\n".write(to: url, atomically: true, encoding: .utf8)
+            let size = ((try? FileManager.default.attributesOfItem(atPath: url.path))?[.size] as? NSNumber)?.int64Value ?? 0
+            if !FileManager.default.fileExists(atPath: url.path) || size > 40_000_000 {
+                try? "ms,ax,ay,az,gx,gy,gz\n".write(to: url, atomically: true, encoding: .utf8)
+            }
+            if let h = try? FileHandle(forWritingTo: url) {
+                h.seekToEndOfFile()
+                h.write(Data("#inicio,\(TimeUtil.nowMillis())\n".utf8))
+                try? h.close()
+            }
         }
         UserDefaults.standard.set(Double(TimeUtil.nowMillis() + Int64(minutes) * 60_000), forKey: key)
     }

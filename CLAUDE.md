@@ -419,6 +419,12 @@ de PulseApp (hr_log, motion_minutes). Perfil: 1,69 m, 68 kg, FCmáx 195.
    abajo) pero falta saber qué pasa andando con el móvil en la mano / manos en los bolsillos (12:42–12:43 y 12:55–12:57: 72/59/26/42 pasos con
    gx −0,77…−0,14, sin explicar). iOS: botón "Grabar prueba de pasos (20 min)" en Mi WHOOP → imu_prueba.csv (crudo 100 Hz,
    `ImuTestRecorder`) para afinarlo con una prueba guiada antes de tocar el contador.
+   25/10 20:41 (imu_prueba.csv, check/imu/p1.csv, arnés check/imu/S.kt): el grabador BORRABA lo anterior al pulsar otra vez → solo llegó la
+   última prueba (las de andar/escaleras se perdieron; arreglado: ahora añade con "#inicio,ms"). Contador actual: sentado pierna+brazo 15
+   de 30, sentado solo brazo 29 de 30, de pie balanceando 20 de 30. **La orientación NO sirve**: brazo colgando ahora da gx −0,97 (por la
+   mañana +0,95: la pulsera se puso al revés u otra muñeca) y sentado con el brazo colgando |gx| 0,8–1,0 = igual que andando. Giro medio
+   en esas simulaciones 110–280 °/s (filtro actual > 250); falta el giro andando de verdad para decidir un umbral → repetir andar normal /
+   móvil / bolsillos / rápido / escaleras en una grabación.
 2. ~~Orden de parar el IMU~~ HECHO: 106 `[0,0]` (ver Acelerómetro).
 3. ~~Clasificador de sueño en 4 fases~~ HECHO v1 (16/10, ver arriba). Falta validar la colocación con más noches y usar fases en recuperación (VFC en profundo).
 4. Integrar movimiento en Sueño, Recuperación, Strain, actividades automáticas y pasos en el inicio.
