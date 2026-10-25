@@ -344,6 +344,19 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   sleep_stages.csv (`SleepStagesStore`, al calcular cada día; el recálculo v4 rellena las noches pasadas). Capturas de WHOOP de la noche
   25 en check/hyp/n25 (para reentrenar fases).
 
+- **Detección de actividades 25/10 (fútbol 24/10 cortado)**: PulseApp guardó "Sin clasificar" 19:02–19:25 (WHOOP fútbol 19:02–21:07), una
+  "siesta" 10:47–11:12 (era el final de la noche) y no vio los 2 paseos. Causas y arreglos (Android `Formulas`/`AutoActivityScanner`, iOS igual):
+  1. El pulso del partido llegó tarde (historial) → el escáner vio un hueco, lo dio por terminado y luego no se solapa → nunca se alargaba.
+     Ahora: hacen falta ≥ 5 min de pulso en los 10 min siguientes al fin (o ≥ 1 h); y una automática NO editada que la detección encuentra
+     más larga se alarga (unión). Editar las horas quita la marca automática.
+  2. Con todo el pulso, el fin salía 21:48 (la regla de "vuelve a subir" seguía en los paseos). Con movimiento: ≥ 10 min quieto (< 10 pasos,
+     giro < 40) tras el último minuto intenso = fin → 21:07. Los otros 7 entrenos con datos salen igual.
+  3. Paseos (`detectWalks`): minuto ≥ 30 pasos, pausas ≤ 10 min, ≥ 12 min, ≥ 8 min andando, ≥ 40 pasos/min, FC media ≥ 26 % reserva → tipo
+     "Caminar". 14–25/10: solo los dos de WHOOP (21:26–21:48, 22:20–22:50); el paseo de 92 min a FC 86 y la vuelta a casa (FC 97) no.
+  4. Siesta: si en las 3 h de antes hay < 5 min andando (con ≥ 60 % de movimiento grabado) es el final de la noche, no siesta.
+  Una vez al instalar (`act_rescan` 1 / iOS `pulseapp_act_rescan`): se repasan 7 días (alarga el fútbol, añade paseos, borra la siesta falsa).
+  Sin detectar aún: funcional 22/10 (WHOOP 18:07–18:41, solo 3 min intensos). Arnés check/act25 (D2.kt, proto.py).
+
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
 esfuerzo 11,5, 271 kcal, FC media 127 (la media aritmética de esos segundos es 133: WHOOP no usa la media simple), máx 170,

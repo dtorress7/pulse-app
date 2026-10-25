@@ -89,7 +89,8 @@ struct EditSessionView: View {
         guard var fresh = ActivityRecorder.summarize(
             hrLog: WhoopManager.shared.hrLog, startMillis: startMs, endMillis: endMs,
             ageYears: p?.ageYears() ?? 30, weightKg: p?.weightKg ?? 75, sex: p?.sex ?? "M",
-            type: type, autoDetected: old.autoDetected, restingHr: rhr) else {
+            // Si cambias las horas, ya no se toca sola (la detección automática solo alarga las que no has editado)
+            type: type, autoDetected: old.autoDetected && startMs == old.startMillis && endMs == old.endMillis, restingHr: rhr) else {
             message = "No hay datos de pulso en ese rango horario"
             return
         }

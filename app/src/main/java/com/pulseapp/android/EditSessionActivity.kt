@@ -87,7 +87,8 @@ class EditSessionActivity : AppCompatActivity() {
                         weightKg = profile?.weightKg ?: 75f,
                         sex = profile?.sex ?: "M",
                         type = selectedType,
-                        autoDetected = session.autoDetected,
+                        // Si cambias las horas, ya no se toca sola (la detección automática solo alarga las que no has editado)
+                        autoDetected = session.autoDetected && startCal.timeInMillis == session.startMillis && endCal.timeInMillis == session.endMillis,
                         restingHr = BaselineProvider().compute(db)?.avgRestingHr?.toInt()
                     )
 

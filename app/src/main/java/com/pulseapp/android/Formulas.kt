@@ -141,7 +141,12 @@ object Formulas {
             }
             val len = b - a + 1
             val h = java.util.Calendar.getInstance().apply { timeInMillis = a * 60_000L }.get(java.util.Calendar.HOUR_OF_DAY)
-            if (len >= NAP_MIN_MINUTES && h in 10..20) {
+            // 25/10: la "siesta" del 24/10 10:47–11:12 era el final de la noche. Una siesta va después de estar levantado: en las 3 h
+            // de antes tiene que haber ≥ 5 min andando (≥ 10 pasos). Tardes reales 22–24/10: 10–77 min; antes de las 10:47 del 24: 1.
+            var walked = 0; var covered = 0
+            for (q in a - 180 until a) { val mm = byMin[q] ?: continue; covered++; if (mm.steps >= 10) walked++ }
+            val afterNight = covered >= 108 && walked < 5
+            if (len >= NAP_MIN_MINUTES && h in 10..20 && !afterNight) {
                 val hrs = (a..b).mapNotNull { hrByMin[it] }.sorted()
                 if (hrs.size >= len * 0.6 && hrs[hrs.size / 2] <= rhr + 12) out.add(a to b)
             }
@@ -163,9 +168,39 @@ object Formulas {
     const val ACT_RERISE_BPM = 5.0
     const val ACT_MIN_MINUTES = 12
     const val ACT_MIN_CORE = 8
+    const val ACT_STILL_CUT_MIN = 10
+
+    // ---------- Paseos (25/10) ----------
+    // WHOOP detectó solo los dos paseos del 24/10 (21:26–21:49 y 22:20–22:49, FC media 107/100, casi todo zona 0): con el pulso no
+    // basta (no hay minutos intensos). Con movimiento grabado: minuto andando = ≥ 30 pasos; se juntan con pausas ≤ 10 min. Es un paseo si
+    // dura ≥ 12 min, tiene ≥ 8 min andando, ≥ 40 pasos/min de media y FC media ≥ 26 % de la reserva (≈ 94 lpm). En 14–25/10 da los dos
+    // paseos (21:26–21:48 y 22:20–22:50) y nada más: el paseo largo del 24/10 13:17–14:48 (FC 86) y la vuelta a casa (FC 97, 27 pasos/min)
+    // no salen. Sin movimiento grabado no se detectan paseos.
+    const val WALK_TYPE = "Caminar"
+
+    fun detectWalks(minutes: List<Pair<Long, Double>>, motion: Map<Long, MotionMinute>, hrMax: Double, rhr: Int = cachedZoneRhr): List<Pair<Long, Long>> {
+        val elevated = rhr + ACT_ELEVATED_HRR * (hrMax - rhr)
+        val hrBy = HashMap<Long, Double>(minutes.size * 2)
+        for ((k, v) in minutes) hrBy[k] = v
+        val walk = motion.filterValues { it.steps >= 30 }.keys.sorted()
+        val out = ArrayList<Pair<Long, Long>>()
+        var i = 0
+        while (i < walk.size) {
+            val a = walk[i]; var b = a; var cnt = 1; var j = i + 1
+            while (j < walk.size && walk[j] - b <= 11) { b = walk[j]; cnt++; j++ }
+            val dur = b - a + 1
+            val steps = (a..b).sumOf { motion[it]?.steps ?: 0 }
+            val hrs = (a..b).mapNotNull { hrBy[it] }
+            if (dur >= 12 && cnt >= 8 && steps >= 40 * dur && hrs.size >= dur * 0.6 && hrs.average() >= elevated) out.add(a to b)
+            i = j
+        }
+        return out
+    }
 
     /** [minutes] = (minuto unix, FC media de ese minuto) ordenados. Devuelve (primer minuto, último minuto) de cada actividad. */
-    fun detectActivities(minutes: List<Pair<Long, Double>>, hrMax: Double, rhr: Int = cachedZoneRhr): List<Pair<Long, Long>> {
+    fun detectActivities(
+        minutes: List<Pair<Long, Double>>, hrMax: Double, rhr: Int = cachedZoneRhr, motion: Map<Long, MotionMinute>? = null
+    ): List<Pair<Long, Long>> {
         val res = hrMax - rhr
         val elevated = rhr + ACT_ELEVATED_HRR * res
         val core = rhr + ACT_CORE_HRR * res
@@ -189,11 +224,24 @@ object Formulas {
                 // antes, "adelantar mientras ≥ zona 1" daba 18:33). 19/10 y 20/10 siguen exactos.
                 val s = s0
                 var e = coreIdx.last()
+                val lastCore = e
                 var low = Double.MAX_VALUE
                 for (k in e + 1..e0) {
                     val v = minutes[k].second
                     if (v >= low + ACT_RERISE_BPM) e = k
                     low = minOf(low, v)
+                }
+                // 25/10 (fútbol 24/10): tras el partido el pulso siguió en 110–125 y los paseos lo alargaban hasta las 21:48 (WHOOP
+                // 21:07). Con movimiento grabado: si tras el último minuto intenso estás ≥ 10 min quieto (< 10 pasos y giro < 40),
+                // acaba en el último minuto con movimiento. Los otros 7 entrenos con movimiento no cambian.
+                if (motion != null) {
+                    var lastMove = lastCore; var stillRun = 0
+                    for (k in lastCore + 1..e) {
+                        val mm = motion[minutes[k].first]
+                        if (mm == null) { stillRun = 0; continue }
+                        if (mm.steps >= 10 || mm.gyroDps >= 40f) { lastMove = k; stillRun = 0 }
+                        else if (++stillRun >= ACT_STILL_CUT_MIN) { e = lastMove; break }
+                    }
                 }
                 if (minutes[e].first - minutes[s].first + 1 >= ACT_MIN_MINUTES) out.add(minutes[s].first to minutes[e].first)
             }

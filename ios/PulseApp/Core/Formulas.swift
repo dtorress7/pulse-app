@@ -110,7 +110,12 @@ enum Formulas {
             }
             let len = b - a + 1
             let h = TimeUtil.parts(a * 60_000).hour
-            if len >= 20 && h >= 10 && h <= 20 {
+            // 25/10 (igual que Android): una siesta va después de estar levantado; si en las 3 h de antes casi no hay pasos,
+            // es el final de la noche (24/10 10:47–11:12).
+            var walked = 0, covered = 0
+            for q in (a - 180)..<a { guard let mm = byMin[q] else { continue }; covered += 1; if mm.steps >= 10 { walked += 1 } }
+            let afterNight = covered >= 108 && walked < 5
+            if len >= 20 && h >= 10 && h <= 20 && !afterNight {
                 let hrs = (a...b).compactMap { hrByMin[$0] }.sorted()
                 if Double(hrs.count) >= Double(len) * 0.6 && hrs[hrs.count / 2] <= Double(rhr + 12) { out.append((a, b)) }
             }
@@ -123,7 +128,8 @@ enum Formulas {
     // Igual que Android (Formulas.kt), calibrada con los funcionales que WHOOP detectó solo (19/10 y 20/10):
     // tramo ≥ 26 % de la reserva (tolera 2 min por debajo), núcleo ≥ 50 % (≥ 8 min), inicio = primer núcleo adelantado
     // mientras ≥ zona 1, fin = último núcleo o más tarde si el pulso vuelve a subir ≥ 5 lpm; dura ≥ 12 min.
-    static func detectActivities(_ minutes: [(Int64, Double)], hrMax: Double, rhr: Int? = nil) -> [(Int64, Int64)] {
+    static func detectActivities(_ minutes: [(Int64, Double)], hrMax: Double, rhr: Int? = nil,
+                                 motion: [Int64: MotionMinute]? = nil) -> [(Int64, Int64)] {
         let r = Double(rhr ?? zoneRestingHr())
         let res = hrMax - r
         let elevated = r + 0.26 * res, core = r + 0.50 * res, z1 = r + zoneHrr[0] * res
@@ -141,6 +147,7 @@ enum Formulas {
             let coreIdx = (s0...e0).filter { minutes[$0].1 >= core }
             if coreIdx.count >= 8, var e = coreIdx.last {
                 let s = s0   // inicio = primer minuto del tramo elevado (22/10, como Android)
+                let lastCore = e
                 var low = Double.greatestFiniteMagnitude
                 if e < e0 {
                     for k in (e + 1)...e0 {
@@ -149,9 +156,46 @@ enum Formulas {
                         low = min(low, v)
                     }
                 }
+                // 25/10 (igual que Android): con movimiento grabado, ≥ 10 min quieto tras el último minuto intenso = fin
+                // (fútbol 24/10: 21:07 como WHOOP; antes los paseos de después lo alargaban hasta las 21:48).
+                if let mo = motion, e > lastCore {
+                    var lastMove = lastCore, stillRun = 0
+                    for k in (lastCore + 1)...e {
+                        guard let mm = mo[minutes[k].0] else { stillRun = 0; continue }
+                        if mm.steps >= 10 || mm.gyroDps >= 40 { lastMove = k; stillRun = 0 }
+                        else { stillRun += 1; if stillRun >= 10 { e = lastMove; break } }
+                    }
+                }
                 if minutes[e].0 - minutes[s].0 + 1 >= 12 { out.append((minutes[s].0, minutes[e].0)) }
             }
             i = e0 + 1
+        }
+        return out
+    }
+
+    // ---------- Paseos (25/10, igual que Android detectWalks) ----------
+    // Minuto andando = ≥ 30 pasos; pausas ≤ 10 min. Paseo si dura ≥ 12 min, ≥ 8 min andando, ≥ 40 pasos/min y FC media ≥ 26 % de la reserva.
+    static let walkType = "Caminar"
+
+    static func detectWalks(_ minutes: [(Int64, Double)], motion: [Int64: MotionMinute], hrMax: Double, rhr: Int? = nil) -> [(Int64, Int64)] {
+        let r = Double(rhr ?? zoneRestingHr())
+        let elevated = r + 0.26 * (hrMax - r)
+        var hrBy = [Int64: Double](minimumCapacity: minutes.count)
+        for (k, v) in minutes { hrBy[k] = v }
+        let walk = motion.filter { $0.value.steps >= 30 }.keys.sorted()
+        var out = [(Int64, Int64)]()
+        var i = 0
+        while i < walk.count {
+            let a = walk[i]
+            var b = a, cnt = 1, j = i + 1
+            while j < walk.count && walk[j] - b <= 11 { b = walk[j]; cnt += 1; j += 1 }
+            let dur = b - a + 1
+            var steps = 0
+            var hrs = [Double]()
+            for q in a...b { steps += motion[q]?.steps ?? 0; if let h = hrBy[q] { hrs.append(h) } }
+            if dur >= 12 && cnt >= 8 && Int64(steps) >= 40 * dur && Double(hrs.count) >= Double(dur) * 0.6
+                && hrs.reduce(0, +) / Double(hrs.count) >= elevated { out.append((a, b)) }
+            i = j
         }
         return out
     }
