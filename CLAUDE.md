@@ -425,6 +425,11 @@ de PulseApp (hr_log, motion_minutes). Perfil: 1,69 m, 68 kg, FCmáx 195.
    mañana +0,95: la pulsera se puso al revés u otra muñeca) y sentado con el brazo colgando |gx| 0,8–1,0 = igual que andando. Giro medio
    en esas simulaciones 110–280 °/s (filtro actual > 250); falta el giro andando de verdad para decidir un umbral → repetir andar normal /
    móvil / bolsillos / rápido / escaleras en una grabación.
+   25/10 20:58 (check/imu/p2.csv, 26 pasos cada una): contador actual andar normal 27, mirando el móvil 27, mano en el bolsillo 25 → bien.
+   El usuario NO cambió la pulsera (brazo colgando gx −0,9 en las dos pruebas de hoy; el +0,95 de motion_minutes era otro dato, no fiarse).
+   Rasgos (check/imu/feat.py): giro medio andar normal 118 °/s (por segundo hasta 164), móvil 31, bolsillo 57; sentado pierna+brazo 242,
+   sentado brazo 209, de pie balanceo 116 (= andar, indistinguible). Candidato: bajar el tope de giro 250 → ~180 °/s (quita lo de sentado)
+   PERO falta andar rápido y escaleras (más balanceo) antes de aplicarlo. sd|a|/giro no separa (andar 0,25 vs sentado 0,23).
 2. ~~Orden de parar el IMU~~ HECHO: 106 `[0,0]` (ver Acelerómetro).
 3. ~~Clasificador de sueño en 4 fases~~ HECHO v1 (16/10, ver arriba). Falta validar la colocación con más noches y usar fases en recuperación (VFC en profundo).
 4. Integrar movimiento en Sueño, Recuperación, Strain, actividades automáticas y pasos en el inicio.
