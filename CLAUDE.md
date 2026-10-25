@@ -409,7 +409,11 @@ de PulseApp (hr_log, motion_minutes). Perfil: 1,69 m, 68 kg, FCmáx 195.
    funcionaba en el iPhone → `.refreshable` nativo (ruedecita de iOS) + logo girando + mismo aviso (24/10).
 0b. ~~Cambio de hora~~ HECHO 25/10 (desfase en las líneas cercanas al cambio + arreglo único del 25/10, ver 24→25).
 1. ~~Prueba de 100 pasos~~ HECHA 24/10 16:34 (iPhone): 5166 → 5266 = 100 contados de 100 reales (motion_minutes: 16:34 90 pasos, 16:35 59).
-   Andando normal (84–115 pasos/min) cuenta bien; no se toca. Falta: andar rápido/escaleras y falsos pasos al mover el brazo (14/10: 91 falsos).
+   Andando normal (84–115 pasos/min) cuenta bien; no se toca. Falta: andar rápido/escaleras.
+   25/10: fregar/gesticular de pie 1 min (12:59–13:00, ENMO 1825 mg) → 0 pasos. Sentado simulando andar (pierna + brazo) cuenta los pasos
+   (inevitable: la muñeca no ve las piernas) y solo con el brazo suma a ratos 4–20/min (13:01–13:07). Racha mínima con ritmo 4 → 8
+   (`ImuStepCounter.MIN_RUN` / iOS `minRun`; se suman los 8 al llegar). 12–25 % de los pasos de cada día están en minutos con < 20 pasos:
+   validar con los pasos diarios de WHOOP.
 2. ~~Orden de parar el IMU~~ HECHO: 106 `[0,0]` (ver Acelerómetro).
 3. ~~Clasificador de sueño en 4 fases~~ HECHO v1 (16/10, ver arriba). Falta validar la colocación con más noches y usar fases en recuperación (VFC en profundo).
 4. Integrar movimiento en Sueño, Recuperación, Strain, actividades automáticas y pasos en el inicio.

@@ -88,7 +88,9 @@ final class ImuStepCounter {
     private static let delay = 45
     private static let peakThresholdG: Float = 0.08
     private static let minGapSamples: Int64 = 30
-    private static let minRun = 4
+    // 25/10: 4 → 8 pasos seguidos con ritmo antes de contar (sentado gesticulando sumaba 4–20 por minuto sueltos).
+    // Al llegar a 8 se suman los 8 de golpe, así andar de verdad no pierde ninguno (prueba de 100 pasos: 100).
+    private static let minRun = 8
     private static let maxStepG: Float = 3.0
     private static let maxStepGyroDps: Float = 250
 
@@ -147,7 +149,7 @@ final class ImuStepCounter {
         }
         lastPeak = p
         run.append(p)
-        if run.count > 8 { run.removeFirst() }
+        if run.count > 10 { run.removeFirst() }
         if run.count == ImuStepCounter.minRun && !inRun {
             totalSteps += ImuStepCounter.minRun; inRun = true
         } else if run.count >= ImuStepCounter.minRun && inRun {

@@ -14,7 +14,7 @@ import kotlin.math.sqrt
  *   1. Módulo de la aceleración |a| (en g).
  *   2. Señal = media de 0,1 s − media de 1 s (quita la gravedad), alineadas en el tiempo.
  *   3. Pico > 0,08 g separado ≥ 0,3 s del anterior = paso candidato.
- *   4. Sólo cuenta si hay ritmo: 4 pasos seguidos con intervalos de 0,3–1,5 s y parecidos entre sí.
+ *   4. Sólo cuenta si hay ritmo: 8 pasos seguidos (25/10; antes 4) con intervalos de 0,3–1,5 s y parecidos entre sí.
  */
 class ImuStepCounter {
 
@@ -92,7 +92,7 @@ class ImuStepCounter {
         }
         lastPeak = p
         run.add(p)
-        if (run.size > 8) run.removeAt(0)
+        if (run.size > 10) run.removeAt(0)
         when {
             run.size == MIN_RUN && !inRun -> { totalSteps += MIN_RUN; inRun = true }
             run.size >= MIN_RUN && inRun -> totalSteps += 1
@@ -123,7 +123,9 @@ class ImuStepCounter {
         private const val DELAY = 45         // alinea la media rápida con el centro de la lenta
         private const val PEAK_THRESHOLD_G = 0.08f
         private const val MIN_GAP_SAMPLES = 30   // 0,3 s entre pasos como mínimo
-        private const val MIN_RUN = 4
+        // 25/10: 4 → 8 pasos seguidos con ritmo antes de contar (sentado gesticulando sumaba 4–20 por minuto sueltos).
+        // Al llegar a 8 se suman los 8 de golpe, así andar de verdad no pierde ninguno (prueba de 100 pasos: 100).
+        private const val MIN_RUN = 8
         private const val MAX_STEP_G = 3.0f
         private const val MAX_STEP_GYRO_DPS = 250f
     }
