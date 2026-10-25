@@ -172,39 +172,16 @@ extension HrLog {
         return added
     }
 
-    /// Recorre las líneas completas de un archivo: (bytes, inicio, fin sin el salto de línea).
-    static func forEachLine(_ u: URL, _ body: ([UInt8], Int, Int) -> Void) {
-        guard let h = try? FileHandle(forReadingFrom: u) else { return }
-        defer { try? h.close() }
-        var carry = [UInt8]()
-        while true {
-            guard let data = try? h.read(upToCount: 4 * 1024 * 1024), !data.isEmpty else { break }
-            var bytes = carry
-            bytes.append(contentsOf: data)
-            var start = 0
-            let n = bytes.count
-            var i = 0
-            while i < n {
-                if bytes[i] == 10 {
-                    var e = i
-                    if e > start && bytes[e - 1] == 13 { e -= 1 }
-                    body(bytes, start, e)
-                    start = i + 1
-                }
-                i += 1
-            }
-            carry = start < n ? Array(bytes[start..<n]) : []
-        }
-        if !carry.isEmpty { body(carry, 0, carry.count) }
-    }
-
     /// "2026-10-16T08:51:12,…" → clave del segundo; nil si la línea no es una lectura.
     static func secondKey(_ b: [UInt8], _ s: Int, _ e: Int) -> Int64? {
-        if e - s < 21 || b[s] < 48 || b[s] > 57 || b[s + 4] != 45 || b[s + 10] != 84 || b[s + 19] != 44 { return nil }
+        if e - s < 21 || b[s] < 48 || b[s] > 57 || b[s + 4] != 45 || b[s + 10] != 84 { return nil }
+        let suffix = TimeUtil.suffixOffset(b, s, e)          // "+01:00" cerca de un cambio de hora (25/10)
+        if b[s + (suffix == nil ? 19 : 25)] != 44 { return nil }
         func d2(_ o: Int) -> Int { return Int(b[o] &- 48) * 10 + Int(b[o + 1] &- 48) }
         let y = Int(b[s] &- 48) * 1000 + Int(b[s + 1] &- 48) * 100 + d2(s + 2)
         let mo = d2(s + 5), d = d2(s + 8), h = d2(s + 11), mi = d2(s + 14), se = d2(s + 17)
         if mo < 1 || mo > 12 || d < 1 || d > 31 || h > 23 || mi > 59 || se > 60 { return nil }
-        return TimeUtil.daysFromCivil(y, mo, d) * 86400 + Int64(h * 3600 + mi * 60 + se)
+        // Segundo real (con desfase si lo hay): las dos pasadas de la hora repetida son segundos distintos
+        return TimeUtil.lineMillis(y, mo, d, h, mi, se, suffix: suffix) / 1000
     }
 }

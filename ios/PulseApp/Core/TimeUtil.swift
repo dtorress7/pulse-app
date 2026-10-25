@@ -85,6 +85,37 @@ enum TimeUtil {
         return String(format: "%04d-%02d-%02dT%02d:%02d:%02d", p.year, p.month, p.day, p.hour, p.minute, p.second)
     }
 
+    /// Hora para hr_log.csv (25/10, cambio de hora): la local de siempre y, a menos de 2 h de un cambio de hora, también el
+    /// desfase ("2026-10-25T02:30:00+01:00"), para que la hora repetida de octubre no se pise. Igual que Android (HrTime).
+    static func logTimestamp(_ millis: Int64) -> String {
+        let base = timestamp(millis)
+        let epoch = floorDiv(millis, 1000)
+        if offset(atEpoch: epoch - 7200) == offset(atEpoch: epoch + 7200) { return base }
+        return base + offsetSuffix(offset(atEpoch: epoch))
+    }
+
+    static func offsetSuffix(_ seconds: Int) -> String {
+        let m = seconds / 60
+        return String(format: "%@%02d:%02d", m < 0 ? "-" : "+", abs(m) / 60, abs(m) % 60)
+    }
+
+    /// Si en [s+19] hay un desfase "+hh:mm"/"-hh:mm", sus segundos; nil si no.
+    static func suffixOffset(_ b: [UInt8], _ s: Int, _ e: Int) -> Int? {
+        if e - s < 26 { return nil }
+        let c = b[s + 19]
+        if (c != 43 && c != 45) || b[s + 22] != 58 { return nil }
+        let h = Int(b[s + 20] &- 48) * 10 + Int(b[s + 21] &- 48)
+        let m = Int(b[s + 23] &- 48) * 10 + Int(b[s + 24] &- 48)
+        if h > 14 || m > 59 { return nil }
+        return (h * 3600 + m * 60) * (c == 45 ? -1 : 1)
+    }
+
+    /// Hora de una línea del CSV: con desfase, exacta; sin él, local como siempre.
+    static func lineMillis(_ y: Int, _ mo: Int, _ d: Int, _ h: Int, _ mi: Int, _ s: Int, suffix: Int?) -> Int64 {
+        guard let off = suffix else { return localToMillis(y, mo, d, h, mi, s) }
+        return (daysFromCivil(y, mo, d) * 86400 + Int64(h * 3600 + mi * 60 + s) - Int64(off)) * 1000
+    }
+
     /// "yyyy-MM-dd" en hora local.
     static func dayKey(_ millis: Int64) -> String {
         let p = parts(millis)

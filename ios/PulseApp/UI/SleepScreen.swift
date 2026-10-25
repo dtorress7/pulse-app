@@ -10,6 +10,9 @@ struct SleepDetailView: View {
     @ObservedObject private var store = HomeStore.shared
     @State private var data: HomeData? = nil
     @State private var nightStress = [String: [StressPoint]]()
+    /// Fase elegida (como WHOOP: se pinta en la gráfica de pulso y en su barra). nil = ninguna.
+    @State private var selectedStage: Int? = nil
+    @State private var showTypical = false
 
     var body: some View {
         WScreen {
@@ -150,17 +153,33 @@ struct SleepDetailView: View {
         let day = d.day
         let sleepAvg = avg { $0.sleepMinutes }
         let pts = nightPoints(d)
+        let hyp = d.stages
+        let stageColors: [Color] = [Theme.wStageAwake, Theme.wStageLight, Theme.wStageDeep, Theme.wStageRem]
+        let highlights: [(Int64, Int64)] = {
+            guard let sel = selectedStage, let h = hyp else { return [] }
+            return SleepDetailView.runs(h.stages, sel).map { (h.startMillis + Int64($0.0) * 60_000, h.startMillis + Int64($0.1) * 60_000) }
+        }()
         return WCard {
             MetricHeader(title: "Horas de sueño", value: WText.hm(day.sleepMinutes),
                          trend: WTrend.of(day.sleepMinutes.map { Double($0) }, sleepAvg, tol: 5), goodWhenHigh: true,
                          avg: sleepAvg.map { Fmt.hm(Int($0.rounded())) }, info: "Tiempo dormido de verdad: la noche menos los ratos despierto.")
             if pts.count >= 2, let f = d.sleepFromMillis, let t = d.sleepToMillis {
-                ActivityHrChart(points: pts, start: f, end: t, yStep: 20, filled: false, lineColor: Theme.wHrSleep)
+                ActivityHrChart(points: pts, start: f, end: t, yStep: 20, filled: false, lineColor: Theme.wHrSleep,
+                                highlights: highlights, highlightColor: selectedStage.map { stageColors[$0] } ?? .clear)
                     .frame(height: 220).padding(.top, 14)
             }
             HStack(spacing: 0) {
-                RoundedRectangle(cornerRadius: 3).stroke(Theme.textSecondary, lineWidth: 1.5).frame(width: 14, height: 14)
-                WTitle(text: "Rango típico", size: 13, color: Theme.textSecondary).padding(.leading, 10)
+                Button(action: { withAnimation(.easeInOut(duration: 0.15)) { showTypical.toggle() } }) {
+                    HStack(spacing: 0) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 3).stroke(Theme.textSecondary, lineWidth: 1.5).frame(width: 14, height: 14)
+                            if showTypical || hyp == nil { Image(systemName: "checkmark").font(.system(size: 9, weight: .bold)).foregroundColor(Theme.textPrimary) }
+                        }
+                        WTitle(text: "Rango típico", size: 13, color: Theme.textSecondary).padding(.leading, 10)
+                    }
+                }
+                .buttonStyle(.plain)
+                .disabled(hyp == nil)
                 Spacer()
                 WTitle(text: "Duración", size: 13, color: Theme.textSecondary).padding(.trailing, 8)
                 WNumber(text: WText.hm(day.inBed), size: 17)
@@ -178,16 +197,34 @@ struct SleepDetailView: View {
                     let st = stages[i]
                     let frac = Double(st.1) / Double(inBed)
                     let typ = typical(prev, st.3)
-                    VStack(spacing: 4) {
-                        HStack(spacing: 0) {
-                            Circle().stroke(Theme.textPrimary, lineWidth: 2).frame(width: 24, height: 24)
-                            WTitle(text: st.0, size: 14).padding(.leading, 12)
-                            WNumber(text: "\(Int((frac * 100).rounded())) %", size: 14, color: st.2).padding(.leading, 10)
-                            Spacer()
-                            WNumber(text: Fmt.hm(st.1), size: 19)
+                    let on = selectedStage == i
+                    Button(action: {
+                        guard hyp != nil else { return }
+                        UISelectionFeedbackGenerator().selectionChanged()
+                        withAnimation(.easeInOut(duration: 0.15)) { selectedStage = on ? nil : i }
+                    }) {
+                        VStack(spacing: 4) {
+                            HStack(spacing: 0) {
+                                ZStack {
+                                    Circle().stroke(Theme.textPrimary, lineWidth: 2).frame(width: 24, height: 24)
+                                    if on { Circle().fill(Theme.textPrimary).frame(width: 24, height: 24)
+                                            Circle().fill(Color.black).frame(width: 9, height: 9) }
+                                }
+                                WTitle(text: st.0, size: 14).padding(.leading, 12)
+                                WNumber(text: "\(Int((frac * 100).rounded())) %", size: 14,
+                                        color: (selectedStage == nil || on) ? st.2 : Theme.textSecondary).padding(.leading, 10)
+                                Spacer()
+                                WNumber(text: Fmt.hm(st.1), size: 19)
+                            }
+                            if let h = hyp, !showTypical {
+                                StageTimelineBar(stages: h.stages, stage: i, color: st.2, active: on).frame(height: 30)
+                            } else {
+                                ZoneBar(fraction: frac, color: st.2, typicalLo: typ?.0, typicalHi: typ?.1).frame(height: 30)
+                            }
                         }
-                        ZoneBar(fraction: frac, color: st.2, typicalLo: typ?.0, typicalHi: typ?.1).frame(height: 30)
+                        .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
                     .padding(.top, 16)
                 }
             } else {
@@ -203,6 +240,20 @@ struct SleepDetailView: View {
             WDivider()
             ValueRow(label: "■  Latencia de inicio del sueño", value: WText.hm(day.latency))
         }
+    }
+
+    /// Tramos [inicio, fin) (en minutos desde el comienzo de la noche) en los que [stages] vale [stage].
+    static func runs(_ stages: [Int], _ stage: Int) -> [(Int, Int)] {
+        var out = [(Int, Int)]()
+        var i = 0
+        while i < stages.count {
+            if stages[i] != stage { i += 1; continue }
+            var j = i
+            while j < stages.count && stages[j] == stage { j += 1 }
+            out.append((i, j))
+            i = j
+        }
+        return out
     }
 
     /// Pulso de la noche en medias de 30 s.

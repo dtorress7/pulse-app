@@ -29,7 +29,7 @@ class DataStore(context: Context) {
     /** Guarda una lectura con su hora real (las del historial de la pulsera llegan con horas pasadas). */
     @Synchronized
     fun appendAt(timeMillis: Long, bpm: Int, rrIntervals: List<Double>) {
-        val timestamp = dateFormat.format(Date(timeMillis))
+        val timestamp = HrTime.format(timeMillis)   // con "+01:00" cerca de un cambio de hora (25/10)
         val rrString = rrIntervals.joinToString("|") {
             String.format(Locale.US, "%.1f", it)
         }
@@ -52,4 +52,13 @@ class DataStore(context: Context) {
     }
 
     fun getFile(): File = file
+
+    /** Una vez (25/10): marca con su desfase las líneas de la hora repetida del cambio de hora ya guardadas. */
+    @Synchronized
+    fun repairDstOnce() {
+        val flag = File(file.parentFile, "dst_repair_v1")
+        if (flag.exists()) return
+        flush()
+        try { HrTime.repairFile(file); flag.writeText("ok") } catch (_: Exception) { }
+    }
 }

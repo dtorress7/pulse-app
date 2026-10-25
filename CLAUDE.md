@@ -323,6 +323,27 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   uno fuera 0,50; fútbol 23/10 7,6 (WHOOP 7,6; antes 8,9). Paseo 17/10 (por zonas) 1,4 vs 4,1 → revisar con un paseo grabado.
   `act_recalc` = 4 rehace las actividades (no las importadas); `night_recalc_v3` / iOS 3 rehace los días medidos por PulseApp.
 
+- **24→25 (10.ª referencia, fútbol 19:02–21:08 esfuerzo 18,4 + 2 paseos la víspera, CAMBIO DE HORA)**: WHOOP (API) 23:54:27Z–08:47:39Z
+  (01:54 CEST–09:47 CET), cama 8:53, 23/303/133/75, 11 despertares, 96 %, VFC 70,6, FCR 61, resp 13,4, calificación 81 (96/57/96/0),
+  recuperación 37. PulseApp iPhone (versión 24/10): 01:54–09:48, 15/297/135/87, 97 %, VFC 86, FCR 61, resp 12,9, calificación 82, rec. 59.
+  **Cambio de hora**: la hora 02:00–03:00 se escribió dos veces seguidas (líneas 553719–557319 verano, 557320–560919 invierno) y al leer
+  se quedaba solo la 1.ª pasada → se perdía 1 h de la noche. **Arreglo (25/10, Android `HrTime.kt` + iOS `TimeUtil.logTimestamp/lineMillis`)**:
+  a menos de 2 h de un cambio de hora se escribe el desfase ("2026-10-25T02:30:00+01:00"); todos los lectores lo respetan (sin él, hora
+  local como siempre). Una vez al arrancar (`DataStore.repairDstOnce` / `HrLog.repairDstOnce`, marca `dst_repair_v1`): en la hora repetida
+  sin desfase, cuando la hora vuelve atrás ≥30 min empieza la 2.ª pasada → se reescriben esas líneas con su desfase (copia en
+  hr_log_antes_cambio_hora.csv). Probado con el archivo real: 7200 líneas marcadas, las 590 806 horas iguales a la corrección a mano.
+  CI de iOS: paso "Comprobar el cambio de hora" (`ios/Tests/dst/main.swift`). Arnés: check/dst/T.kt; archivo arreglado check/dst/hr_log.csv.
+  **VFC (25/10)** = media de los dos métodos (profundo y toda la noche). 25: profundo 86→(arreglado) 82, toda la noche 66, WHOOP 71 → 74.
+  11 noches con el pipeline de la app: MAE 2,4 → 1,6 (máx 5,3, la noche larga 24: 97 vs 92). `night_recalc_v4` / iOS 4.
+  **Esfuerzo v4 (25/10)**: con los 2 paseos del 24/10 segundo a segundo (WHOOP 4,85 y 4,61 casi todo zona 0; v3 daba 2,8/2,4) →
+  carga por minuto propia para paseos: `Formulas.muscleMinutes(tipo, min)` = fuerza min, paseo min·4,38/14,61. Constantes 4,530 / 90,43 /
+  5,162 / base 0,1209 / fuerza 14,61 / paseo 4,383. 18 casos: MAE 0,57 → 0,21 (LOO 0,46); fútbol 24/10 18,4 (WHOOP 18,4). Solo si la
+  actividad es "Caminar"/"Paseo". `act_recalc` = 5. Script scratchpad v7/str7.py.
+  **Fases como WHOOP en Sueño (25/10)**: tocar una fase la marca (círculo relleno), su barra muestra dónde cae en la noche y la gráfica de
+  pulso se pinta de su color en esos tramos; "Rango típico" cambia a las barras de totales. Las fases de cada noche se guardan en
+  sleep_stages.csv (`SleepStagesStore`, al calcular cada día; el recálculo v4 rellena las noches pasadas). Capturas de WHOOP de la noche
+  25 en check/hyp/n25 (para reentrenar fases).
+
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
 esfuerzo 11,5, 271 kcal, FC media 127 (la media aritmética de esos segundos es 133: WHOOP no usa la media simple), máx 170,
@@ -371,10 +392,9 @@ de PulseApp (hr_log, motion_minutes). Perfil: 1,69 m, 68 kg, FCmáx 195.
 
 ## Pendiente (en orden)
 0. ~~Deslizar para actualizar~~ HECHO 24/10: Android `ui/PullScrollView` (umbral 80 dp, flecha ↓ que gira al pasar el umbral, logo girando,
-   pide historial a la pulsera y recalcula; aviso negro "DATOS ACTUALIZADOS · SINCRONIZADO ✓ HH:MM" 2,2 s). iOS: `PullOffsetKey` en HomeView
-   (se dispara al pasar 80 pt), `SpinModifier`, `requestHistoryNow`, mismo aviso.
-0b. **Cambio de hora**: hr_log.csv guarda hora LOCAL sin zona → el 25/10 la hora 02:00–03:00 se repite y se pierde ~1 h (se queda la 1.ª pasada).
-   Arreglo correcto = guardar con zona/UTC y adaptar TODOS los lectores (Android + iOS). Pendiente, antes del cambio de marzo.
+   pide historial a la pulsera y recalcula; aviso negro "DATOS ACTUALIZADOS · SINCRONIZADO ✓ HH:MM" 2,2 s). iOS: el `PullOffsetKey` NO
+   funcionaba en el iPhone → `.refreshable` nativo (ruedecita de iOS) + logo girando + mismo aviso (24/10).
+0b. ~~Cambio de hora~~ HECHO 25/10 (desfase en las líneas cercanas al cambio + arreglo único del 25/10, ver 24→25).
 1. ~~Prueba de 100 pasos~~ HECHA 24/10 16:34 (iPhone): 5166 → 5266 = 100 contados de 100 reales (motion_minutes: 16:34 90 pasos, 16:35 59).
    Andando normal (84–115 pasos/min) cuenta bien; no se toca. Falta: andar rápido/escaleras y falsos pasos al mover el brazo (14/10: 91 falsos).
 2. ~~Orden de parar el IMU~~ HECHO: 106 `[0,0]` (ver Acelerómetro).

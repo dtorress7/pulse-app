@@ -160,16 +160,31 @@ enum Formulas {
     // Ronda de esfuerzo 22/10 v2 (igual que Android, ver Formulas.kt): carga = Σ min · r · e^(6,694·r), r = reserva de FC;
     // esfuerzo = 2,014 · ln(1 + (carga + 50 · minutos de fuerza/funcional) / 10,418).
     // Esfuerzo v3 (24/10, igual que Android): carga/min = r·e^(5,005 r) + 0,0951; esfuerzo = 4,252·ln(1 + (carga + 13,21·min fuerza)/68,87)
-    static let strainScale = 4.2521579
-    static let strainTrimpRef = 68.866895
-    static let strainExp = 5.0047056
-    static let strainBasePerMin = 0.0950999
-    static let strengthLoadPerMin = 13.206237
+    // Esfuerzo v4 (25/10, igual que Android): + carga por minuto de los paseos (WHOOP: paseo 24–30 min a 100–107 lpm ≈ 4,6–4,9).
+    static let strainScale = 4.5300296
+    static let strainTrimpRef = 90.426399
+    static let strainExp = 5.1623827
+    static let strainBasePerMin = 0.1208666
+    static let strengthLoadPerMin = 14.613395
+    static let walkLoadPerMin = 4.3826189
     static let defaultRestingHr = 58
 
     static func isStrength(_ type: String?) -> Bool {
         guard let t = type?.lowercased() else { return false }
         return t.contains("funcional") || t.contains("fuerza") || t.contains("crossfit") || t.contains("gimnasio") || t.contains("pesas")
+    }
+
+    static func isWalk(_ type: String?) -> Bool {
+        guard let t = type?.lowercased() else { return false }
+        return t.contains("caminar") || t.contains("paseo") || t.contains("senderismo") || t.contains("andar")
+    }
+
+    /// Minutos "de fuerza equivalentes": fuerza = sus minutos; paseo = sus minutos × 4,38/14,61; resto 0.
+    static func muscleMinutes(_ type: String?, _ minutes: Double) -> Double {
+        if minutes <= 0 { return 0 }
+        if isStrength(type) { return minutes }
+        if isWalk(type) { return minutes * walkLoadPerMin / strengthLoadPerMin }
+        return 0
     }
 
     static func trimp(minutes: Double, hr: Int, restingHr: Int, hrMax: Double, male: Bool = true) -> Double {

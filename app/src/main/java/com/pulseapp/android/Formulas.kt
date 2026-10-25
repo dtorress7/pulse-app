@@ -244,17 +244,35 @@ object Formulas {
     // 2,6 = WHOOP 2,6) → esfuerzo = 4,252·ln(1 + (carga + 13,21·min de fuerza)/68,87). Error medio 0,83 → 0,35 (dejando uno
     // fuera 0,50): fútbol 22/10 15,1 (WHOOP 15,1; antes 13,8), fútbol 23/10 7,6 (7,6; antes 8,9), funcional 22/10 9,4 (8,6; 10,5),
     // día 22/10 16,4 (16,3; 14,2). Solo empeora el paseo 17/10, calculado por zonas (1,4 vs 4,1): pendiente de un paseo grabado.
-    const val STRAIN_SCALE = 4.2521579
-    const val STRAIN_TRIMP_REF = 68.866895
-    const val STRAIN_EXP = 5.0047056
-    const val STRAIN_BASE_PER_MIN = 0.0950999
-    const val STRENGTH_LOAD_PER_MIN = 13.206237
+    // Esfuerzo v4 (25/10, + 2 paseos y el partido del 24/10 segundo a segundo): WHOOP da a un paseo de 24–30 min a 100–107 lpm
+    // 4,6–4,9 aunque casi todo es zona 0 → los paseos llevan carga por minuto propia, como la fuerza. 18 casos: error medio 0,57 → 0,21
+    // (dejando uno fuera 0,46): paseos 24/10 4,9/5,1 (WHOOP 4,8/4,6; antes 2,8/2,4), paseo 17/10 3,7 (4,1), fútbol 24/10 18,4 (18,4).
+    const val STRAIN_SCALE = 4.5300296
+    const val STRAIN_TRIMP_REF = 90.426399
+    const val STRAIN_EXP = 5.1623827
+    const val STRAIN_BASE_PER_MIN = 0.1208666
+    const val STRENGTH_LOAD_PER_MIN = 14.613395
+    const val WALK_LOAD_PER_MIN = 4.3826189
     const val DEFAULT_RESTING_HR = 58
 
     /** Fuerza / funcional: WHOOP les suma carga muscular. */
     fun isStrength(type: String?): Boolean {
         val t = type?.lowercase() ?: return false
         return "funcional" in t || "fuerza" in t || "crossfit" in t || "gimnasio" in t || "pesas" in t
+    }
+
+    /** Paseo / caminar / senderismo: WHOOP también les suma carga por minuto (25/10). */
+    fun isWalk(type: String?): Boolean {
+        val t = type?.lowercase() ?: return false
+        return "caminar" in t || "paseo" in t || "senderismo" in t || "andar" in t
+    }
+
+    /** Minutos "de fuerza equivalentes" de una actividad: fuerza = sus minutos; paseo = sus minutos × 4,38/14,61; resto 0. */
+    fun muscleMinutes(type: String?, minutes: Double): Double = when {
+        minutes <= 0 -> 0.0
+        isStrength(type) -> minutes
+        isWalk(type) -> minutes * WALK_LOAD_PER_MIN / STRENGTH_LOAD_PER_MIN
+        else -> 0.0
     }
 
     @Suppress("UNUSED_PARAMETER")

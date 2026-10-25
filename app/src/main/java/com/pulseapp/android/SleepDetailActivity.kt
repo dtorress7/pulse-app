@@ -12,6 +12,7 @@ import com.pulseapp.android.ui.SleepTimelineBar
 import com.pulseapp.android.ui.StressDayChartView
 import com.pulseapp.android.ui.TriSegmentView
 import com.pulseapp.android.ui.WeekChartView
+import com.pulseapp.android.ui.StageTimelineBarView
 import com.pulseapp.android.ui.ZoneBarView
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -165,6 +166,8 @@ class SleepDetailActivity : AppCompatActivity() {
                 W.trendOf(day.sleepMinutes?.toDouble(), avg { it.sleepMinutes }, 5.0), true, avg { it.sleepMinutes }?.let { Ui.hm(Math.round(it).toInt()) },
                 "Tiempo dormido de verdad: la noche menos los ratos despierto."))
             val from = d.sleepFromMillis; val to = d.sleepToMillis
+            val hyp = d.stages
+            var hrChart: ActivityHrChartView? = null
             if (from != null && to != null) {
                 val pts = samples.filter { it.timeMillis in (from - 10 * 60_000L)..(to + 10 * 60_000L) }
                     .groupBy { it.timeMillis / 30_000 }.entries.sortedBy { it.key }
@@ -173,17 +176,35 @@ class SleepDetailActivity : AppCompatActivity() {
                     yStep = 20.0; filled = false; setLineColor(Ui.color(ctx, R.color.w_hr_sleep))
                     setData(pts, from, to)
                     layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(220f)).apply { topMargin = dp(14f) }
+                    hrChart = this
                 })
             }
+            // Fase elegida (como WHOOP: se pinta en la gráfica de pulso y en su barra) y "Rango típico"
+            var selected: Int? = null
+            var showTypical = hyp == null
+            val typicalBox = View(ctx).apply { layoutParams = LinearLayout.LayoutParams(dp(14f), dp(14f)) }
+            fun paintTypicalBox() {
+                typicalBox.setBackgroundResource(if (showTypical) R.drawable.bg_avatar_w else R.drawable.bg_outline_card_w)
+            }
+            paintTypicalBox()
+            val stageBox = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
+            var render: () -> Unit = {}
             sleepCard.addView(LinearLayout(ctx).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding(0, dp(18f), 0, dp(4f))
-                addView(View(ctx).apply { setBackgroundResource(R.drawable.bg_outline_card_w); layoutParams = LinearLayout.LayoutParams(dp(14f), dp(14f)) })
-                addView(W.title(ctx, "Rango típico", 13f, R.color.text_secondary).apply { setPadding(dp(10f), 0, 0, 0); layoutParams = W.weight() })
+                addView(LinearLayout(ctx).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    addView(typicalBox)
+                    addView(W.title(ctx, "Rango típico", 13f, R.color.text_secondary).apply { setPadding(dp(10f), 0, 0, 0) })
+                    if (hyp != null) setOnClickListener { showTypical = !showTypical; paintTypicalBox(); render() }
+                    layoutParams = W.weight()
+                })
                 addView(W.title(ctx, "Duración  ", 13f, R.color.text_secondary))
                 addView(W.number(ctx, hm(day.inBed), 17f))
             })
+            sleepCard.addView(stageBox)
             val inBed = day.inBed
             if (day.light != null && day.deep != null && day.rem != null && inBed != null && inBed > 0) {
                 fun typical(f: (DayRecord) -> Int?): Pair<Float, Float>? {
@@ -195,28 +216,71 @@ class SleepDetailActivity : AppCompatActivity() {
                     }
                 }
                 val awake = day.awake ?: (inBed - day.light - day.deep - day.rem).coerceAtLeast(0)
-                listOf(
+                val rows = listOf(
                     Triple("Despierto", awake, R.color.w_stage_awake) to typical { it.awake },
                     Triple("Ligero", day.light, R.color.w_stage_light) to typical { it.light },
                     Triple("Sueño profundo (SWS)", day.deep, R.color.w_stage_deep) to typical { it.deep },
                     Triple("REM", day.rem, R.color.w_stage_rem) to typical { it.rem }
-                ).forEach { (st, typ) ->
-                    val (name, mins, color) = st
-                    val frac = mins.toFloat() / inBed
-                    sleepCard.addView(LinearLayout(ctx).apply {
-                        orientation = LinearLayout.HORIZONTAL
-                        gravity = Gravity.CENTER_VERTICAL
-                        setPadding(0, dp(16f), 0, 0)
-                        addView(View(ctx).apply { setBackgroundResource(R.drawable.bg_avatar_w); layoutParams = LinearLayout.LayoutParams(dp(24f), dp(24f)) })
-                        addView(W.title(ctx, name, 14f).apply { setPadding(dp(12f), 0, 0, 0) })
-                        addView(W.number(ctx, "${Math.round(frac * 100)} %", 14f, color).apply { setPadding(dp(10f), 0, 0, 0); layoutParams = W.weight() })
-                        addView(W.number(ctx, Ui.hm(mins), 19f))
-                    })
-                    sleepCard.addView(ZoneBarView(ctx).apply {
-                        setData(frac, Ui.color(ctx, color), typ?.first, typ?.second)
-                        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(30f)).apply { topMargin = dp(4f) }
-                    })
+                )
+                render = {
+                    stageBox.removeAllViews()
+                    rows.forEachIndexed { idx, (st, typ) ->
+                        val (name, mins, color) = st
+                        val frac = mins.toFloat() / inBed
+                        val on = selected == idx
+                        val row = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
+                        row.addView(LinearLayout(ctx).apply {
+                            orientation = LinearLayout.HORIZONTAL
+                            gravity = Gravity.CENTER_VERTICAL
+                            setPadding(0, dp(16f), 0, 0)
+                            addView(android.widget.FrameLayout(ctx).apply {
+                                setBackgroundResource(R.drawable.bg_avatar_w)
+                                if (on) addView(View(ctx).apply {
+                                    background = android.graphics.drawable.GradientDrawable().apply {
+                                        shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(Ui.color(ctx, R.color.text_primary))
+                                    }
+                                    layoutParams = android.widget.FrameLayout.LayoutParams(dp(14f), dp(14f), Gravity.CENTER)
+                                })
+                                layoutParams = LinearLayout.LayoutParams(dp(24f), dp(24f))
+                            })
+                            addView(W.title(ctx, name, 14f).apply { setPadding(dp(12f), 0, 0, 0) })
+                            addView(W.number(ctx, "${Math.round(frac * 100)} %", 14f, if (selected == null || on) color else R.color.text_secondary)
+                                .apply { setPadding(dp(10f), 0, 0, 0); layoutParams = W.weight() })
+                            addView(W.number(ctx, Ui.hm(mins), 19f))
+                        })
+                        if (hyp != null && !showTypical) {
+                            row.addView(StageTimelineBarView(ctx).apply {
+                                setData(hyp.stages, idx, Ui.color(ctx, color), on)
+                                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(30f)).apply { topMargin = dp(4f) }
+                            })
+                        } else {
+                            row.addView(ZoneBarView(ctx).apply {
+                                setData(frac, Ui.color(ctx, color), typ?.first, typ?.second)
+                                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(30f)).apply { topMargin = dp(4f) }
+                            })
+                        }
+                        if (hyp != null) row.setOnClickListener {
+                            selected = if (on) null else idx
+                            row.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+                            render()
+                        }
+                        stageBox.addView(row)
+                    }
+                    val sel = selected
+                    if (hyp != null && sel != null) {
+                        val ranges = ArrayList<Pair<Long, Long>>()
+                        var i = 0
+                        while (i < hyp.stages.size) {
+                            if (hyp.stages[i] != sel) { i++; continue }
+                            var j = i
+                            while (j < hyp.stages.size && hyp.stages[j] == sel) j++
+                            ranges.add(hyp.startMillis + i * 60_000L to hyp.startMillis + j * 60_000L)
+                            i = j
+                        }
+                        hrChart?.setHighlights(ranges, Ui.color(ctx, rows[sel].first.third))
+                    } else hrChart?.setHighlights(emptyList(), 0)
                 }
+                render()
             } else {
                 sleepCard.addView(W.body(ctx, "Las fases (ligero, profundo y REM) aparecen las noches en que el movimiento estaba activado en Mi WHOOP.", 14f)
                     .apply { setPadding(0, dp(10f), 0, dp(4f)) })

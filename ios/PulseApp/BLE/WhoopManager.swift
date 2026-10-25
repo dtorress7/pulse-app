@@ -67,6 +67,7 @@ final class WhoopManager: NSObject, ObservableObject, CBCentralManagerDelegate, 
     private override init() {
         super.init()
         let hrLog = self.hrLog
+        DispatchQueue.global(qos: .utility).async { if hrLog.repairDstOnce() { HomeStore.shared.invalidate() } }   // una vez: la hora repetida del 25/10
         let store = self.store
         let motion = MotionTracker(outFile: AppPaths.file(AppPaths.motion))
         let processor = LiveHrProcessor(store: store, hrLog: hrLog, onActivitySaved: { msg in

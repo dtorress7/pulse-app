@@ -41,9 +41,12 @@ object NightMetrics {
     }
 
     /** [readings] = (hora en ms, intervalos RR) de la ventana de sueño, en orden; [staged] = fases de esa noche (o null). */
+    // 25/10: media de los dos métodos (profundo y toda la noche). 10 noches con el pipeline de la app: error medio 2,6 → 1,8 ms,
+    // máx 11 → 5 (noche tras el partido del 24/10: profundo 82, toda la noche 66, WHOOP 71; noche larga del 24: 94 / 100, WHOOP 92).
     fun hrv(readings: List<Pair<Long, List<Double>>>, staged: SleepStager.Result?): Double? {
-        if (staged != null) deepHrv(readings, staged)?.let { return it }
-        return wholeNightHrv(readings)
+        val whole = wholeNightHrv(readings)
+        val deep = staged?.let { deepHrv(readings, it) } ?: return whole
+        return if (whole != null) (deep + whole) / 2 else deep
     }
 
     /** Media ponderada del RMSSD de los tramos de profundo (≥5 min), calibrada a WHOOP. */

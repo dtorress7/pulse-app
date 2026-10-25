@@ -431,3 +431,32 @@ enum SleepStager {
         return out
     }
 }
+
+/// Fases minuto a minuto de cada noche guardada (25/10): para pintar en Sueño dónde cae cada fase en días pasados.
+/// sleep_stages.csv: "fecha,minuto de inicio (unix/60),fases" con una cifra por minuto (0 despierto, 1 ligero, 2 profundo, 3 REM).
+enum SleepStagesStore {
+    private static let lock = NSLock()
+    static var url: URL { return AppPaths.file("sleep_stages.csv") }
+
+    static func save(_ date: String, _ r: SleepStager.Result) {
+        lock.lock(); defer { lock.unlock() }
+        var lines = ((try? String(contentsOf: url, encoding: .utf8)) ?? "").split(separator: "\n").map(String.init)
+        lines.removeAll { $0.hasPrefix(date + ",") }
+        lines.append(date + "," + String(r.startMinute) + "," + r.stages.map { String($0) }.joined())
+        lines.sort()
+        if lines.count > 400 { lines.removeFirst(lines.count - 400) }
+        try? (lines.joined(separator: "\n") + "\n").write(to: url, atomically: true, encoding: .utf8)
+    }
+
+    static func load(_ date: String) -> SleepStager.Result? {
+        lock.lock(); defer { lock.unlock() }
+        guard let text = try? String(contentsOf: url, encoding: .utf8) else { return nil }
+        for line in text.split(separator: "\n") where line.hasPrefix(date + ",") {
+            let p = line.split(separator: ",")
+            guard p.count == 3, let start = Int64(p[1]) else { return nil }
+            let st = p[2].compactMap { $0.wholeNumberValue }.filter { $0 >= 0 && $0 <= 3 }
+            return st.isEmpty ? nil : SleepStager.Result(startMinute: start, stages: st)
+        }
+        return nil
+    }
+}

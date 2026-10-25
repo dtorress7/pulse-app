@@ -83,7 +83,7 @@ class StressCalculator {
             val parts = splitCsvLine(line)
             if (parts.size < 2) return@forEachLine
             try {
-                val time = sdf.parse(parts[0])?.time ?: return@forEachLine
+                val time = HrTime.parse(parts[0]) ?: return@forEachLine
                 if (time < sinceMillis || (keep != null && !keep(time))) return@forEachLine
                 val bpm = parts[1].toIntOrNull() ?: return@forEachLine
                 if (bpm <= 0 || bpm > 250) return@forEachLine
@@ -143,7 +143,7 @@ class StressCalculator {
             val parts = splitCsvLine(line)
             if (parts.size < 2) return@forEachLine
             try {
-                val time = sdf.parse(parts[0])?.time ?: return@forEachLine
+                val time = HrTime.parse(parts[0]) ?: return@forEachLine
                 val bpm = parts[1].toIntOrNull() ?: return@forEachLine
                 val rr = if (parts.size > 2) {
                     parts[2].split("|").mapNotNull { it.replace(',', '.').toDoubleOrNull() }

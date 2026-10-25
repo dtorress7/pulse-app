@@ -129,7 +129,7 @@ class MetricsCalculator(ageYears: Int, private val male: Boolean = true) {
             val parts = splitCsvLine(line)
             if (parts.size < 2) return@forEachLine
             try {
-                val time = sdf.parse(parts[0])?.time ?: return@forEachLine
+                val time = HrTime.parse(parts[0]) ?: return@forEachLine
                 val bpm = parts[1].toIntOrNull() ?: return@forEachLine
                 if (bpm <= 0 || bpm > 250) return@forEachLine
                 val rr = if (parts.size > 2) {

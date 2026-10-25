@@ -219,7 +219,7 @@ enum ActivityRecorder {
             }
         }
         let strain = Formulas.strainFromTrimp(trimpTotal,
-                                              strengthMinutes: Formulas.isStrength(type) ? Double(endMillis - startMillis) / 60000.0 : 0)
+                                              strengthMinutes: Formulas.muscleMinutes(type, Double(endMillis - startMillis) / 60000.0))
         let durationMinutes = Double(endMillis - startMillis) / 60000.0
         // Calorías por tiempo en cada zona (ajustadas con el export de WHOOP); Keytel daba ~1,8× más
         let b = Formulas.bmr() > 0 ? Formulas.bmr()

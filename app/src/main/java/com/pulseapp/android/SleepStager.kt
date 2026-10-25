@@ -114,7 +114,7 @@ object SleepStager {
                 line.substring(c2 + 1).replace("\"", "").split('|')
                     .mapNotNull { it.replace(',', '.').toDoubleOrNull() }.filter { it in 300.0..2000.0 }
             } else emptyList()
-            val t = try { fmt.parse(ts)?.time ?: return@forEachLine } catch (e: Exception) { return@forEachLine }
+            val t = HrTime.parse(line.substring(0, c1)) ?: return@forEachLine
             out.add(HrReading(t, bpm, rr))
         }
         return out.sortedBy { it.timeMillis }.distinctBy { it.timeMillis / 1000 }
@@ -447,5 +447,40 @@ object SleepStager {
             for (j in maxOf(0, i - h)..minOf(v.size - 1, i + h)) if (!v[j].isNaN()) x.add(v[j])
             if (x.isEmpty()) Double.NaN else median(x)
         }
+    }
+}
+
+/**
+ * Fases minuto a minuto de cada noche guardada (25/10): para pintar en Sueño dónde cae cada fase en días pasados.
+ * sleep_stages.csv: "fecha,minuto de inicio (unix/60),fases" con una cifra por minuto (0 despierto, 1 ligero, 2 profundo, 3 REM).
+ */
+object SleepStagesStore {
+    private const val FILE = "sleep_stages.csv"
+
+    @Synchronized
+    fun save(dir: File?, date: String, r: SleepStager.Result) {
+        if (dir == null) return
+        try {
+            val f = File(dir, FILE)
+            val lines = (if (f.exists()) f.readLines() else emptyList()).filter { it.isNotBlank() && !it.startsWith("$date,") }.toMutableList()
+            lines.add(date + "," + r.startMinute + "," + r.stages.joinToString(""))
+            lines.sort()
+            val keep = if (lines.size > 400) lines.takeLast(400) else lines
+            f.writeText(keep.joinToString("\n") + "\n")
+        } catch (_: Exception) { }
+    }
+
+    @Synchronized
+    fun load(dir: File?, date: String): SleepStager.Result? {
+        if (dir == null) return null
+        return try {
+            val f = File(dir, FILE)
+            if (!f.exists()) return null
+            val line = f.readLines().firstOrNull { it.startsWith("$date,") } ?: return null
+            val p = line.split(',')
+            if (p.size != 3) return null
+            val st = p[2].mapNotNull { it.digitToIntOrNull() }.filter { it in 0..3 }.toIntArray()
+            if (st.isEmpty()) null else SleepStager.Result(p[1].toLong(), st)
+        } catch (_: Exception) { null }
     }
 }

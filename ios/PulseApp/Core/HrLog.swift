@@ -28,7 +28,7 @@ final class HrLog {
     // ---------- Escritura ----------
 
     func append(timeMillis: Int64, bpm: Int, rr: [Double]) {
-        var line = TimeUtil.timestamp(timeMillis) + "," + String(bpm) + ",\""
+        var line = TimeUtil.logTimestamp(timeMillis) + "," + String(bpm) + ",\""
         var first = true
         for v in rr {
             if !first { line += "|" }
@@ -87,6 +87,78 @@ final class HrLog {
         cache.removeAll()
         cacheOffset = 0
         cacheValid = false
+    }
+
+    /// Una vez (25/10): marca con su desfase las líneas de la hora repetida del cambio de hora que se guardaron sin él.
+    /// En la hora repetida las líneas van en orden: primero la pasada de verano y luego la de invierno; cuando la hora
+    /// vuelve atrás ≥ 30 min empieza la 2.ª. Se guarda una copia del archivo antes (hr_log_antes_cambio_hora.csv).
+    @discardableResult
+    func repairDstOnce() -> Bool {
+        let key = "pulseapp_dst_repair_v1"
+        if UserDefaults.standard.bool(forKey: key) { return false }
+        lock.lock()
+        defer { lock.unlock() }
+        flushLocked()
+        let tz = TimeUtil.timeZone
+        func ambiguous(_ naive: Int64) -> (Int, Int)? {
+            let o1 = tz.secondsFromGMT(for: Date(timeIntervalSince1970: TimeInterval(naive - 3 * 3600)))
+            let o2 = tz.secondsFromGMT(for: Date(timeIntervalSince1970: TimeInterval(naive + 3 * 3600)))
+            if o1 <= o2 { return nil }
+            let t1 = naive - Int64(o1), t2 = naive - Int64(o2)
+            if tz.secondsFromGMT(for: Date(timeIntervalSince1970: TimeInterval(t1))) == o1 &&
+                tz.secondsFromGMT(for: Date(timeIntervalSince1970: TimeInterval(t2))) == o2 { return (o1, o2) }
+            return nil
+        }
+        func naiveOf(_ b: [UInt8], _ s: Int, _ e: Int) -> Int64? {
+            if e - s < 20 || b[s] != 50 || b[s + 10] != 84 || b[s + 19] != 44 { return nil }
+            func d2(_ o: Int) -> Int { return Int(b[o] &- 48) * 10 + Int(b[o + 1] &- 48) }
+            let y = Int(b[s] &- 48) * 1000 + Int(b[s + 1] &- 48) * 100 + d2(s + 2)
+            let mo = d2(s + 5), d = d2(s + 8), h = d2(s + 11), mi = d2(s + 14), se = d2(s + 17)
+            if mo < 1 || mo > 12 || d < 1 || d > 31 || h > 23 || mi > 59 || se > 60 { return nil }
+            return TimeUtil.daysFromCivil(y, mo, d) * 86400 + Int64(h * 3600 + mi * 60 + se)
+        }
+        var any = false
+        HrLog.forEachLine(url) { b, s, e in
+            if any { return }
+            if let n = naiveOf(b, s, e), ambiguous(n) != nil { any = true }
+        }
+        if !any { UserDefaults.standard.set(true, forKey: key); return false }
+        let dir = url.deletingLastPathComponent()
+        let backup = dir.appendingPathComponent("hr_log_antes_cambio_hora.csv")
+        if !FileManager.default.fileExists(atPath: backup.path) { try? FileManager.default.copyItem(at: url, to: backup) }
+        let tmp = dir.appendingPathComponent("hr_log.dst.tmp")
+        FileManager.default.createFile(atPath: tmp.path, contents: nil)
+        guard let out = try? FileHandle(forWritingTo: tmp) else { return false }
+        var buf = Data()
+        var maxNaive = Int64.min
+        var second = false
+        HrLog.forEachLine(url) { b, s, e in
+            if let n = naiveOf(b, s, e) {
+                if let amb = ambiguous(n) {
+                    if !second && maxNaive != Int64.min && n < maxNaive - 1800 { second = true }
+                    if n > maxNaive { maxNaive = n }
+                    buf.append(contentsOf: b[s..<(s + 19)])
+                    buf.append(Data(TimeUtil.offsetSuffix(second ? amb.1 : amb.0).utf8))
+                    buf.append(contentsOf: b[(s + 19)..<e])
+                    buf.append(10)
+                    return
+                } else if maxNaive != Int64.min && n > maxNaive + 3600 {
+                    maxNaive = Int64.min; second = false
+                }
+            }
+            buf.append(contentsOf: b[s..<e])
+            buf.append(10)
+            if buf.count > 4_000_000 { out.write(buf); buf.removeAll(keepingCapacity: true) }
+        }
+        out.write(buf)
+        try? out.close()
+        if (try? FileManager.default.replaceItemAt(url, withItemAt: tmp)) != nil {
+            UserDefaults.standard.set(true, forKey: key)
+        }
+        cache.removeAll()
+        cacheOffset = 0
+        cacheValid = false
+        return true
     }
 
     func fileSize() -> Int64 {
@@ -200,12 +272,14 @@ final class HrLog {
         let year = Int(b[s] &- 48) * 1000 + Int(b[s + 1] &- 48) * 100 + d2(s + 2)
         let month = d2(s + 5), day = d2(s + 8), hour = d2(s + 11), minute = d2(s + 14), second = d2(s + 17)
         if month < 1 || month > 12 || day < 1 || day > 31 || hour > 23 || minute > 59 || second > 60 { return nil }
-        if b[s + 19] != 44 { return nil }
-        let t = TimeUtil.localToMillis(year, month, day, hour, minute, second)
+        let suffix = TimeUtil.suffixOffset(b, s, e)          // "+01:00" cerca de un cambio de hora (25/10)
+        let comma = s + (suffix == nil ? 19 : 25)
+        if b[comma] != 44 { return nil }
+        let t = TimeUtil.lineMillis(year, month, day, hour, minute, second, suffix: suffix)
         if !accept(t) { return nil }
 
         // bpm
-        var i = s + 20
+        var i = comma + 1
         var bpm = 0
         var digits = 0
         while i < e && b[i] >= 48 && b[i] <= 57 { bpm = bpm * 10 + Int(b[i] - 48); i += 1; digits += 1 }
@@ -243,5 +317,31 @@ final class HrLog {
             flushValue()
         }
         return HrReading(timeMillis: t, bpm: bpm, rr: rr)
+    }
+
+    /// Recorre las líneas completas de un archivo: (bytes, inicio, fin sin el salto de línea).
+    static func forEachLine(_ u: URL, _ body: ([UInt8], Int, Int) -> Void) {
+        guard let h = try? FileHandle(forReadingFrom: u) else { return }
+        defer { try? h.close() }
+        var carry = [UInt8]()
+        while true {
+            guard let data = try? h.read(upToCount: 4 * 1024 * 1024), !data.isEmpty else { break }
+            var bytes = carry
+            bytes.append(contentsOf: data)
+            var start = 0
+            let n = bytes.count
+            var i = 0
+            while i < n {
+                if bytes[i] == 10 {
+                    var e = i
+                    if e > start && bytes[e - 1] == 13 { e -= 1 }
+                    body(bytes, start, e)
+                    start = i + 1
+                }
+                i += 1
+            }
+            carry = start < n ? Array(bytes[start..<n]) : []
+        }
+        if !carry.isEmpty { body(carry, 0, carry.count) }
     }
 }

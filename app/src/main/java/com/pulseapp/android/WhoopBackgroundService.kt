@@ -222,6 +222,7 @@ class WhoopBackgroundService : Service() {
         Formulas.init(this)
         logFile = File(getExternalFilesDir(null), "whoop_service_log.txt")
         hrStore = DataStore(this)
+        scope.launch { hrStore.repairDstOnce() }   // una vez: la hora repetida del 25/10 (cambio de hora)
         bioStore = WhoopDataStore(this)
         imuStore = WhoopImuRawStore(this)
         processor = LiveHrProcessor(this, scope, hrStore.getFile()) { msg -> onActivitySaved?.invoke(msg); log("🏃 $msg") }

@@ -18,7 +18,7 @@ class DailyMetricsUpdater {
         private const val REST_GRACE_MINUTES = 20
         private const val REST_MIN_DURATION_MINUTES = 90
         private const val DISCONNECT_GAP_MINUTES = 3
-        const val RECALC_FLAG = "night_recalc_v3"   // v3 (24/10): VFC del sueño profundo, fases nuevas y esfuerzo v3
+        const val RECALC_FLAG = "night_recalc_v4"   // v4 (25/10): VFC profundo + toda la noche, esfuerzo v4, cambio de hora
     }
 
     private val dayFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
@@ -81,6 +81,7 @@ class DailyMetricsUpdater {
         val staged = sleep?.let {
             SleepStager.stageNight(csvFile, File(csvFile.parentFile, MotionTracker.FILE_NAME), it.startMillis, it.endMillis)
         }
+        staged?.let { SleepStagesStore.save(csvFile.parentFile, yesterdayKey, it) }   // para la gráfica de fases de días pasados
         val window = staged?.let { it.startMillis to it.endMillis - 1 } ?: sleep?.let { it.startMillis to it.endMillis }
         val sleepWindowReadings = if (window != null) {
             nightReadings.filter { it.timeMillis in window.first..window.second }
@@ -95,8 +96,8 @@ class DailyMetricsUpdater {
         val strainHr = Formulas.strainOf(dayReadings.map { it.timeMillis to it.bpm }, restingHr, hrMax, sex != "F")
         // Día con fuerza/funcional: + carga muscular, como WHOOP (22/10)
         val strengthMin = db.activitySessionDao().getAll()
-            .filter { Formulas.isStrength(it.type) && dayFormat.format(Date(it.startMillis)) == yesterdayKey }
-            .sumOf { (it.endMillis - it.startMillis) / 60000.0 }
+            .filter { dayFormat.format(Date(it.startMillis)) == yesterdayKey }
+            .sumOf { Formulas.muscleMinutes(it.type, (it.endMillis - it.startMillis) / 60000.0) }
         val strain = Formulas.addStrength(strainHr, strengthMin)
         val sleepMinutes = staged?.asleepMinutes ?: sleep?.asleepMinutes
 
@@ -311,7 +312,7 @@ class DailyMetricsUpdater {
             val parts = splitCsvLine(line)
             if (parts.size < 2) return@forEachLine
             try {
-                val time = timestampFormat.parse(parts[0])?.time ?: return@forEachLine
+                val time = HrTime.parse(parts[0]) ?: return@forEachLine
                 val bpm = parts[1].toIntOrNull() ?: return@forEachLine
                 if (bpm <= 0 || bpm > 250) return@forEachLine
                 val rr = if (parts.size > 2) parts[2].split("|").mapNotNull { it.replace(',', '.').toDoubleOrNull() }.filter { it in 300.0..2000.0 } else emptyList()

@@ -219,8 +219,8 @@ class HomeDataLoader(private val ctx: Context) {
             val debtAfter = summary.sleepMinutes?.let { ((lastNightNeed - it) / 2.0).let { d -> Math.round(d).toInt().coerceAtLeast(0) } }
                 ?: lastPlan.debtAdjustmentMinutes
             // Día con fuerza/funcional: WHOOP suma carga muscular al esfuerzo del día (22/10)
-            val strengthMin = allSessions.filter { it.startMillis >= dayStart && it.startMillis < dayEnd && Formulas.isStrength(it.type) }
-                .sumOf { (it.endMillis - it.startMillis) / 60000.0 }
+            val strengthMin = allSessions.filter { it.startMillis >= dayStart && it.startMillis < dayEnd }
+                .sumOf { Formulas.muscleMinutes(it.type, (it.endMillis - it.startMillis) / 60000.0) }
             val dayStrain = summary.strain?.let { Formulas.addStrength(it, strengthMin) }
             val plan = planner.computeTonightPlan(db, dayStrain, wake / 60, wake % 60, debtOverride = debtAfter)
             bedtime = plan.suggestedBedtime
@@ -392,7 +392,7 @@ class HomeDataLoader(private val ctx: Context) {
             insight = Insight.build(day, previous, isToday, baselineNow != null),
             baselineReady = baselineNow != null, profileMissing = profile == null,
             records = records.values.sortedBy { it.date }, sleepStressSeries = sleepStress,
-            stages = if (isToday) summary?.stages else null
+            stages = if (isToday) summary?.stages else SleepStagesStore.load(dir, date.toString())
         )
     }
 
@@ -460,8 +460,10 @@ class ZoneDayCache(private val cacheFile: File) {
                 val h = line.substring(11, 13).toIntOrNull() ?: return@forEachLine
                 val m = line.substring(14, 16).toIntOrNull() ?: return@forEachLine
                 val s = line.substring(17, 19).toIntOrNull() ?: return@forEachLine
-                val comma2 = line.indexOf(',', 20)
-                val bpm = (if (comma2 > 0) line.substring(20, comma2) else line.substring(20)).trim().toIntOrNull() ?: return@forEachLine
+                val comma1 = line.indexOf(',', 19)   // tras la hora (con "+01:00" si es cerca del cambio de hora)
+                if (comma1 < 0) return@forEachLine
+                val comma2 = line.indexOf(',', comma1 + 1)
+                val bpm = (if (comma2 > 0) line.substring(comma1 + 1, comma2) else line.substring(comma1 + 1)).trim().toIntOrNull() ?: return@forEachLine
                 if (bpm <= 0 || bpm > 250) return@forEachLine
                 val sec = h * 3600 + m * 60 + s
                 if (sec !in 0 until 86400) return@forEachLine

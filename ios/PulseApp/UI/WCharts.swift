@@ -211,6 +211,9 @@ struct ActivityHrChart: View {
     var yStep: Double = 25
     var filled: Bool = true
     var lineColor: Color = Theme.strainBlue
+    /// Tramos [desde, hasta) en ms que se resaltan con [highlightColor] (fase del sueño elegida, como WHOOP).
+    var highlights: [(Int64, Int64)] = []
+    var highlightColor: Color = .clear
 
     var body: some View {
         Canvas { ctx, size in
@@ -241,7 +244,23 @@ struct ActivityHrChart: View {
                 ctx.fill(fill, with: .linearGradient(Gradient(colors: [lineColor.opacity(0.43), lineColor.opacity(0.03)]),
                                                      startPoint: CGPoint(x: 0, y: top), endPoint: CGPoint(x: 0, y: bottom)))
             }
-            ctx.stroke(line, with: .color(lineColor), style: StrokeStyle(lineWidth: 1.8, lineJoin: .round))
+            if highlights.isEmpty {
+                ctx.stroke(line, with: .color(lineColor), style: StrokeStyle(lineWidth: 1.8, lineJoin: .round))
+            } else {
+                // Fase elegida: el resto en gris, sus tramos con una sombra y la línea en su color
+                ctx.stroke(line, with: .color(Theme.textSecondary.opacity(0.75)), style: StrokeStyle(lineWidth: 1.6, lineJoin: .round))
+                for (a, b) in highlights {
+                    let x1 = x(max(a, t0)), x2 = x(min(b, t1))
+                    if x2 <= x1 { continue }
+                    let rect = CGRect(x: x1, y: top, width: max(x2 - x1, 1.5), height: bottom - top)
+                    ctx.fill(Path(rect), with: .linearGradient(Gradient(colors: [highlightColor.opacity(0.05), highlightColor.opacity(0.32)]),
+                                                               startPoint: CGPoint(x: 0, y: top), endPoint: CGPoint(x: 0, y: bottom)))
+                    ctx.drawLayer { c in
+                        c.clip(to: Path(rect.insetBy(dx: 0, dy: -20)))
+                        c.stroke(line, with: .color(highlightColor), style: StrokeStyle(lineWidth: 2, lineJoin: .round))
+                    }
+                }
+            }
             for (t, alignLeft) in [(start, true), (end, false)] {
                 let xx = x(t)
                 var d = Path(); d.move(to: CGPoint(x: xx, y: top - 6)); d.addLine(to: CGPoint(x: xx, y: bottom))
@@ -396,6 +415,40 @@ struct WeekChart: View {
 
 /// Barra de la noche minuto a minuto: awakeRow = false dibuja lo dormido (azul con huecos donde estuviste despierto);
 /// true dibuja la pista rayada con una marca blanca en cada despertar.
+/// Barra de una fase del sueño a lo largo de la noche (como WHOOP): fondo rayado y sus tramos; en color si está elegida.
+struct StageTimelineBar: View {
+    let stages: [Int]
+    let stage: Int
+    let color: Color
+    let active: Bool
+    var body: some View {
+        Canvas { ctx, size in
+            let w = size.width, h = size.height
+            let n = stages.count
+            if n == 0 { return }
+            let top = h * 0.2, bottom = h * 0.8
+            ctx.drawLayer { c in
+                c.clip(to: Path(roundedRect: CGRect(x: 0, y: top, width: w, height: bottom - top), cornerRadius: 4))
+                var p = Path()
+                var xx = -h
+                while xx < w + h { p.move(to: CGPoint(x: xx, y: bottom)); p.addLine(to: CGPoint(x: xx + (bottom - top), y: top)); xx += 7 }
+                c.stroke(p, with: .color(.white.opacity(0.12)), lineWidth: 2)
+            }
+            func x(_ i: Int) -> Double { return w * Double(i) / Double(n) }
+            let fill: Color = active ? color : Color(white: 0.55)
+            var i = 0
+            while i < n {
+                if stages[i] != stage { i += 1; continue }
+                var j = i
+                while j < n && stages[j] == stage { j += 1 }
+                let r = CGRect(x: x(i), y: top, width: max(x(j) - x(i), 2), height: bottom - top)
+                ctx.fill(Path(roundedRect: r, cornerRadius: min(3, r.width / 2)), with: .color(fill))
+                i = j
+            }
+        }
+    }
+}
+
 struct SleepTimelineBar: View {
     let stages: [Int]
     let awakeRow: Bool

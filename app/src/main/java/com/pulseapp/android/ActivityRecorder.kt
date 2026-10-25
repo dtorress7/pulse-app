@@ -52,8 +52,7 @@ class ActivityRecorder {
             trimpTotal += Formulas.trimp(deltaMin, readings[i].bpm, rhr, hrMax, sex != "F")
         }
         // Esfuerzo de la actividad: misma escala que el del día (WHOOP: fútbol 2 h ≈ 10,7)
-        val strain = Formulas.strainFromTrimp(trimpTotal,
-            if (Formulas.isStrength(type)) (endMillis - startMillis) / 60000.0 else 0.0)
+        val strain = Formulas.strainFromTrimp(trimpTotal, Formulas.muscleMinutes(type, (endMillis - startMillis) / 60000.0))
 
         val durationMinutes = (endMillis - startMillis) / 60000.0
         // Calorías por tiempo en cada zona (ajustadas con el export de WHOOP); antes Keytel daba ~1,8× más
@@ -95,7 +94,7 @@ class ActivityRecorder {
             val parts = line.split(",")
             if (parts.size < 2) return@forEachLine
             try {
-                val time = sdf.parse(parts[0])?.time ?: return@forEachLine
+                val time = HrTime.parse(parts[0]) ?: return@forEachLine
                 val bpm = parts[1].toIntOrNull() ?: return@forEachLine
                 result.add(Reading(time, bpm))
             } catch (e: Exception) { }

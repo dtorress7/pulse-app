@@ -270,8 +270,8 @@ enum HomeDataLoader {
             var debtAfter = lastPlan.debtAdjustmentMinutes
             if let m = s.sleepMinutes { debtAfter = max(Int((Double(lastPlan.totalNeedMinutes - m) / 2).rounded()), 0) }
             // Día con fuerza/funcional: WHOOP suma carga muscular al esfuerzo del día (22/10)
-            let strengthMin = allSessions.filter { $0.startMillis >= dayStart && $0.startMillis < dayEnd && Formulas.isStrength($0.type) }
-                .reduce(0.0) { $0 + Double($1.endMillis - $1.startMillis) / 60000.0 }
+            let strengthMin = allSessions.filter { $0.startMillis >= dayStart && $0.startMillis < dayEnd }
+                .reduce(0.0) { $0 + Formulas.muscleMinutes($1.type, Double($1.endMillis - $1.startMillis) / 60000.0) }
             let dayStrain = Formulas.addStrength(s.strain, strengthMin)
             let plan = SleepPlanner.computeTonightPlan(store: store, todayStrain: dayStrain, wakeHour: wake / 60, wakeMinute: wake % 60,
                                                        debtOverride: debtAfter)
@@ -463,7 +463,7 @@ enum HomeDataLoader {
             insight: Insight.build(day: day, previous: previous, isToday: isToday, baselineReady: baselineNow != nil),
             baselineReady: baselineNow != nil, profileMissing: profile == nil,
             records: records.values.sorted { $0.date < $1.date }, sleepStressSeries: sleepStress,
-            stages: isToday ? summary?.stages : nil, nightReadings: nightReadings)
+            stages: isToday ? summary?.stages : SleepStagesStore.load(date), nightReadings: nightReadings)
     }
 
     /// (inicio, fin) de las noches guardadas que tienen las dos horas.
@@ -588,8 +588,9 @@ enum ZoneDayCache {
         guard let day = wanted[Array(b[s..<(s + 10)])] else { return }
         func d2(_ o: Int) -> Int { return Int(b[o] &- 48) * 10 + Int(b[o + 1] &- 48) }
         let h = d2(s + 11), m = d2(s + 14), sec = d2(s + 17)
-        if h > 23 || m > 59 || sec > 59 || b[s + 19] != 44 { return }
-        var i = s + 20
+        let comma = s + (TimeUtil.suffixOffset(b, s, e) == nil ? 19 : 25)   // "+01:00" cerca de un cambio de hora
+        if h > 23 || m > 59 || sec > 59 || b[comma] != 44 { return }
+        var i = comma + 1
         var bpm = 0
         var digits = 0
         while i < e && b[i] >= 48 && b[i] <= 57 { bpm = bpm * 10 + Int(b[i] - 48); i += 1; digits += 1 }

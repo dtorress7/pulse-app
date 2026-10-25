@@ -239,7 +239,7 @@ class HealthActivity : AppCompatActivity() {
                 String(bytes).lineSequence().drop(if (start > 0) 1 else 0).mapNotNull { line ->
                     val p = line.split(',')
                     if (p.size < 2) return@mapNotNull null
-                    val t = try { sdf.parse(p[0])?.time } catch (e: Exception) { null } ?: return@mapNotNull null
+                    val t = HrTime.parse(p[0]) ?: return@mapNotNull null
                     val b = p[1].toIntOrNull() ?: return@mapNotNull null
                     if (t < from || b <= 0 || b > 250) null else t to b
                 }.sortedBy { it.first }.distinctBy { it.first / 1000 }.toList()

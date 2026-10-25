@@ -302,6 +302,13 @@ class ActivityHrChartView @JvmOverloads constructor(context: Context, attrs: Att
     var filled = true
     fun setLineColor(c: Int) { line.color = c; invalidate() }
 
+    /** Tramos [desde, hasta) en ms resaltados con [color] (fase del sueño elegida, como WHOOP). Vacío = sin resaltar. */
+    private var highlights: List<Pair<Long, Long>> = emptyList()
+    private val hiLine = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = dp(2f); strokeJoin = Paint.Join.ROUND }
+    private val grayLine = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = dp(1.6f); strokeJoin = Paint.Join.ROUND; color = withAlpha(col(R.color.text_secondary), 190) }
+    private val hiFill = Paint(Paint.ANTI_ALIAS_FLAG)
+    fun setHighlights(ranges: List<Pair<Long, Long>>, color: Int) { highlights = ranges; hiLine.color = color; invalidate() }
+
     /** [points] incluye unos minutos antes y después de la actividad (como WHOOP). */
     fun setData(points: List<Pair<Long, Int>>, startMillis: Long, endMillis: Long) {
         pts = points; start = startMillis; end = endMillis; invalidate()
@@ -332,7 +339,21 @@ class ActivityHrChartView @JvmOverloads constructor(context: Context, attrs: Att
         }
         f.lineTo(x(t1), bottom); f.close()
         if (filled) canvas.drawPath(f, fill)
-        canvas.drawPath(p, line)
+        if (highlights.isEmpty()) {
+            canvas.drawPath(p, line)
+        } else {
+            // Fase elegida: el resto en gris, sus tramos con una sombra y la línea en su color
+            canvas.drawPath(p, grayLine)
+            hiFill.shader = LinearGradient(0f, top, 0f, bottom, withAlpha(hiLine.color, 12), withAlpha(hiLine.color, 82), Shader.TileMode.CLAMP)
+            for ((a, b) in highlights) {
+                val x1 = x(max(a, t0)); val x2 = x(minOf(b, t1))
+                if (x2 <= x1) continue
+                canvas.drawRect(x1, top, max(x2, x1 + dp(1.5f)), bottom, hiFill)
+                canvas.save(); canvas.clipRect(x1, 0f, max(x2, x1 + dp(1.5f)), h)
+                canvas.drawPath(p, hiLine)
+                canvas.restore()
+            }
+        }
         val fmt = SimpleDateFormat("HH:mm", Locale("es", "ES"))
         for ((t, alignLeft) in listOf(start to true, end to false)) {
             val xx = x(t)
@@ -341,6 +362,39 @@ class ActivityHrChartView @JvmOverloads constructor(context: Context, attrs: Att
             val s = fmt.format(Date(t))
             val tx = if (alignLeft) xx + dp(4f) else xx - timeLabel.measureText(s) - dp(4f)
             canvas.drawText(s, tx, h - dp(8f), timeLabel)
+        }
+    }
+}
+
+/** Barra de una fase del sueño a lo largo de la noche (como WHOOP): fondo rayado y sus tramos; en color si está elegida. */
+class StageTimelineBarView @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null) : View(context, attrs) {
+    private var stages = IntArray(0)
+    private var stage = 0
+    private val stripe = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = withAlpha(Color.WHITE, 30); strokeWidth = dp(2f) }
+    private val seg = Paint(Paint.ANTI_ALIAS_FLAG)
+    private var on = Color.WHITE
+    private var active = false
+    fun setData(stages: IntArray, stage: Int, color: Int, active: Boolean) {
+        this.stages = stages; this.stage = stage; on = color; this.active = active; invalidate()
+    }
+    override fun onDraw(canvas: Canvas) {
+        val w = width.toFloat(); val h = height.toFloat(); val n = stages.size
+        if (w <= 0f || n == 0) return
+        val top = h * 0.2f; val bottom = h * 0.8f
+        canvas.save(); canvas.clipRect(0f, top, w, bottom)
+        var xx = -h; while (xx < w + h) { canvas.drawLine(xx, bottom, xx + (bottom - top), top, stripe); xx += dp(7f) }
+        canvas.restore()
+        seg.color = if (active) on else Color.rgb(140, 140, 140)
+        fun x(i: Int) = w * i / n
+        var i = 0
+        while (i < n) {
+            if (stages[i] != stage) { i++; continue }
+            var j = i
+            while (j < n && stages[j] == stage) j++
+            val r = RectF(x(i), top, max(x(j), x(i) + dp(2f)), bottom)
+            val rad = minOf(dp(3f), r.width() / 2)
+            canvas.drawRoundRect(r, rad, rad, seg)
+            i = j
         }
     }
 }

@@ -215,9 +215,15 @@ enum NightMetrics {
     static let deepK = 7.9965785
     static let deepExp = 0.5594471
 
+    /// 25/10: media de los dos métodos (profundo y toda la noche). 10 noches: error medio 2,6 → 1,8 ms, máx 11 → 5
+    /// (noche tras el partido del 24/10: profundo 82, toda la noche 66, WHOOP 71; noche larga del 24: 94 / 100, WHOOP 92).
     static func hrv(_ readings: [HrReading], staged: SleepStager.Result?) -> Double? {
-        if let st = staged, let v = deepHrv(readings, staged: st) { return v }
-        return wholeNightHrv(readings)
+        let whole = wholeNightHrv(readings)
+        if let st = staged, let deep = deepHrv(readings, staged: st) {
+            if let w = whole { return (deep + w) / 2 }
+            return deep
+        }
+        return whole
     }
 
     static func deepHrv(_ readings: [HrReading], staged r: SleepStager.Result) -> Double? {
