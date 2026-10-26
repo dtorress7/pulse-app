@@ -408,6 +408,23 @@ object Formulas {
      * desviación de la hora de dormirse, fallaba 27 puntos de media). [nightsOldestFirst] = (minuto de inicio, minuto de fin)
      * de cada noche, la última es la que se califica. Null con menos de 2 noches.
      */
+    /**
+     * 26/10: WHOOP mide la regularidad en hora "del cuerpo", sin el cambio de hora (con sus propias horas de 9 noches: en hora
+     * local la noche 25→26 da 54 %, sin cambio de hora 67 %, WHOOP 66 %; error medio 4,7 → 3,5). Pasa la noche [date]
+     * (inicio [s], fin [e] en minutos del día, hora local) a hora de invierno: en verano se resta 1 h.
+     */
+    fun standardNight(date: String, s: Int, e: Int): Pair<Int, Int> {
+        val d = try { java.time.LocalDate.parse(date) } catch (ex: Exception) { return s to e }
+        val tz = java.util.TimeZone.getDefault()
+        val zone = java.time.ZoneId.systemDefault()
+        fun shift(day: java.time.LocalDate, minute: Int): Int {
+            val t = day.atStartOfDay(zone).toInstant().toEpochMilli() + minute * 60_000L
+            return (tz.getOffset(t) - tz.rawOffset) / 60_000
+        }
+        val startDay = if (s > e) d.minusDays(1) else d
+        return (s - shift(startDay, s)) to (e - shift(d, e))
+    }
+
     fun sleepConsistency(nightsOldestFirst: List<Pair<Int, Int>>): Int? {
         if (nightsOldestFirst.size < 2) return null
         // Eje desde las 12:00: la noche queda en un tramo continuo [ini, fin)

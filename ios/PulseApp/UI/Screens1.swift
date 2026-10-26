@@ -181,8 +181,12 @@ struct RecoveryView: View {
                     ListRow(title: "FC reposo frente a tu media", value: r.rhrDelta.map { signed($0) + " lpm" } ?? "–")
                     Hairline()
                     ListRow(title: "Respiración", value: s.respiratoryRate.map { "\(Fmt.comma($0)) rpm" } ?? "–")
+                    Hairline()
+                    ListRow(title: "Calificación del sueño", value: model.snap.sleepScore.map { "\($0) %" } ?? "–")
                 }
             }
+            Text("La calificación del sueño se muestra como en WHOOP, pero no cambia la nota: en tus 199 noches de WHOOP, añadirla no mejoraba la recuperación (el sueño ya influye a través de la VFC y el pulso en reposo).")
+                .font(Theme.text(12)).foregroundColor(Theme.textSecondary)
             Text(r.personalBaseline ? "Calculada con tu propia media de los últimos días."
                                     : "Aún no hay 3 días de datos: se usa una referencia genérica.")
                 .font(Theme.text(12)).foregroundColor(Theme.textSecondary)

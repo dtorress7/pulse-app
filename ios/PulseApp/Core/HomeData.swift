@@ -278,7 +278,7 @@ enum HomeDataLoader {
             bedtime = plan.suggestedBedtime
             var consistency: Int? = nil
             if let a = s.sleepStartMinuteOfDay, let b = s.sleepEndMinuteOfDay {
-                consistency = Formulas.sleepConsistency(HomeDataLoader.nights(Array(stored.filter { $0.date < date }.suffix(3))) + [(a, b)])
+                consistency = Formulas.sleepConsistency(HomeDataLoader.nights(Array(stored.filter { $0.date < date }.suffix(3))) + [Formulas.standardNight(date, a, b)])
             }
             if let m = s.sleepMinutes {
                 r.sleepScore = Formulas.sleepScore(hoursVsNeedPct: min(m * 100 / max(lastPlan.totalNeedMinutes, 1), 100),
@@ -470,7 +470,7 @@ enum HomeDataLoader {
     static func nights(_ rows: [DailyMetrics]) -> [(Int, Int)] {
         return rows.compactMap { r -> (Int, Int)? in
             guard let a = r.sleepStartMinuteOfDay, let b = r.sleepEndMinuteOfDay else { return nil }
-            return (a, b)
+            return Formulas.standardNight(r.date, a, b)
         }
     }
 

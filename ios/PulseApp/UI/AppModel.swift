@@ -106,7 +106,9 @@ final class AppModel: ObservableObject {
                                                   baseline: baseline, respiratoryRate: summary.respiratoryRate)
         s.days = store.lastDays(14)
         var nights = HomeDataLoader.nights(Array(store.lastDays(3).reversed()))
-        if let a = summary.sleepStartMinuteOfDay, let b = summary.sleepEndMinuteOfDay { nights.append((a, b)) }
+        if let a = summary.sleepStartMinuteOfDay, let b = summary.sleepEndMinuteOfDay {
+            nights.append(Formulas.standardNight(TimeUtil.dayKey(TimeUtil.nowMillis()), a, b))
+        }
         s.consistency = Formulas.sleepConsistency(nights)
         if let slept = summary.sleepMinutes {
             let pct = min(slept * 100 / max(s.lastNightNeed, 1), 100)

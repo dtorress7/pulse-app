@@ -187,7 +187,7 @@ class HomeDataLoader(private val ctx: Context) {
             val needLastNight = row.whoopSleepNeed ?: (base + Formulas.sleepNeedFromStrain(prevStrain ?: 0.0) + debtBefore)
             // Regularidad de esa noche: ella y las 3 anteriores
             val consistency = row.whoopConsistency ?: Formulas.sleepConsistency((last7 + row).mapNotNull { r ->
-                r.sleepStartMinuteOfDay?.let { s -> r.sleepEndMinuteOfDay?.let { e -> s to e } } })
+                r.sleepStartMinuteOfDay?.let { s -> r.sleepEndMinuteOfDay?.let { e -> Formulas.standardNight(r.date, s, e) } } })
             val score = row.whoopSleepScore ?: row.sleepMinutes?.let {
                 Formulas.sleepScore((it * 100 / needLastNight.coerceAtLeast(1)).coerceAtMost(100), row.sleepEfficiencyPct, consistency)
             }
@@ -225,8 +225,8 @@ class HomeDataLoader(private val ctx: Context) {
             val plan = planner.computeTonightPlan(db, dayStrain, wake / 60, wake % 60, debtOverride = debtAfter)
             bedtime = plan.suggestedBedtime
             val prevNights = stored.filter { it.date < date.format(iso) }.takeLast(3)
-                .mapNotNull { r -> r.sleepStartMinuteOfDay?.let { s -> r.sleepEndMinuteOfDay?.let { e -> s to e } } }
-            val tonight = summary.sleepStartMinuteOfDay?.let { s -> summary.sleepEndMinuteOfDay?.let { e -> s to e } }
+                .mapNotNull { r -> r.sleepStartMinuteOfDay?.let { s -> r.sleepEndMinuteOfDay?.let { e -> Formulas.standardNight(r.date, s, e) } } }
+            val tonight = summary.sleepStartMinuteOfDay?.let { s -> summary.sleepEndMinuteOfDay?.let { e -> Formulas.standardNight(date.format(iso), s, e) } }
             val consistency = if (tonight != null) Formulas.sleepConsistency(prevNights + tonight) else null
             val score = summary.sleepMinutes?.let {
                 Formulas.sleepScore((it * 100 / lastNightNeed.coerceAtLeast(1)).coerceAtMost(100), summary.sleepEfficiencyPct, consistency)

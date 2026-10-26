@@ -313,6 +313,20 @@ enum Formulas {
     /// (intersección / unión del tramo en cama, por hora del día), en media, menos 7. Ajustado con 145 noches del export
     /// de WHOOP: error medio 4,9 puntos (la fórmula anterior fallaba 27). Cada noche = (minuto de inicio, minuto de fin);
     /// la última es la que se califica. nil con menos de 2 noches.
+    /// 26/10: WHOOP mide la regularidad en hora "del cuerpo", sin el cambio de hora (con sus propias horas de 9 noches: en hora
+    /// local la noche 25→26 da 54 %, sin cambio de hora 67 %, WHOOP 66 %). Pasa la noche [date] (inicio s, fin e en minutos del
+    /// día, hora local) a hora de invierno: en verano se resta 1 h. Igual que Android.
+    static func standardNight(_ date: String, _ s: Int, _ e: Int) -> (Int, Int) {
+        guard let day = TimeUtil.parseDayKey(date) else { return (s, e) }
+        let tz = TimeUtil.timeZone
+        func shift(_ dayStart: Int64, _ minute: Int) -> Int {
+            let t = Date(timeIntervalSince1970: TimeInterval(dayStart / 1000 + Int64(minute) * 60))
+            return Int(tz.daylightSavingTimeOffset(for: t) / 60)
+        }
+        let startDay = s > e ? TimeUtil.addDays(day, -1) : day
+        return (s - shift(startDay, s), e - shift(day, e))
+    }
+
     static func sleepConsistency(_ nightsOldestFirst: [(Int, Int)]) -> Int? {
         if nightsOldestFirst.count < 2 { return nil }
         func axis(_ n: (Int, Int)) -> (Int, Int) {

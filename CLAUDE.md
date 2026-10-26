@@ -357,6 +357,21 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   Una vez al instalar (`act_rescan` 1 / iOS `pulseapp_act_rescan`): se repasan 7 días (alarga el fútbol, añade paseos, borra la siesta falsa).
   Sin detectar aún: funcional 22/10 (WHOOP 18:07–18:41, solo 3 min intensos). Arnés check/act25 (D2.kt, proto.py).
 
+- **25→26 (11.ª referencia, domingo tranquilo, primera noche en horario de invierno)**: WHOOP (API) 22:42:53–07:17:06, cama 8:34,
+  28/325/106/56, 7 despertares, 95 %, VFC 109,4, FCR 56, resp 13,4, calificación 85 (100/66/95/0), recuperación 90 (medias WHOOP 30 d:
+  VFC 92, FCR 58). PulseApp iPhone: 22:43–07:24, 38/332/73/78, 92 %, VFC 111 (+26 % sobre 88), FCR 56, resp 13,5, calificación 81
+  (100/54/92/0), recuperación 86.
+  **Regularidad 54 vs 66 → WHOOP la mide SIN el cambio de hora** (check/reg/r.py, con las horas de WHOOP de 12 noches: en hora local
+  26 da 54 = PulseApp; en hora "de invierno" fija 67; error medio 4,7 → 3,5 con el −7). `Formulas.standardNight(fecha, ini, fin)` (Android
+  + iOS) pasa cada noche a hora de invierno (en verano −1 h) antes de `sleepConsistency`. Con las horas de PulseApp la 26 sale 67.
+  **Fases**: modelo reentrenado con 11 noches (25 y 26 leídas de las capturas, check/hyp/dig26.py; tiempo continuo UTC+2 en raw.pkl,
+  feat_new.py). Validación dejando fuera: acuerdo 79,8 %, MAE D/L/P/R 10/23/15/18. App: 26 → 38/321/93/69 (antes 38/332/73/78; W 28/325/106/56).
+  Kotlin = Python 5627/5627 minutos (ftest11/P.kt con check/n26/hr_fixed2.csv). VFC 12 noches MAE 1,6, FCR 0,5. `night_recalc_v5` / iOS 5.
+  **Fin de la noche** 07:24 vs 07:17 (tumbado quieto despierto con giros sueltos): probado exigir ratos quietos más largos para alargar
+  (check/endt/E.kt) → empeora el resto (MAE 2,1 → 2,6–3,7); se deja. Fallan solo las mañanas remoloneando (24: +10, 26: +7).
+  **Recuperación** 86 vs 90: con los valores exactos de WHOOP la fórmula da 85 → error propio de la fórmula (±5). La calificación del sueño
+  NO entra (probado 23–24/10 con 199 noches: no mejora). iOS: fila "Calificación del sueño" en Recuperación (solo informativa).
+
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
 esfuerzo 11,5, 271 kcal, FC media 127 (la media aritmética de esos segundos es 133: WHOOP no usa la media simple), máx 170,
