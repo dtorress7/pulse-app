@@ -10,6 +10,11 @@ El usuario habla español: responde siempre en español, claro y paso a paso.
   A veces el workflow no salta solo y lo lanza a mano.
 - Prefiere **lotes grandes de cambios** antes de reinstalar; una sola prueba por instalación.
 - No quiere que se adivine: verificar con datos reales antes de afirmar algo.
+- **VERIFICAR DOS VECES SIEMPRE, sin que lo pida (26/10).** Antes de dar un resultado, una conclusión o un "ya está arreglado":
+  1) comprobarlo con los datos reales; 2) volver a comprobarlo de OTRA forma (otro método, otra noche, el pipeline de la app,
+  mirar el dato crudo, buscar el caso que lo contradiga). Si las dos no coinciden, no se afirma: se investiga. Comparar SIEMPRE
+  con WHOOP y decir claramente si cuadra o no (no esperar a que el usuario lo note). Ya pasó varias veces que el usuario tuvo
+  que señalar el fallo y al revisarlo salió mejor: posición de la pulsera (25/10), VFC de la noche 23→24, fases de la 25→26.
 - **Nunca perder datos al actualizar**: cualquier cambio en Room = nueva versión + `Migration`.
 - La app debe funcionar **siempre en segundo plano** (servicios en primer plano `connectedDevice`).
 - Zona horaria: Europe/Madrid. Los CSV usan hora unix (UTC).
