@@ -376,6 +376,13 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   (check/endt/E.kt) → empeora el resto (MAE 2,1 → 2,6–3,7); se deja. Fallan solo las mañanas remoloneando (24: +10, 26: +7).
   **Recuperación** 86 vs 90: con los valores exactos de WHOOP la fórmula da 85 → error propio de la fórmula (±5). La calificación del sueño
   NO entra (probado 23–24/10 con 199 noches: no mejora). iOS: fila "Calificación del sueño" en Recuperación (solo informativa).
+- **Respuesta de la IA de WHOOP sobre la recuperación (26/10), comprobada con 189 noches (export 23/10 + API hasta 26/10)**:
+  dice que entran VFC y FCR (pilares) frente a una línea base de ~30 días, más horas vs necesidad, calidad del sueño, respiración,
+  temperatura, SpO2; no da pesos. Prueba (scratchpad rec26/t.py y t2.py, validación cruzada 10 partes): línea base EWMA14 4,79 ·
+  media 30 d 5,53 · EWMA30 5,76 · mediana 30 d 5,80 → la de 30 días es PEOR. Añadir cada dato a la fórmula: horas/necesidad 4,75,
+  calificación 4,87, eficiencia 4,81, regularidad 4,84, %profundo 4,90, respiración 4,85, temperatura 4,91, SpO2 4,94 (nada mejora
+  más de 0,04). Segunda comprobación con árboles: solo VFC+FCR 5,23, con todo 5,10; correlación del error con cada dato |r| ≤ 0,13.
+  Conclusión: con los datos que WHOOP da, lo demás no explica el error de ±5; la fórmula NO se cambia.
 
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
