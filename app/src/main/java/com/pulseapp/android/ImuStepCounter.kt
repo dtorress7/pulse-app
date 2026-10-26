@@ -87,7 +87,7 @@ class ImuStepCounter {
         if (run.isNotEmpty()) {
             val dt = (p - run[run.size - 1]) / 100f
             val prev = if (run.size > 1) (run[run.size - 1] - run[run.size - 2]) / 100f else dt
-            val rhythmic = dt in 0.3f..1.5f && maxOf(dt, prev) / minOf(dt, prev) < 1.6f
+            val rhythmic = dt in 0.3f..1.5f && maxOf(dt, prev) / minOf(dt, prev) < 2.2f
             if (!rhythmic) run.clear()
         }
         lastPeak = p
@@ -126,7 +126,9 @@ class ImuStepCounter {
         // 25/10: 4 → 8 pasos seguidos con ritmo antes de contar (sentado gesticulando sumaba 4–20 por minuto sueltos).
         // Al llegar a 8 se suman los 8 de golpe, así andar de verdad no pierde ninguno (prueba de 100 pasos: 100).
         private const val MIN_RUN = 8
-        private const val MAX_STEP_G = 3.0f
-        private const val MAX_STEP_GYRO_DPS = 250f
+        // 26/10 (pruebas grabadas): andar rápido daba 12 de 40 (picos de 3 g, giro 200–300 °/s y ritmo algo irregular) →
+        // 3 g → 4 g, 250 → 350 °/s y ritmo 1,6 → 2,2. Andar normal/móvil/bolsillo/rápido/escaleras: 27/27/27/42/26 (reales 26/26/26/40/25).
+        private const val MAX_STEP_G = 4.0f
+        private const val MAX_STEP_GYRO_DPS = 350f
     }
 }

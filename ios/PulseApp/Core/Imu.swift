@@ -91,8 +91,10 @@ final class ImuStepCounter {
     // 25/10: 4 → 8 pasos seguidos con ritmo antes de contar (sentado gesticulando sumaba 4–20 por minuto sueltos).
     // Al llegar a 8 se suman los 8 de golpe, así andar de verdad no pierde ninguno (prueba de 100 pasos: 100).
     private static let minRun = 8
-    private static let maxStepG: Float = 3.0
-    private static let maxStepGyroDps: Float = 250
+    // 26/10 (pruebas grabadas): andar rápido daba 12 de 40 (picos de 3 g, giro 200–300 °/s y ritmo algo irregular) →
+    // 3 g → 4 g, 250 → 350 °/s y ritmo 1,6 → 2,2. Andar normal/móvil/bolsillo/rápido/escaleras: 27/27/27/42/26 (reales 26/26/26/40/25).
+    private static let maxStepG: Float = 4.0
+    private static let maxStepGyroDps: Float = 350
 
     /// Llamar si se pierden datos (hueco de conexión): corta la racha de pasos en curso.
     func gap() { run.removeAll() }
@@ -144,7 +146,7 @@ final class ImuStepCounter {
         if !run.isEmpty {
             let dt = Float(p - run[run.count - 1]) / 100
             let prev: Float = run.count > 1 ? Float(run[run.count - 1] - run[run.count - 2]) / 100 : dt
-            let rhythmic = dt >= 0.3 && dt <= 1.5 && max(dt, prev) / min(dt, prev) < 1.6
+            let rhythmic = dt >= 0.3 && dt <= 1.5 && max(dt, prev) / min(dt, prev) < 2.2
             if !rhythmic { run.removeAll() }
         }
         lastPeak = p

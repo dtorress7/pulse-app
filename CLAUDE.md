@@ -430,6 +430,11 @@ de PulseApp (hr_log, motion_minutes). Perfil: 1,69 m, 68 kg, FCmáx 195.
    Rasgos (check/imu/feat.py): giro medio andar normal 118 °/s (por segundo hasta 164), móvil 31, bolsillo 57; sentado pierna+brazo 242,
    sentado brazo 209, de pie balanceo 116 (= andar, indistinguible). Candidato: bajar el tope de giro 250 → ~180 °/s (quita lo de sentado)
    PERO falta andar rápido y escaleras (más balanceo) antes de aplicarlo. sd|a|/giro no separa (andar 0,25 vs sentado 0,23).
+   26/10 08:14 andar rápido 40 pasos (check/imu/rap.csv) → el contador daba **12**: giro 200–300 °/s (= sentado simulando), picos de 3 g y
+   intervalos irregulares (0,32/0,63…) que rompían la racha. Escaleras 22 escalones + 3 pasos (esc.csv) → 26 bien. NINGÚN rasgo separa andar
+   rápido de simular sentado (giro, sd|a|, alta frecuencia, frecuencia dominante: check/imu/feat2.py). Se prioriza andar de verdad:
+   MAX_STEP_G 3 → 4, MAX_STEP_GYRO 250 → 350, ritmo 1,6 → 2,2 (Android + iOS; port Python check/imu/sc.py = Kotlin). Resultado: normal/móvil/
+   bolsillo/rápido/escaleras 27/27/27/42/26 (reales 26/26/26/40/25); simulaciones sentado/de pie 64 → 84 falsos (inevitable).
 2. ~~Orden de parar el IMU~~ HECHO: 106 `[0,0]` (ver Acelerómetro).
 3. ~~Clasificador de sueño en 4 fases~~ HECHO v1 (16/10, ver arriba). Falta validar la colocación con más noches y usar fases en recuperación (VFC en profundo).
 4. Integrar movimiento en Sueño, Recuperación, Strain, actividades automáticas y pasos en el inicio.
