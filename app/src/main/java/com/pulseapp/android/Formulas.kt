@@ -324,23 +324,33 @@ object Formulas {
     }
 
     @Suppress("UNUSED_PARAMETER")
-    fun trimp(minutes: Double, hr: Int, restingHr: Int, hrMax: Double, male: Boolean = true): Double {
+    fun trimp(minutes: Double, hr: Int, restingHr: Int, hrMax: Double, male: Boolean = true, withBase: Boolean = true): Double {
         if (minutes <= 0) return 0.0
         val reserve = (hrMax - restingHr).coerceAtLeast(20.0)
         val hrr = ((hr - restingHr) / reserve).coerceIn(0.0, 1.1)
-        return minutes * (hrr * exp(STRAIN_EXP * hrr) + STRAIN_BASE_PER_MIN)
+        return minutes * (hrr * exp(STRAIN_EXP * hrr) + if (withBase) STRAIN_BASE_PER_MIN else 0.0)
     }
 
     fun strainFromTrimp(trimp: Double, strengthMinutes: Double = 0.0): Double =
         (STRAIN_SCALE * ln(1.0 + (max(0.0, trimp) + STRENGTH_LOAD_PER_MIN * max(0.0, strengthMinutes)) / STRAIN_TRIMP_REF)).coerceIn(0.0, 21.0)
 
-    /** Esfuerzo del día + la carga muscular de [strengthMinutes] minutos de fuerza/funcional (se suma en la misma curva). */
-    fun addStrength(strain: Double, strengthMinutes: Double): Double {
-        if (strengthMinutes <= 0) return strain
-        val t = STRAIN_TRIMP_REF * (kotlin.math.exp(strain / STRAIN_SCALE) - 1.0)
-        return strainFromTrimp(t, strengthMinutes)
+    /**
+     * Esfuerzo del día + la carga muscular de [strengthMinutes] minutos de fuerza/funcional (se suma en la misma curva)
+     * + la base por minuto de las actividades ([activityMinutes], 27/10): el pulso del día va SIN base (ver [strainOf]).
+     */
+    fun addStrength(strain: Double, strengthMinutes: Double, activityMinutes: Double = 0.0): Double {
+        if (strengthMinutes <= 0 && activityMinutes <= 0) return strain
+        val t = STRAIN_TRIMP_REF * (kotlin.math.exp(strain / STRAIN_SCALE) - 1.0) + STRAIN_BASE_PER_MIN * max(0.0, activityMinutes)
+        return strainFromTrimp(t, max(0.0, strengthMinutes))
     }
 
+    /** Minutos de actividades que llevan la base por minuto en el esfuerzo del día (todas menos las siestas). */
+    fun activityLoadMinutes(type: String?, minutes: Double): Double = if (minutes <= 0 || type == NAP_TYPE) 0.0 else minutes
+
+    /**
+     * Esfuerzo del DÍA (27/10): sin la base por minuto. Con ella, 24 h de pulso en reposo sumaban 2,5–3 puntos que WHOOP no da
+     * (noche 26→27: 2,8 vs 0,2; día 25/10 6,7 vs 4,1). La base solo cuenta dentro de las actividades ([addStrength]).
+     */
     fun strainOf(
         readings: List<Pair<Long, Int>>, restingHr: Int?, hrMax: Double, male: Boolean = true, maxGapMinutes: Double = 5.0
     ): Double {
@@ -350,7 +360,7 @@ object Formulas {
         for (i in 1 until readings.size) {
             val dt = (readings[i].first - readings[i - 1].first) / 60000.0
             if (dt <= 0 || dt > maxGapMinutes) continue
-            total += trimp(dt, readings[i].second, rhr, hrMax, male)
+            total += trimp(dt, readings[i].second, rhr, hrMax, male, withBase = false)
         }
         return strainFromTrimp(total)
     }

@@ -231,11 +231,11 @@ enum Formulas {
         return 0
     }
 
-    static func trimp(minutes: Double, hr: Int, restingHr: Int, hrMax: Double, male: Bool = true) -> Double {
+    static func trimp(minutes: Double, hr: Int, restingHr: Int, hrMax: Double, male: Bool = true, withBase: Bool = true) -> Double {
         if minutes <= 0 { return 0 }
         let reserve = max(hrMax - Double(restingHr), 20.0)
         let hrr = min(max((Double(hr) - Double(restingHr)) / reserve, 0.0), 1.1)
-        return minutes * (hrr * exp(strainExp * hrr) + strainBasePerMin)
+        return minutes * (hrr * exp(strainExp * hrr) + (withBase ? strainBasePerMin : 0))
     }
 
     static func strainFromTrimp(_ trimp: Double, strengthMinutes: Double = 0) -> Double {
@@ -243,14 +243,21 @@ enum Formulas {
         return min(max(v, 0.0), 21.0)
     }
 
-    /// Esfuerzo del día + la carga muscular de [strengthMinutes] minutos de fuerza/funcional.
-    static func addStrength(_ strain: Double, _ strengthMinutes: Double) -> Double {
-        if strengthMinutes <= 0 { return strain }
-        let t = strainTrimpRef * (exp(strain / strainScale) - 1.0)
-        return strainFromTrimp(t, strengthMinutes: strengthMinutes)
+    /// Esfuerzo del día + la carga muscular de [strengthMinutes] minutos de fuerza/funcional + la base por minuto de las
+    /// actividades ([activityMinutes], 27/10): el pulso del día va SIN base (ver strainOf). Igual que Android.
+    static func addStrength(_ strain: Double, _ strengthMinutes: Double, _ activityMinutes: Double = 0) -> Double {
+        if strengthMinutes <= 0 && activityMinutes <= 0 { return strain }
+        let t = strainTrimpRef * (exp(strain / strainScale) - 1.0) + strainBasePerMin * max(0, activityMinutes)
+        return strainFromTrimp(t, strengthMinutes: max(0, strengthMinutes))
     }
 
-    /// [readings] = (hora en ms, pulso), en orden.
+    /// Minutos de actividades que llevan la base por minuto en el esfuerzo del día (todas menos las siestas).
+    static func activityLoadMinutes(_ type: String?, _ minutes: Double) -> Double {
+        (minutes <= 0 || type == napType) ? 0 : minutes
+    }
+
+    /// [readings] = (hora en ms, pulso), en orden. Esfuerzo del DÍA (27/10): sin la base por minuto (24 h en reposo sumaban
+    /// 2,5–3 puntos que WHOOP no da); la base solo cuenta dentro de las actividades (addStrength).
     static func strainOf(readings: [(Int64, Int)], restingHr: Int?, hrMax: Double, male: Bool = true,
                          maxGapMinutes: Double = 5.0) -> Double {
         if readings.count < 2 { return 0 }
@@ -259,7 +266,7 @@ enum Formulas {
         for i in 1..<readings.count {
             let dt = Double(readings[i].0 - readings[i - 1].0) / 60000.0
             if dt <= 0 || dt > maxGapMinutes { continue }
-            total += trimp(minutes: dt, hr: readings[i].1, restingHr: rhr, hrMax: hrMax, male: male)
+            total += trimp(minutes: dt, hr: readings[i].1, restingHr: rhr, hrMax: hrMax, male: male, withBase: false)
         }
         return strainFromTrimp(total)
     }

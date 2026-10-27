@@ -383,6 +383,19 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   calificación 4,87, eficiencia 4,81, regularidad 4,84, %profundo 4,90, respiración 4,85, temperatura 4,91, SpO2 4,94 (nada mejora
   más de 0,04). Segunda comprobación con árboles: solo VFC+FCR 5,23, con todo 5,10; correlación del error con cada dato |r| ≤ 0,13.
   Conclusión: con los datos que WHOOP da, lo demás no explica el error de ±5; la fórmula NO se cambia.
+- **26→27 (12.ª referencia, fútbol suave 21:06–22:02 la víspera, WHOOP 5,7)**: WHOOP (API) 22:37:42Z–06:57:57Z (23:37–07:57), cama 8:20,
+  dormido 7:41, 38/226/99/137, 9 despertares, 93 %, VFC 106,6, FCR 54, resp 13,4, calificación 87 (97/74/93/0), recuperación 87.
+  PulseApp iPhone (versión 26/10): 23:38–07:57, cama 8:19, 7:49, 30/295/102/72, 93 %, VFC 109, FCR 55, resp 13,5, calificación 85
+  (98/68/93/0), recuperación 82. **REM −65 / ligero +70**: los tramos de REM caen en el MISMO sitio que los de WHOOP pero mucho más
+  cortos (capturas en check/hyp/n27, para la ronda de fases). Profundo bien colocado y 102 vs 99.
+  Comprobado 2 veces: con las horas de WHOOP nuestra regularidad da 68 (= app) y con su VFC/FCR la recuperación 81 → son las fórmulas.
+  Fútbol 26/10 NO detectado: casi todo a 95–120 lpm, solo 5–8 min ≥ 50 % de reserva (127) → mismo caso que el funcional del 22/10.
+  **Esfuerzo del día (27/10, Android + iOS)**: la base por minuto de la v4 (0,1209, ajustada solo con entrenos) se sumaba a TODO el día:
+  la noche 26→27 daba 2,8 (WHOOP 0,2) y la app marcaba 3,9 a las 9:35 (WHOOP 0,1). Ahora `strainOf` (día) va sin base y
+  `addStrength(esfuerzo, fuerza, minActividades)` suma la base solo por los minutos de actividades (`activityLoadMinutes`, sin siestas).
+  Las actividades sueltas NO cambian. 7 días con pulso completo (código real de la app, check/strain27/Z.kt): error medio 1,78 → 0,73;
+  21/10 13,8 (13,3) · 22 16,8 (16,3) · 23 9,2 (7,8) · 24 19,1 (18,8) · 25 4,3 (4,1) · 26 7,5 (5,9; sin el fútbol detectado) · noche 27 0,7 (0,2).
+  Ningún día empeora. `night_recalc_v6` / iOS 6 rehace los días guardados.
 
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,

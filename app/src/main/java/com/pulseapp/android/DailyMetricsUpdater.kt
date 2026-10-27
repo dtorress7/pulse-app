@@ -18,7 +18,7 @@ class DailyMetricsUpdater {
         private const val REST_GRACE_MINUTES = 20
         private const val REST_MIN_DURATION_MINUTES = 90
         private const val DISCONNECT_GAP_MINUTES = 3
-        const val RECALC_FLAG = "night_recalc_v5"   // v5 (26/10): modelo de fases con 11 noches (v4: VFC mezcla, esfuerzo v4, cambio de hora)
+        const val RECALC_FLAG = "night_recalc_v6"   // v6 (27/10): esfuerzo del día sin la base fuera de las actividades; v5 (26/10): modelo de fases con 11 noches (v4: VFC mezcla, esfuerzo v4, cambio de hora)
     }
 
     private val dayFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
@@ -95,10 +95,12 @@ class DailyMetricsUpdater {
         val vo2Max = restingHr?.let { 15.3 * (hrMax / it) }
         val strainHr = Formulas.strainOf(dayReadings.map { it.timeMillis to it.bpm }, restingHr, hrMax, sex != "F")
         // Día con fuerza/funcional: + carga muscular, como WHOOP (22/10)
-        val strengthMin = db.activitySessionDao().getAll()
+        val daySessions = db.activitySessionDao().getAll()
             .filter { dayFormat.format(Date(it.startMillis)) == yesterdayKey }
-            .sumOf { Formulas.muscleMinutes(it.type, (it.endMillis - it.startMillis) / 60000.0) }
-        val strain = Formulas.addStrength(strainHr, strengthMin)
+        val strengthMin = daySessions.sumOf { Formulas.muscleMinutes(it.type, (it.endMillis - it.startMillis) / 60000.0) }
+        // 27/10: la base por minuto solo en las actividades (el pulso del día va sin ella)
+        val activityMin = daySessions.sumOf { Formulas.activityLoadMinutes(it.type, (it.endMillis - it.startMillis) / 60000.0) }
+        val strain = Formulas.addStrength(strainHr, strengthMin, activityMin)
         val sleepMinutes = staged?.asleepMinutes ?: sleep?.asleepMinutes
 
         var sleepStartMinute: Int? = null
