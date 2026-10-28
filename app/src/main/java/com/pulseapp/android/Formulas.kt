@@ -169,6 +169,13 @@ object Formulas {
     const val ACT_MIN_MINUTES = 12
     const val ACT_MIN_CORE = 8
     const val ACT_STILL_CUT_MIN = 10
+    // Sesiones suaves (28/10): funcional 22/10 (media 106) y fútbol 26/10 (media 108) que WHOOP detectó y la regla de arriba no
+    // (casi nunca ≥ 50 % de reserva). Media móvil de 5 min ≥ 28 % de reserva, huecos ≤ 5 min, ≥ 15 min, media ≥ 30 % y ≥ 80 % con pulso.
+    const val SOFT_WINDOW_MIN = 5
+    const val SOFT_ELEVATED_HRR = 0.28
+    const val SOFT_MEAN_HRR = 0.30
+    const val SOFT_MAX_LOW_MIN = 5
+    const val SOFT_MIN_MINUTES = 15
 
     // ---------- Paseos (25/10) ----------
     // WHOOP detectó solo los dos paseos del 24/10 (21:26–21:49 y 22:20–22:49, FC media 107/100, casi todo zona 0): con el pulso no
@@ -246,6 +253,44 @@ object Formulas {
                 if (minutes[e].first - minutes[s].first + 1 >= ACT_MIN_MINUTES) out.add(minutes[s].first to minutes[e].first)
             }
             i = e0 + 1
+        }
+        return out
+    }
+
+    /**
+     * Actividades suaves (28/10): pulso moderado sostenido sin minutos intensos (funcional ligero, partido tranquilo). Se usa DESPUÉS
+     * de [detectActivities] y [detectWalks]: solo cuenta lo que no se solapa con [taken]. 14 días (14–28/10) con los entrenos de WHOOP:
+     * funcional 22/10 18:07–18:42 (WHOOP 18:07–18:41), fútbol 26/10 21:06–22:14 (21:06–22:01), sin ningún falso positivo
+     * (lo más parecido que no es entreno: media 95 lpm; aquí hace falta ≥ 100). Muchas combinaciones de parámetros dan lo mismo.
+     */
+    fun detectSoftActivities(
+        minutes: List<Pair<Long, Double>>, hrMax: Double, rhr: Int = cachedZoneRhr, taken: List<Pair<Long, Long>> = emptyList()
+    ): List<Pair<Long, Long>> {
+        val res = hrMax - rhr
+        val thr = rhr + SOFT_ELEVATED_HRR * res
+        val meanThr = rhr + SOFT_MEAN_HRR * res
+        val n = minutes.size
+        if (n == 0) return emptyList()
+        val t = LongArray(n) { minutes[it].first }
+        val prefix = DoubleArray(n + 1).also { p -> for (k in 0 until n) p[k + 1] = p[k] + minutes[k].second }
+        fun lowerBound(x: Long): Int { var lo = 0; var hi = n; while (lo < hi) { val m = (lo + hi) ushr 1; if (t[m] < x) lo = m + 1 else hi = m }; return lo }
+        val half = SOFT_WINDOW_MIN / 2
+        val sm = DoubleArray(n) { k ->
+            val lo = lowerBound(t[k] - half); val hi = lowerBound(t[k] + half + 1)
+            (prefix[hi] - prefix[lo]) / (hi - lo)
+        }
+        val out = ArrayList<Pair<Long, Long>>()
+        var i = 0
+        while (i < n) {
+            if (sm[i] < thr) { i++; continue }
+            val s = i; var e = i; var j = i + 1
+            while (j < n && t[j] - t[e] <= SOFT_MAX_LOW_MIN + 1) { if (sm[j] >= thr) e = j; j++ }
+            val len = t[e] - t[s] + 1
+            val count = e - s + 1
+            val mean = (prefix[e + 1] - prefix[s]) / count
+            if (len >= SOFT_MIN_MINUTES && mean >= meanThr && count >= 0.8 * len &&
+                taken.none { it.first < t[e] && it.second > t[s] }) out.add(t[s] to t[e])
+            i = e + 1
         }
         return out
     }

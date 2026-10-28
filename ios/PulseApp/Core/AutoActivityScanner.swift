@@ -20,8 +20,9 @@ enum AutoActivityScanner {
         recalcAllOnce(store: store, hrLog: hrLog, profile: profile)
         let hrMax = Formulas.hrMax(ageYears: profile.ageYears())
         // Una vez (25/10, igual que Android): se repasan 7 días con la detección nueva (fútbol del 24/10 cortado, paseos, siesta falsa)
-        let rescan = UserDefaults.standard.integer(forKey: "pulseapp_act_rescan") < 1
-        let windowMs: Int64 = rescan ? 7 * 86_400_000 : 36 * 3_600_000
+        // 28/10 (2): repasa 10 días para añadir las actividades suaves (funcional 22/10, fútbol 26/10)
+        let rescan = UserDefaults.standard.integer(forKey: "pulseapp_act_rescan") < 2
+        let windowMs: Int64 = rescan ? 10 * 86_400_000 : 36 * 3_600_000
 
         let readings = hrLog.readings(from: now - windowMs, to: now)
         var per = [Int64: (Int, Int)]()
@@ -43,8 +44,11 @@ enum AutoActivityScanner {
         let acts = Formulas.detectActivities(minutes, hrMax: hrMax, motion: motion.isEmpty ? nil : motion)
         let walks = Formulas.detectWalks(minutes, motion: motion, hrMax: hrMax)
             .filter { w in !acts.contains { $0.0 <= w.1 && $0.1 >= w.0 } }
+        // Suaves (28/10): solo lo que no es ya actividad ni paseo
+        let soft = Formulas.detectSoftActivities(minutes, hrMax: hrMax, taken: acts + walks)
         let found: [(Int64, Int64, String)] = acts.map { ($0.0, $0.1, "Sin clasificar") }
-            + walks.map { ($0.0, $0.1, Formulas.walkType) } + naps.map { ($0.0, $0.1, Formulas.napType) }
+            + walks.map { ($0.0, $0.1, Formulas.walkType) } + soft.map { ($0.0, $0.1, "Sin clasificar") }
+            + naps.map { ($0.0, $0.1, Formulas.napType) }
 
         let manual = ActivityState.manualStart()
         var existing = store.allSessions()
@@ -96,7 +100,7 @@ enum AutoActivityScanner {
             existing.append(s)
             saved += 1
         }
-        if rescan { UserDefaults.standard.set(1, forKey: "pulseapp_act_rescan") }
+        if rescan { UserDefaults.standard.set(2, forKey: "pulseapp_act_rescan") }
         return saved
     }
 

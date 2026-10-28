@@ -58,8 +58,9 @@ object AutoActivityScanner {
         // Una vez (25/10): se repasan los últimos 7 días con la detección nueva (alarga el fútbol del 24/10 que se guardó
         // cortado, añade los paseos y quita la "siesta" que era el final de la noche).
         val sp = context.getSharedPreferences("pulseapp_formulas", Context.MODE_PRIVATE)
-        val rescan = sp.getInt("act_rescan", 0) < 1
-        val windowMs = if (rescan) 7 * 86_400_000L else 36 * 3_600_000L
+        // 28/10 (act_rescan 2): repasa 10 días para añadir las actividades suaves (funcional 22/10, fútbol 26/10)
+        val rescan = sp.getInt("act_rescan", 0) < 2
+        val windowMs = if (rescan) 10 * 86_400_000L else 36 * 3_600_000L
         val db = AppDatabase.getInstance(context)
         val profile = db.userProfileDao().getOnce() ?: return 0
         Formulas.init(context)
@@ -82,8 +83,11 @@ object AutoActivityScanner {
         val acts = Formulas.detectActivities(minutes, hrMax, motion = motion.takeIf { it.isNotEmpty() })
         val walks = Formulas.detectWalks(minutes, motion, hrMax)
             .filter { w -> acts.none { it.first <= w.second && it.second >= w.first } }
+        // Suaves (28/10): solo lo que no es ya actividad ni paseo
+        val soft = Formulas.detectSoftActivities(minutes, hrMax, taken = acts + walks)
         val found = acts.map { Triple(it.first, it.second, "Sin clasificar") } +
             walks.map { Triple(it.first, it.second, Formulas.WALK_TYPE) } +
+            soft.map { Triple(it.first, it.second, "Sin clasificar") } +
             naps.map { Triple(it.first, it.second, Formulas.NAP_TYPE) }
 
         val manual = ActivityState.manualStart(context)
@@ -137,7 +141,7 @@ object AutoActivityScanner {
             existing.add(toSave.copy(id = id))
             saved++
         }
-        if (rescan) sp.edit().putInt("act_rescan", 1).apply()
+        if (rescan) sp.edit().putInt("act_rescan", 2).apply()
         return saved
     }
 }

@@ -396,6 +396,24 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   Las actividades sueltas NO cambian. 7 días con pulso completo (código real de la app, check/strain27/Z.kt): error medio 1,78 → 0,73;
   21/10 13,8 (13,3) · 22 16,8 (16,3) · 23 9,2 (7,8) · 24 19,1 (18,8) · 25 4,3 (4,1) · 26 7,5 (5,9; sin el fútbol detectado) · noche 27 0,7 (0,2).
   Ningún día empeora. `night_recalc_v6` / iOS 6 rehace los días guardados.
+- **27→28 (13.ª referencia, funcional 18:18–18:53 + pádel 20:35–22:10 la víspera)**: WHOOP (API) 21:38:47Z–05:59:48Z (22:38–06:59), cama 8:21,
+  dormido 7:50, 30/290/108/73, 10 despertares, 96 %, VFC 89,2, FCR 59, resp 13,4, calificación 85 (93/74/96/1), recuperación 63.
+  PulseApp iPhone: 22:39–07:00, 7:54, 27/298/75/101, 94 %, VFC 90, FCR 59, resp 13,5, calificación 84 (92/69/94/0), recuperación 60.
+  **Profundo −33**: faltan los tramos cortos de profundo entre 00:00 y 02:40 (y uno de 4:17–4:19). Capturas en check/hyp/n28.
+  Con los datos exactos de WHOOP: recuperación 60 (= app) y regularidad 70 → fórmulas.
+  **Regularidad −7 revisado (28/10)**: 197 noches del export → −7 sigue siendo lo mejor (MAE 5,33; −3: 6,25); últimas 30 → −4 (4,29 vs 4,99);
+  11 noches API → −3 (2,2 vs 3,8). Contradictorio → NO se cambia; revisar con más noches (¿WHOOP cambió algo en octubre?).
+  **Día 27/10**: pasos WHOOP 13 653 / PulseApp 16 372 (+20 %; pádel 4299 pasos = 45/min, funcional 1167 → falta saber cuántos cuenta WHOOP en
+  cada actividad); kcal 2303 / 2450 (el ciclo de WHOOP dura 23 h y el día de PulseApp 24 h, y el funcional 14 min más largo); esfuerzo 14,0 /
+  15,1 = versión antigua con la actividad marcada como Funcional 50 min (reproducido exacto con el código); con la nueva 14,8 (con la ventana de
+  WHOOP 14,4).
+  **Actividades suaves (28/10, Android + iOS)**: `Formulas.detectSoftActivities` (media móvil 5 min ≥ 28 % de reserva, huecos ≤ 5, ≥ 15 min,
+  media ≥ 30 %, ≥ 80 % con pulso), DESPUÉS de detectActivities y detectWalks (solo lo que no se solapa). 14 entrenos de WHOOP con pulso
+  (15→27/10): ahora los 14 detectados (antes faltaban funcional 22/10 y fútbol 26/10), 0 falsos positivos en 14 días; funcional 22/10
+  18:07–18:42 (W 18:07–18:41), fútbol 26/10 21:06–22:14 (W 21:06–22:01). Margen: lo más parecido que no es entreno tiene media 95 lpm (umbral 100).
+  Código real = Python (check/act25/D3.kt; scratchpad d28/soft.py). `act_rescan` 2 / iOS 2: repasa 10 días al instalar.
+  **Finales**: probado ajustar la regla de final (umbral, tolerancia, subida, quietud): dentro de muestra 142 → 105 min de error, pero dejando
+  un entreno fuera EMPEORA (1141 → 1168) → no se toca. Los finales de WHOOP no siguen un patrón (22/10 alarga 15 min sentado; 26/10 corta al andar).
 
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,

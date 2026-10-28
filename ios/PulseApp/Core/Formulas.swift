@@ -124,6 +124,38 @@ enum Formulas {
         return out
     }
 
+    // ---------- Actividades suaves (28/10), igual que Android (Formulas.detectSoftActivities) ----------
+    // Pulso moderado sostenido sin minutos intensos (funcional 22/10, fútbol 26/10 que WHOOP detectó): media móvil de 5 min ≥ 28 %
+    // de reserva, huecos ≤ 5 min, ≥ 15 min, media ≥ 30 % y ≥ 80 % de minutos con pulso; solo lo que no se solapa con [taken].
+    static func detectSoftActivities(_ minutes: [(Int64, Double)], hrMax: Double, rhr: Int? = nil,
+                                     taken: [(Int64, Int64)] = []) -> [(Int64, Int64)] {
+        let r = Double(rhr ?? zoneRestingHr())
+        let res = hrMax - r
+        let thr = r + 0.28 * res, meanThr = r + 0.30 * res
+        let n = minutes.count
+        if n == 0 { return [] }
+        let t = minutes.map { $0.0 }
+        var prefix = [Double](repeating: 0, count: n + 1)
+        for k in 0..<n { prefix[k + 1] = prefix[k] + minutes[k].1 }
+        func lowerBound(_ x: Int64) -> Int { var lo = 0, hi = n; while lo < hi { let m = (lo + hi) / 2; if t[m] < x { lo = m + 1 } else { hi = m } }; return lo }
+        let half: Int64 = 2
+        var sm = [Double](repeating: 0, count: n)
+        for k in 0..<n { let lo = lowerBound(t[k] - half), hi = lowerBound(t[k] + half + 1); sm[k] = (prefix[hi] - prefix[lo]) / Double(hi - lo) }
+        var out = [(Int64, Int64)]()
+        var i = 0
+        while i < n {
+            if sm[i] < thr { i += 1; continue }
+            let s = i; var e = i; var j = i + 1
+            while j < n && t[j] - t[e] <= 6 { if sm[j] >= thr { e = j }; j += 1 }
+            let len = t[e] - t[s] + 1, count = e - s + 1
+            let mean = (prefix[e + 1] - prefix[s]) / Double(count)
+            if len >= 15 && mean >= meanThr && Double(count) >= 0.8 * Double(len)
+                && !taken.contains(where: { $0.0 < t[e] && $0.1 > t[s] }) { out.append((t[s], t[e])) }
+            i = e + 1
+        }
+        return out
+    }
+
     // ---------- Detección automática de actividades (v2, 20/10) ----------
     // Igual que Android (Formulas.kt), calibrada con los funcionales que WHOOP detectó solo (19/10 y 20/10):
     // tramo ≥ 26 % de la reserva (tolera 2 min por debajo), núcleo ≥ 50 % (≥ 8 min), inicio = primer núcleo adelantado
