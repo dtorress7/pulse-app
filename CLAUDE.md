@@ -412,6 +412,11 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   (15→27/10): ahora los 14 detectados (antes faltaban funcional 22/10 y fútbol 26/10), 0 falsos positivos en 14 días; funcional 22/10
   18:07–18:42 (W 18:07–18:41), fútbol 26/10 21:06–22:14 (W 21:06–22:01). Margen: lo más parecido que no es entreno tiene media 95 lpm (umbral 100).
   Código real = Python (check/act25/D3.kt; scratchpad d28/soft.py). `act_rescan` 2 / iOS 2: repasa 10 días al instalar.
+  **Pasos 27/10 corregido (28/10)**: WHOOP en el pádel 5031 (PulseApp 4299, MENOS); en la noche+mañana hasta 08:01 WHOOP 819 (P 198) y en la
+  noche 27→28 hasta 07:14 WHOOP 995 (P 508) → donde hay dato de WHOOP, PulseApp cuenta de menos. El exceso está en el día 08:01–20:35 sin
+  deporte: P ≈ 11 800 vs W ≈ 7800 (+52 %): 4033 en rachas ≥ 3 min andando, 1639 en ratos de 1–2 min, 1665 en minutos < 30 pasos (78 % con
+  giro < 60). Sin minutos repetidos en motion_minutes. 26/10: P 6092 vs W 7704 (fútbol 56 min sin movimiento grabado). 25/10 1,02.
+  Contradictorio con 1 día → NO se toca el contador; falta saber qué hizo el 27/10 de día y más días con los pasos de WHOOP.
   **Finales**: probado ajustar la regla de final (umbral, tolerancia, subida, quietud): dentro de muestra 142 → 105 min de error, pero dejando
   un entreno fuera EMPEORA (1141 → 1168) → no se toca. Los finales de WHOOP no siguen un patrón (22/10 alarga 15 min sentado; 26/10 corta al andar).
 
