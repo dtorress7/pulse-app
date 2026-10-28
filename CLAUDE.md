@@ -417,6 +417,12 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   deporte: P ≈ 11 800 vs W ≈ 7800 (+52 %): 4033 en rachas ≥ 3 min andando, 1639 en ratos de 1–2 min, 1665 en minutos < 30 pasos (78 % con
   giro < 60). Sin minutos repetidos en motion_minutes. 26/10: P 6092 vs W 7704 (fútbol 56 min sin movimiento grabado). 25/10 1,02.
   Contradictorio con 1 día → NO se toca el contador; falta saber qué hizo el 27/10 de día y más días con los pasos de WHOOP.
+  Horario del 27/10 (usuario): oficina+andar 08–11 (2185 pasos), coche 11:00–11:30 (383), reunión 12–13 (279), de pie en una escalera
+  con las manos (atornillar, conectar) 13–15 (2444), coche 15:00–15:30 (496), tumbado 16:00–16:20 (33), escritorio 16:20–17:30 (65),
+  coche 17:40–18:00 (266). En los trayectos los minutos fuertes son al principio/fin (andar al coche) pero EN MITAD del trayecto salen
+  ráfagas de 8–47 pasos/min (≈ 100–200 por trayecto) = falsos (volante/baches). Escalera: 33 min ≥ 30 pasos con trabajo de manos → probable
+  parte falsa. Pero WHOOP cuenta MÁS en las mañanas (ratos cortos reales) → subir la racha mínima quitaría también pasos buenos.
+  Siguiente paso: grabación de prueba (imu_prueba) conduciendo y haciendo trabajo de manos, con los pasos de WHOOP antes/después.
   **Finales**: probado ajustar la regla de final (umbral, tolerancia, subida, quietud): dentro de muestra 142 → 105 min de error, pero dejando
   un entreno fuera EMPEORA (1141 → 1168) → no se toca. Los finales de WHOOP no siguen un patrón (22/10 alarga 15 min sentado; 26/10 corta al andar).
 
