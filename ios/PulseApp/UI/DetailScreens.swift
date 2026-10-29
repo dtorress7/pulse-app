@@ -318,6 +318,7 @@ struct ActivityDetailView: View {
     @State private var model: Model? = nil
     @State private var showMenu = false
     @State private var confirmDelete = false
+    @State private var selectedZone: Int? = nil
 
     struct Stats { let strain: Double; let steps: Int?; let kcal: Double; let avgHr: Int; let maxHr: Int; let seconds: Int64 }
     struct Model {
@@ -328,6 +329,9 @@ struct ActivityDetailView: View {
         let zoneSec: [Int]
         let typical: [(Double, Double)?]
         let hrMax: Double
+        /// 29/10: tramos [desde, hasta) en ms de cada zona y zona de cada tramo de 10 s (−1 = sin pulso), para marcar una zona
+        let zoneRuns: [[(Int64, Int64)]]
+        let bucketZone: [Int]
     }
 
     var body: some View {
@@ -399,12 +403,28 @@ struct ActivityDetailView: View {
         let chart = groups.keys.sorted().map { k in (k * 10_000, Int((Double(groups[k]!.0) / Double(groups[k]!.1)).rounded())) }
         var zoneSec = [Int](repeating: 0, count: 6)
         var lastSec: Int64 = -1
+        var inside = [(Int64, Int)]()
         for r in samples where r.timeMillis >= s.startMillis && r.timeMillis <= s.endMillis {
             let sec = r.timeMillis / 1000
             if sec == lastSec { continue }
             lastSec = sec
             zoneSec[zoneOf(r.bpm, hrMax)] += 1
+            inside.append((r.timeMillis, r.bpm))
         }
+        // Tramos de cada zona (segundos seguidos; huecos ≤ 5 s se unen), igual que Android
+        var zoneRuns = [[(Int64, Int64)]](repeating: [], count: 6)
+        var curZ = -1, a: Int64 = 0, last: Int64 = 0
+        for (t, b) in inside.sorted(by: { $0.0 < $1.0 }) {
+            let z = zoneOf(b, hrMax)
+            if z == curZ && t - last <= 5_000 { last = t; continue }
+            if curZ >= 0 { zoneRuns[curZ].append((a, last + 1_000)) }
+            curZ = z; a = t; last = t
+        }
+        if curZ >= 0 { zoneRuns[curZ].append((a, last + 1_000)) }
+        let nBuckets = Int(min(max((s.endMillis - s.startMillis) / 10_000 + 1, 1), 5000))
+        var bSum = [Int](repeating: 0, count: nBuckets), bCnt = [Int](repeating: 0, count: nBuckets)
+        for (t, b) in inside { let k = Int((t - s.startMillis) / 10_000); if k >= 0 && k < nBuckets { bSum[k] += b; bCnt[k] += 1 } }
+        let bucketZone = (0..<nBuckets).map { k in bCnt[k] > 0 ? zoneOf(Int((Double(bSum[k]) / Double(bCnt[k])).rounded()), hrMax) : -1 }
         let typical: [(Double, Double)?] = (0...5).map { z -> (Double, Double)? in
             let fr = sameType.compactMap { a -> Double? in
                 let mins = [a.minutesZone0, a.minutesZone1, a.minutesZone2, a.minutesZone3, a.minutesZone4, a.minutesZone5]
@@ -413,7 +433,8 @@ struct ActivityDetailView: View {
             }
             return fr.count >= 2 ? (fr.min()!, fr.max()!) : nil
         }
-        return Model(session: s, me: stats(s), avg: pool.map { stats($0) }, chart: chart, zoneSec: zoneSec, typical: typical, hrMax: hrMax)
+        return Model(session: s, me: stats(s), avg: pool.map { stats($0) }, chart: chart, zoneSec: zoneSec, typical: typical, hrMax: hrMax,
+                     zoneRuns: zoneRuns, bucketZone: bucketZone)
     }
 
     private func trendOf(_ value: Double, _ avg: Double) -> Trend {
@@ -460,7 +481,9 @@ struct ActivityDetailView: View {
         .padding(.top, 26)
 
         if m.chart.count >= 2 {
-            ActivityHrChart(points: m.chart, start: s.startMillis, end: s.endMillis).frame(height: 360).padding(.top, 22)
+            ActivityHrChart(points: m.chart, start: s.startMillis, end: s.endMillis,
+                            highlights: selectedZone.map { m.zoneRuns[$0] } ?? [],
+                            highlightColor: selectedZone.map { Theme.wZone[$0] } ?? .clear).frame(height: 360).padding(.top, 22)
         } else {
             WBody(text: "No hay pulso guardado de esta actividad.", size: 14).padding(.top, 22)
         }
@@ -479,7 +502,14 @@ struct ActivityDetailView: View {
         let bounds = Formulas.zoneBounds(hrMax: m.hrMax)
         ForEach((0...5).reversed(), id: \.self) { z in
             let range = z == 0 ? "<\(bounds[0]) BPM" : (z == 5 ? "\(bounds[4])+ BPM" : "\(bounds[z - 1])-\(bounds[z] - 1) BPM")
-            zoneRow(z, range, m.zoneSec[z], Double(m.zoneSec[z]) / Double(total), Theme.wZone[z], m.typical[z])
+            let on = selectedZone == z
+            zoneRow(z, range, m.zoneSec[z], Double(m.zoneSec[z]) / Double(total), Theme.wZone[z], m.typical[z],
+                    timeline: on ? m.bucketZone : nil, dimmed: selectedZone != nil && !on)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    // 29/10: tocar una zona la marca, como las fases del sueño
+                    if m.zoneSec[z] > 0 { selectedZone = on ? nil : z; UIImpactFeedbackGenerator(style: .light).impactOccurred() }
+                }
         }
         WBody(text: "Las zonas salen de tu reserva de FC, como en WHOOP: entre tu FC en reposo (\(Formulas.zoneRestingHr()) lpm) y tu FC máxima (\(Int(m.hrMax.rounded())) lpm), que puedes cambiar en Sobre mí.", size: 14.5).padding(.top, 12)
 
@@ -519,7 +549,8 @@ struct ActivityDetailView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func zoneRow(_ z: Int, _ range: String, _ seconds: Int, _ fraction: Double, _ color: Color, _ typical: (Double, Double)?) -> some View {
+    private func zoneRow(_ z: Int, _ range: String, _ seconds: Int, _ fraction: Double, _ color: Color, _ typical: (Double, Double)?,
+                         timeline: [Int]? = nil, dimmed: Bool = false) -> some View {
         let empty = seconds == 0
         return VStack(spacing: 6) {
             HStack(spacing: 14) {
@@ -532,13 +563,15 @@ struct ActivityDetailView: View {
                     WNumber(text: String(format: ":%02d", seconds % 60), size: 15, color: Theme.textSecondary)
                 }
             }
-            if !empty {
+            if !empty, let tl = timeline {
+                StageTimelineBar(stages: tl, stage: z, color: color, active: true).frame(height: 30).padding(.top, 4)
+            } else if !empty {
                 ZoneBar(fraction: fraction, color: color, typicalLo: typical?.0, typicalHi: typical?.1).frame(height: 44)
             }
         }
         .padding(.horizontal, 18).padding(.top, 14).padding(.bottom, empty ? 14 : 12)
         .background(Theme.wCard).cornerRadius(14)
-        .opacity(empty ? 0.55 : 1)
+        .opacity(empty || dimmed ? 0.55 : 1)
         .padding(.top, 12)
     }
 

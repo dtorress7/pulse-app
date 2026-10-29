@@ -72,6 +72,22 @@ class ProfileActivity : AppCompatActivity() {
                 .setNegativeButton("Cancelar", null)
                 .show()
         }
+        findViewById<View>(R.id.rowZoneRhr).setOnClickListener {
+            AlertDialog.Builder(this)
+                .setTitle("FC en reposo para zonas")
+                .setMessage("Pon la misma que WHOOP en Ajustes de FC (\"FC en reposo\" de referencia; la tuya: 59). Con ella las zonas " +
+                    "salen igual que en WHOOP. Vacía = automática (la media de tus noches).")
+                .setPositiveButton("Escribir") { _, _ ->
+                    askNumber("FC en reposo (lpm)", Formulas.manualZoneRestingHr(this)?.toFloat()) {
+                        val bpm = it.toInt()
+                        if (bpm in 35..100) { Formulas.setManualZoneRestingHr(this, bpm); render() }
+                        else Toast.makeText(this, "Debe estar entre 35 y 100", Toast.LENGTH_SHORT).show()
+                    }
+                }
+                .setNeutralButton("Automática") { _, _ -> Formulas.setManualZoneRestingHr(this, 0); render() }
+                .setNegativeButton("Cancelar", null)
+                .show()
+        }
         findViewById<View>(R.id.rowAdvanced).setOnClickListener {
             startActivity(Intent(this, WhoopExperimentalActivity::class.java))
         }
@@ -143,6 +159,7 @@ class ProfileActivity : AppCompatActivity() {
         setRow(R.id.heightValue, height?.let { "%.0f cm".format(it) })
         setRow(R.id.sexValue, sex?.let { if (it == "M") "Hombre" else "Mujer" })
         setRow(R.id.hrMaxValue, Formulas.observedHrMax(this)?.let { "$it lpm" })
+        findViewById<TextView>(R.id.zoneRhrValue).text = Formulas.manualZoneRestingHr(this)?.let { "$it lpm" } ?: "Automática (${Formulas.zoneRestingHr()})"
 
         val age: Int? = birthday?.let { ((System.currentTimeMillis() - it) / (365.25 * 24 * 3600 * 1000)).toInt() }
         findViewById<TextView>(R.id.ageValue).text = age?.toString() ?: "--"

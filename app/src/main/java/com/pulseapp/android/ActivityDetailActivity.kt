@@ -14,6 +14,7 @@ import androidx.lifecycle.lifecycleScope
 import com.pulseapp.android.data.ActivitySession
 import com.pulseapp.android.data.AppDatabase
 import com.pulseapp.android.ui.ActivityHrChartView
+import com.pulseapp.android.ui.StageTimelineBarView
 import com.pulseapp.android.ui.ZoneBarView
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -134,8 +135,10 @@ class ActivityDetailActivity : AppCompatActivity() {
             // Gráfica de pulso (medias de 10 s)
             val chartPts = samples.groupBy { it.timeMillis / 10_000 }.entries.sortedBy { it.key }
                 .map { (k, v) -> k * 10_000 to Math.round(v.map { it.bpm }.average()).toInt() }
+            var hrChart: ActivityHrChartView? = null
             if (chartPts.size >= 2) {
                 content.addView(ActivityHrChartView(ctx).apply {
+                    hrChart = this
                     setData(chartPts, s.startMillis, s.endMillis)
                     layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, Ui.dp(ctx, 360f)).apply {
                         topMargin = Ui.dp(ctx, 22f)
@@ -180,14 +183,53 @@ class ActivityDetailActivity : AppCompatActivity() {
                 }
                 if (fr.size >= 2) fr.minOrNull()!! to fr.maxOrNull()!! else null
             }
-            for (z in 5 downTo 0) {
-                val range = when (z) {
-                    0 -> "<${bounds[0]} BPM"
-                    5 -> "${bounds[4]}+ BPM"
-                    else -> "${bounds[z - 1]}-${bounds[z] - 1} BPM"
+            // 29/10: tocar una zona la marca (como las fases del sueño): su barra muestra cuándo estuviste en ella y la gráfica
+            // de pulso se pinta de su color en esos tramos. Tramos = segundos seguidos en la zona (huecos ≤ 5 s se unen).
+            val zoneRuns = Array(6) { ArrayList<Pair<Long, Long>>() }
+            run {
+                var curZ = -1; var a = 0L; var last = 0L
+                for (r in inside.sortedBy { it.timeMillis }) {
+                    val z = Formulas.zoneOf(r.bpm, bounds)
+                    if (z == curZ && r.timeMillis - last <= 5_000L) { last = r.timeMillis; continue }
+                    if (curZ >= 0) zoneRuns[curZ].add(a to last + 1_000L)
+                    curZ = z; a = r.timeMillis; last = r.timeMillis
                 }
-                content.addView(zoneRow(z, range, zoneSec[z], zoneSec[z].toFloat() / zoneTotal, zoneColors[z], typical[z]))
+                if (curZ >= 0) zoneRuns[curZ].add(a to last + 1_000L)
             }
+            // Zona de cada tramo de 10 s para la barra de tiempo (−1 = sin pulso)
+            val nBuckets = ((s.endMillis - s.startMillis) / 10_000L + 1).toInt().coerceIn(1, 5000)
+            val bucketZone = IntArray(nBuckets) { -1 }
+            run {
+                val sum = IntArray(nBuckets); val cnt = IntArray(nBuckets)
+                for (r in inside) { val k = ((r.timeMillis - s.startMillis) / 10_000L).toInt(); if (k in 0 until nBuckets) { sum[k] += r.bpm; cnt[k]++ } }
+                for (k in 0 until nBuckets) if (cnt[k] > 0) bucketZone[k] = Formulas.zoneOf(Math.round(sum[k].toDouble() / cnt[k]).toInt(), bounds)
+            }
+            val zoneBox = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
+            content.addView(zoneBox)
+            var selectedZone: Int? = null
+            fun renderZones() {
+                zoneBox.removeAllViews()
+                for (z in 5 downTo 0) {
+                    val range = when (z) {
+                        0 -> "<${bounds[0]} BPM"
+                        5 -> "${bounds[4]}+ BPM"
+                        else -> "${bounds[z - 1]}-${bounds[z] - 1} BPM"
+                    }
+                    val on = selectedZone == z
+                    val row = zoneRow(z, range, zoneSec[z], zoneSec[z].toFloat() / zoneTotal, zoneColors[z], typical[z],
+                        timeline = if (on) bucketZone else null, dimmed = selectedZone != null && !on)
+                    if (zoneSec[z] > 0) row.setOnClickListener {
+                        selectedZone = if (on) null else z
+                        row.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+                        renderZones()
+                    }
+                    zoneBox.addView(row)
+                }
+                val sel = selectedZone
+                if (sel != null) hrChart?.setHighlights(zoneRuns[sel], Ui.color(ctx, zoneColors[sel]))
+                else hrChart?.setHighlights(emptyList(), 0)
+            }
+            renderZones()
             content.addView(W.body(ctx, "Las zonas salen de tu reserva de FC, como en WHOOP: entre tu FC en reposo (${Formulas.zoneRestingHr()} lpm) y tu FC máxima (${Math.round(hrMax)} lpm), que puedes cambiar en Sobre mí.", 14.5f).apply {
                 setPadding(0, Ui.dp(ctx, 12f), 0, 0)
             })
@@ -276,7 +318,8 @@ class ActivityDetailActivity : AppCompatActivity() {
         }
     }
 
-    private fun zoneRow(z: Int, range: String, seconds: Int, fraction: Float, colorRes: Int, typical: Pair<Float, Float>?): LinearLayout {
+    private fun zoneRow(z: Int, range: String, seconds: Int, fraction: Float, colorRes: Int, typical: Pair<Float, Float>?,
+                        timeline: IntArray? = null, dimmed: Boolean = false): LinearLayout {
         val ctx = this
         val empty = seconds == 0
         return LinearLayout(ctx).apply {
@@ -286,7 +329,7 @@ class ActivityDetailActivity : AppCompatActivity() {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
                 topMargin = Ui.dp(ctx, 12f)
             }
-            alpha = if (empty) 0.55f else 1f
+            alpha = if (empty || dimmed) 0.55f else 1f
             addView(LinearLayout(ctx).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
@@ -299,7 +342,11 @@ class ActivityDetailActivity : AppCompatActivity() {
                 addView(W.number(ctx, "%d:%02d".format(h, m), 22f))
                 addView(W.number(ctx, ":%02d".format(sec), 15f, R.color.text_secondary))
             })
-            if (!empty) addView(ZoneBarView(ctx).apply {
+            if (!empty && timeline != null) addView(StageTimelineBarView(ctx).apply {
+                // Zona elegida: dónde cae a lo largo de la actividad (como la barra de una fase del sueño)
+                setData(timeline, z, Ui.color(ctx, colorRes), true)
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, Ui.dp(ctx, 30f)).apply { topMargin = Ui.dp(ctx, 10f) }
+            }) else if (!empty) addView(ZoneBarView(ctx).apply {
                 setData(fraction, Ui.color(ctx, colorRes), typical?.first, typical?.second)
                 layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, Ui.dp(ctx, 44f)).apply { topMargin = Ui.dp(ctx, 6f) }
             })

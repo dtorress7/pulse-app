@@ -48,12 +48,27 @@ enum Formulas {
     private static let keyBmr = "pulseapp_bmr_kcal"
 
     static func zoneRestingHr() -> Int {
+        let m = UserDefaults.standard.integer(forKey: keyRhrZoneManual)
+        if m > 0 { return m }
         let v = UserDefaults.standard.integer(forKey: keyRhrZone)
         return v > 0 ? v : defaultRestingHr
     }
 
+    // 29/10 (igual que Android): FC en reposo de referencia de las zonas puesta a mano (la de "Ajustes de FC" de WHOOP); 0 = automática.
+    // Con 59 y la ventana de WHOOP el fútbol del 28/10 da las zonas de WHOOP al segundo.
+    private static let keyRhrZoneManual = "pulseapp_rhr_zone_manual"
+    static func manualZoneRestingHr() -> Int? {
+        let m = UserDefaults.standard.integer(forKey: keyRhrZoneManual); return m > 0 ? m : nil
+    }
+    /// Si cambia, se rehacen zonas/esfuerzo/calorías de las actividades guardadas (como al cambiar la FC máxima).
+    static func setManualZoneRestingHr(_ rhr: Int) {
+        if UserDefaults.standard.integer(forKey: keyRhrZoneManual) == rhr { return }
+        UserDefaults.standard.set(rhr, forKey: keyRhrZoneManual)
+        UserDefaults.standard.set(0, forKey: "pulseapp_act_recalc")
+    }
+
     static func setZoneRestingHr(_ rhr: Int) {
-        if rhr < 35 || rhr > 100 || rhr == zoneRestingHr() { return }
+        if rhr < 35 || rhr > 100 || rhr == UserDefaults.standard.integer(forKey: keyRhrZone) { return }
         UserDefaults.standard.set(rhr, forKey: keyRhrZone)
     }
 

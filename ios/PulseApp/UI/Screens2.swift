@@ -112,6 +112,7 @@ struct ProfileView: View {
     @State private var birthday = Date()
     @State private var sex = "M"
     @State private var hrMax = ""
+    @State private var zoneRhr = ""
     @State private var loaded = false
     @State private var note = ""
 
@@ -126,6 +127,8 @@ struct ProfileView: View {
                         field("Estatura (cm)", $height)
                         Hairline()
                         field("FC máxima (lpm)", $hrMax, placeholder: "auto")
+                        Hairline()
+                        field("FC en reposo para zonas", $zoneRhr, placeholder: "auto (\(Formulas.zoneRestingHr()))")
                         Hairline()
                         DatePicker("Nacimiento", selection: $birthday, displayedComponents: [.date])
                         Hairline()
@@ -142,7 +145,7 @@ struct ProfileView: View {
                         .background(Theme.recoveryGreen).cornerRadius(12)
                 }
                 if !note.isEmpty { Text(note).font(Theme.text(12)).foregroundColor(Theme.textSecondary) }
-                Text("Se usan para calorías, zonas de pulso, esfuerzo y VO₂ máx. FC máxima: pon la misma que en WHOOP (Ajustes de FC); vacía = la de tu edad. Todo se queda en tu iPhone.")
+                Text("Se usan para calorías, zonas de pulso, esfuerzo y VO₂ máx. FC máxima y FC en reposo para zonas: pon las mismas que en WHOOP (Ajustes de FC: la tuya 195 y 59); vacías = automáticas. Todo se queda en tu iPhone.")
                     .font(Theme.text(12)).foregroundColor(Theme.textSecondary)
             }
             .navigationTitle("Perfil")
@@ -179,6 +182,7 @@ struct ProfileView: View {
             sex = p.sex
         }
         if let m = Formulas.observedHrMax() { hrMax = String(m) }
+        if let z = Formulas.manualZoneRestingHr() { zoneRhr = String(z) }
     }
 
     private func save() {
@@ -193,7 +197,13 @@ struct ProfileView: View {
             note = "Revisa la FC máxima (140–230 lpm) o déjala vacía."
             return
         }
+        let zr = Int(zoneRhr.trimmingCharacters(in: .whitespaces)) ?? 0
+        if zr != 0 && (zr < 35 || zr > 100) {
+            note = "Revisa la FC en reposo para zonas (35–100 lpm) o déjala vacía."
+            return
+        }
         Formulas.setObservedHrMax(hm)
+        Formulas.setManualZoneRestingHr(zr)
         let old = AppStore.shared.getProfile()
         let ms = Int64(birthday.timeIntervalSince1970 * 1000.0)
         AppStore.shared.saveProfile(UserProfile(birthdayMillis: ms, weightKg: w, heightCm: h, sex: sex,

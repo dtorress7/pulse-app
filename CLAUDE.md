@@ -423,6 +423,24 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   ráfagas de 8–47 pasos/min (≈ 100–200 por trayecto) = falsos (volante/baches). Escalera: 33 min ≥ 30 pasos con trabajo de manos → probable
   parte falsa. Pero WHOOP cuenta MÁS en las mañanas (ratos cortos reales) → subir la racha mínima quitaría también pasos buenos.
   Siguiente paso: grabación de prueba (imu_prueba) conduciendo y haciendo trabajo de manos, con los pasos de WHOOP antes/después.
+- **28→29 (14.ª referencia, fútbol 20:41–22:05 la víspera)**: WHOOP (API) 22:11:49Z–07:24:22Z (23:11–08:24), cama 9:12, dormido 8:45,
+  27/308/110/109, 13 despertares, 97 %, VFC 91,1, FCR 58, resp 13,7, calificación 90 (100/78/97/0), recuperación 66.
+  PulseApp iPhone: 23:16–08:24, cama 9:08, 8:41, 27/329/98/94, 95 %, VFC 92, FCR 58, resp 13,5, calificación 89 (100/78/95/0),
+  recuperación 63 (con los datos exactos de WHOOP la fórmula da 63 → fórmula). Fases ±12–21. Capturas en check/hyp/n29.
+  **Día 28/10**: WHOOP 13 046 pasos / 2177 kcal / 12,1; PulseApp 11 584 / 2226 / 12,4. Fútbol WHOOP 20:41–22:05, 11,7, 4740 pasos, 507 kcal,
+  zonas 31:03/30:05/11:15/8:30/4:04; PulseApp 20:41–22:19, 11,8, 658 pasos, 584 kcal, 35:11/39:54/10:57/8:48/4:05.
+  - Pasos: 0 minutos de movimiento grabado durante el partido (el móvil no estaba cerca: el pulso llega luego del historial de la
+    pulsera, el movimiento NO). Los 658 son de después. Pendiente: buscar si el historial de la pulsera trae pasos/IMU (v26 sin descifrar).
+  - Final 22:19 vs 22:05: la regla de "el pulso vuelve a subir" lo alarga al andar (104→112). Reprobado con 15 entrenos: sin esa regla
+    o con 8 lpm mejora este y el funcional 27/10 pero empeora 20/10, 21/10 y 24/10; dejando uno fuera 1182 vs 1155 → no se toca.
+  - Zonas con la ventana de WHOOP y FCR 59: 31:03/30:06/11:15/8:30/4:05 = WHOOP al segundo. Con FCR 58 (la automática de PulseApp)
+    111/141/154 → 29:31/31:38/10:57/8:48. WHOOP fija la FCR de referencia cada cierto tiempo (19/10: 59 = media de 7 o 14 días, no 30).
+  **Nuevo (29/10, Android + iOS)**: (1) "FC en reposo para zonas" opcional en Sobre mí (`Formulas.setManualZoneRestingHr`, prefs
+  `rhr_zone_manual` / iOS `pulseapp_rhr_zone_manual`; vacía = automática; cambiarla rehace las actividades). zoneBounds y la detección
+  usan `zoneRestingHr()` (manual si existe). (2) Zonas seleccionables en el detalle de actividad, como las fases del sueño: tocar una zona
+  la marca, su barra muestra cuándo estuviste en ella (StageTimelineBar con la zona de cada tramo de 10 s) y la gráfica de pulso se pinta
+  de su color en esos tramos (segundos seguidos, huecos ≤ 5 s). Comprobado con el fútbol 28/10: los tramos suman exactamente el tiempo de
+  cada zona.
   **Finales**: probado ajustar la regla de final (umbral, tolerancia, subida, quietud): dentro de muestra 142 → 105 min de error, pero dejando
   un entreno fuera EMPEORA (1141 → 1168) → no se toca. Los finales de WHOOP no siguen un patrón (22/10 alarga 15 min sentado; 26/10 corta al andar).
 

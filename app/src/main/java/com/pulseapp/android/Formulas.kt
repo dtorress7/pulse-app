@@ -50,6 +50,7 @@ object Formulas {
         val sp = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         cachedObserved = sp.getInt(KEY_HR_MAX, 0)
         cachedZoneRhr = sp.getInt(KEY_RHR_ZONE, DEFAULT_RESTING_HR)
+        cachedZoneRhrManual = sp.getInt(KEY_RHR_ZONE_MANUAL, 0)
         cachedBmr = sp.getFloat(KEY_BMR, 0f).toDouble()
         cachedImportUntil = sp.getString(KEY_IMPORT_UNTIL, "") ?: ""
     }
@@ -78,7 +79,23 @@ object Formulas {
     @Volatile private var cachedZoneRhr = 58
     @Volatile private var cachedBmr = 0.0
 
-    fun zoneRestingHr(): Int = cachedZoneRhr
+    // 29/10: WHOOP fija la FC en reposo de referencia de las zonas cada cierto tiempo ("se actualizan automáticamente el 19/10": 59)
+    // y PulseApp la movía cada día (58). Con 59 y la ventana de WHOOP, el fútbol del 28/10 da las zonas de WHOOP al segundo
+    // (31:03/30:06/11:15/8:30/4:05 vs 31:03/30:05/11:15/8:30/4:04). Campo opcional en Sobre mí; 0 = automática.
+    private const val KEY_RHR_ZONE_MANUAL = "rhr_zone_manual"
+    @Volatile private var cachedZoneRhrManual = 0
+
+    fun zoneRestingHr(): Int = if (cachedZoneRhrManual > 0) cachedZoneRhrManual else cachedZoneRhr
+
+    fun manualZoneRestingHr(context: Context): Int? =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt(KEY_RHR_ZONE_MANUAL, 0).takeIf { it > 0 }
+
+    /** 0 = automática (la media de tus noches). Si cambia, se rehacen zonas/esfuerzo/calorías de las actividades. */
+    fun setManualZoneRestingHr(context: Context, rhr: Int) {
+        val sp = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        if (sp.getInt(KEY_RHR_ZONE_MANUAL, 0) != rhr) sp.edit().putInt(KEY_RHR_ZONE_MANUAL, rhr).putInt("act_recalc", 0).apply()
+        cachedZoneRhrManual = rhr
+    }
 
     fun setZoneRestingHr(context: Context, rhr: Int) {
         if (rhr !in 35..100 || rhr == cachedZoneRhr) return
@@ -87,7 +104,7 @@ object Formulas {
     }
 
     /** Límite inferior (lpm) de las zonas 1..5. */
-    fun zoneBounds(hrMax: Double, rhr: Int = cachedZoneRhr): IntArray =
+    fun zoneBounds(hrMax: Double, rhr: Int = zoneRestingHr()): IntArray =
         IntArray(5) { kotlin.math.ceil(rhr + ZONE_HRR[it] * (hrMax - rhr)).toInt() }
 
     fun zoneOf(bpm: Int, bounds: IntArray): Int = bounds.count { bpm >= it }
@@ -185,7 +202,7 @@ object Formulas {
     // no salen. Sin movimiento grabado no se detectan paseos.
     const val WALK_TYPE = "Caminar"
 
-    fun detectWalks(minutes: List<Pair<Long, Double>>, motion: Map<Long, MotionMinute>, hrMax: Double, rhr: Int = cachedZoneRhr): List<Pair<Long, Long>> {
+    fun detectWalks(minutes: List<Pair<Long, Double>>, motion: Map<Long, MotionMinute>, hrMax: Double, rhr: Int = zoneRestingHr()): List<Pair<Long, Long>> {
         val elevated = rhr + ACT_ELEVATED_HRR * (hrMax - rhr)
         val hrBy = HashMap<Long, Double>(minutes.size * 2)
         for ((k, v) in minutes) hrBy[k] = v
@@ -206,7 +223,7 @@ object Formulas {
 
     /** [minutes] = (minuto unix, FC media de ese minuto) ordenados. Devuelve (primer minuto, último minuto) de cada actividad. */
     fun detectActivities(
-        minutes: List<Pair<Long, Double>>, hrMax: Double, rhr: Int = cachedZoneRhr, motion: Map<Long, MotionMinute>? = null
+        minutes: List<Pair<Long, Double>>, hrMax: Double, rhr: Int = zoneRestingHr(), motion: Map<Long, MotionMinute>? = null
     ): List<Pair<Long, Long>> {
         val res = hrMax - rhr
         val elevated = rhr + ACT_ELEVATED_HRR * res
@@ -264,7 +281,7 @@ object Formulas {
      * (lo más parecido que no es entreno: media 95 lpm; aquí hace falta ≥ 100). Muchas combinaciones de parámetros dan lo mismo.
      */
     fun detectSoftActivities(
-        minutes: List<Pair<Long, Double>>, hrMax: Double, rhr: Int = cachedZoneRhr, taken: List<Pair<Long, Long>> = emptyList()
+        minutes: List<Pair<Long, Double>>, hrMax: Double, rhr: Int = zoneRestingHr(), taken: List<Pair<Long, Long>> = emptyList()
     ): List<Pair<Long, Long>> {
         val res = hrMax - rhr
         val thr = rhr + SOFT_ELEVATED_HRR * res

@@ -90,6 +90,13 @@
                 <TextView android:id="@+id/hrMaxValue" style="@style/RowText" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginEnd="6dp" android:text="Añadir" android:textColor="@color/text_secondary" />
                 <ImageView android:layout_width="14dp" android:layout_height="14dp" android:contentDescription="@null" android:src="@drawable/ic_chevron_right" android:tint="@color/text_secondary" />
             </LinearLayout>
+            <View android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginStart="16dp" android:background="@color/hairline" />
+
+            <LinearLayout android:id="@+id/rowZoneRhr" android:layout_width="match_parent" android:layout_height="wrap_content" android:background="?android:attr/selectableItemBackground" android:clickable="true" android:focusable="true" android:gravity="center_vertical" android:paddingStart="16dp" android:paddingTop="14dp" android:paddingEnd="16dp" android:paddingBottom="14dp">
+                <TextView style="@style/RowText" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="FC en reposo para zonas" />
+                <TextView android:id="@+id/zoneRhrValue" style="@style/RowText" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginEnd="6dp" android:text="Automática" android:textColor="@color/text_secondary" />
+                <ImageView android:layout_width="14dp" android:layout_height="14dp" android:contentDescription="@null" android:src="@drawable/ic_chevron_right" android:tint="@color/text_secondary" />
+            </LinearLayout>
         </LinearLayout>
 
         <TextView
