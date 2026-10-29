@@ -28,15 +28,10 @@ struct RecoveryDetailView: View {
     @ViewBuilder private func content(_ d: HomeData) -> some View {
         let day = d.day
         let rec = day.recovery
-        let monthAgo = Day.add(d.date, -30)
-        let prev = d.records.filter { $0.date < d.date && $0.date >= monthAgo }
-        func avgD(_ f: (DayRecord) -> Double?) -> Double? {
-            let v = prev.compactMap(f); return v.isEmpty ? nil : v.reduce(0, +) / Double(v.count)
-        }
-        let hrvAvg = avgD { $0.hrv }
-        let rhrAvg = avgD { $0.rhr.map { Double($0) } }
-        let respAvg = avgD { $0.resp }
-        let scoreAvg = avgD { $0.sleepScore.map { Double($0) } }
+        let hrvAvg = RecoveryDetailView.avg30(d) { $0.hrv }
+        let rhrAvg = RecoveryDetailView.avg30(d) { $0.rhr.map { Double($0) } }
+        let respAvg = RecoveryDetailView.avg30(d) { $0.resp }
+        let scoreAvg = RecoveryDetailView.avg30(d) { $0.sleepScore.map { Double($0) } }
 
         WRing(progress: Double(rec ?? 0) / 100, value: rec.map { "\($0)%" } ?? "--", label: "Recuperación",
               color: rec.map { Theme.wRecoveryColor($0) } ?? Theme.wRecoveryHigh, size: 260,
@@ -101,6 +96,13 @@ struct RecoveryDetailView: View {
                 labels: recs.map { v in v.map { WeekChart.BarLabel(text: "\($0) %", color: Theme.wRecoveryColor($0)) } }, max: 100))
         }
         .padding(.top, 14).padding(.bottom, 30)
+    }
+
+    /// Media de los 30 días anteriores al día mostrado.
+    static func avg30(_ d: HomeData, _ f: (DayRecord) -> Double?) -> Double? {
+        let monthAgo = Day.add(d.date, -30)
+        let v = d.records.filter { $0.date < d.date && $0.date >= monthAgo }.compactMap(f)
+        return v.isEmpty ? nil : v.reduce(0, +) / Double(v.count)
     }
 
     /// Fila como WHOOP: icono, nombre en mayúsculas, valor grande con flecha y tu media de 30 días debajo.
