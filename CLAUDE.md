@@ -441,6 +441,19 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   la marca, su barra muestra cuándo estuviste en ella (StageTimelineBar con la zona de cada tramo de 10 s) y la gráfica de pulso se pinta
   de su color en esos tramos (segundos seguidos, huecos ≤ 5 s). Comprobado con el fútbol 28/10: los tramos suman exactamente el tiempo de
   cada zona.
+- **Deporte automático (29/10, Android + iOS)**: `Formulas.guessSport(sesión, historial)`: las 5 actividades con deporte más parecidas
+  (hora del día, día de la semana, log duración, FC máx, % por zona; pesos 0,5·h² + 1·otro día + 1·Δln dur² + 0,5·(ΔFCmáx/10)² +
+  0,5·Σ(Δ%zona/20)²); decide si ≥ 4 de 5 coinciden. Historial = tus actividades con deporte (importadas de WHOOP + puestas por ti; no
+  "Sin clasificar"/Siesta/Otro). Se aplica al guardar una automática "Sin clasificar" (se rehace el esfuerzo con el deporte) y una vez
+  (`act_classify` 1 / iOS `pulseapp_act_classify`) a las automáticas sin clasificar de 30 días. Validación con los 213 entrenos del export
+  usando solo los anteriores (scratchpad cls/c.py; código real check/sport/S.kt): fútbol 66/69 bien, funcional 48/64 (fallos sobre todo
+  fuerza), pádel 2/3; últimos 60: 38 bien / 4 mal / 18 sin decidir. Pádel/pickleball casi nunca (se parecen al fútbol): quedan sin clasificar.
+- **Diseño WHOOP de Recuperación y Sobre mí (29/10, Android + iOS)**: Recuperación (Android `RecoveryDetailActivity` reescrita sobre
+  activity_sleep_detail; iOS `UI/RecoveryScreen.swift` `RecoveryDetailView`, ruta `.recovery(dayOffset)`): anillo grande PULSE, tarjeta
+  VFC / FCR / respiración / calificación con valor, flecha y media de 30 días, leyenda "Hoy vs. los últimos 30 días", "Cómo se calcula"
+  (VFC y FCR frente a tu media, hoy) y barras de recuperación de la semana; abre el día elegido en Inicio. Sobre mí: fondo/tarjetas WHOOP,
+  títulos en mayúsculas, "Tus datos" y "Ajustes de FC" (FC máxima, FC en reposo para zonas y rangos de zona por RESERVA, antes salían
+  por % de FC máx).
   **Finales**: probado ajustar la regla de final (umbral, tolerancia, subida, quietud): dentro de muestra 142 → 105 min de error, pero dejando
   un entreno fuera EMPEORA (1141 → 1168) → no se toca. Los finales de WHOOP no siguen un patrón (22/10 alarga 15 min sentado; 26/10 corta al andar).
 

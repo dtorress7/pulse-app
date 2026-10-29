@@ -1,26 +1,37 @@
 package com.pulseapp.android
 
 import android.os.Bundle
+import android.view.Gravity
+import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
-import com.pulseapp.android.data.AppDatabase
 import com.pulseapp.android.ui.CircularRingView
-import kotlinx.coroutines.Dispatchers
+import com.pulseapp.android.ui.WeekChartView
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import java.time.LocalDate
 
-/** Detalle de Recuperación (rediseño): anillo grande, VFC/FC frente a tu media, componentes y 7 días. */
+/**
+ * Recuperación con el aspecto de WHOOP (29/10, copiado de su pantalla "Hoy → Recuperación"): anillo grande, tarjeta con VFC,
+ * FC en reposo, frecuencia respiratoria y calificación del sueño (valor, flecha y tu media de 30 días debajo) y la leyenda
+ * "Hoy vs. los últimos 30 días". Debajo, cómo se calcula y la recuperación de la semana. Abre el día elegido en Inicio.
+ */
 class RecoveryDetailActivity : AppCompatActivity() {
 
-    private val recoveryCalculator = RecoveryCalculator()
-    private val baselineProvider = BaselineProvider()
+    companion object {
+        const val EXTRA_DAY_OFFSET = "day_offset"
+    }
+
+    private var offset = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_recovery_detail)
-        Ui.setupDetailHeader(this, "Recuperación")
+        setContentView(R.layout.activity_sleep_detail)
+        window.statusBarColor = Ui.color(this, R.color.w_bg_top)
+        offset = intent.getIntExtra(EXTRA_DAY_OFFSET, 0)
+        Ui.setupDetailHeader(this, if (offset == 0) "HOY" else W.dateTitle(LocalDate.now().plusDays(offset.toLong())))
+        Ui.setupTabBar(this, Ui.Tab.HOME)
     }
 
     override fun onResume() {
@@ -28,114 +39,97 @@ class RecoveryDetailActivity : AppCompatActivity() {
         load()
     }
 
-    private fun t(id: Int): TextView = findViewById(id)
+    private fun dp(v: Float) = Ui.dp(this, v)
 
     private fun load() {
         lifecycleScope.launch {
             val ctx = this@RecoveryDetailActivity
-            val db = AppDatabase.getInstance(ctx)
-            val profile = db.userProfileDao().getOnce()
-            val baseline = baselineProvider.compute(db)
-            val file = java.io.File(getExternalFilesDir(null), "hr_log.csv")
-            val summary = withContext(Dispatchers.IO) {
-                MetricsCalculator(ageYears = profile?.ageYears() ?: 30).analyze(file)
-            }
-            val b = recoveryCalculator.breakdown(summary.avgHrv, summary.restingHr, baseline, summary.respiratoryRate)
-            val colorRes = Ui.recoveryColor(b.total)
-            val label = when {
-                b.total >= 67 -> "Recuperado"
-                b.total >= 34 -> "Moderada"
-                else -> "Baja"
-            }
-            findViewById<CircularRingView>(R.id.recoveryRing).setValue(
-                b.total / 100f, "${b.total}%", label, Ui.color(ctx, colorRes)
-            )
-            t(R.id.recoveryExplanationText).text = when {
-                b.total >= 67 -> "Buena recuperación. Tu cuerpo está preparado para un día de esfuerzo alto."
-                b.total >= 34 -> "Recuperación moderada. Escucha a tu cuerpo antes de forzar hoy."
-                else -> "Recuperación baja. Hoy es buen día para bajar revoluciones y descansar."
-            }
+            val d = HomeDataLoader(ctx).load(offset)
+            val day = d.day
+            val rec = day.recovery
+            val prev = d.records.filter { it.date < d.date && it.date >= d.date.minusDays(30) }
+            fun avgD(f: (DayRecord) -> Double?): Double? = prev.mapNotNull(f).takeIf { it.isNotEmpty() }?.average()
+            val hrvAvg = avgD { it.hrv }
+            val rhrAvg = avgD { it.rhr?.toDouble() }
+            val respAvg = avgD { it.resp }
+            val scoreAvg = avgD { it.sleepScore?.toDouble() }
 
-            // VFC frente a tu media
-            t(R.id.hrvValueText).text = summary.avgHrv?.let { "%.0f".format(it) } ?: "--"
-            if (baseline != null && summary.avgHrv != null) {
-                val diff = summary.avgHrv - baseline.avgHrv
-                t(R.id.hrvDeltaText).apply {
-                    text = (if (diff >= 0) "▲ +" else "▼ −") + "%.0f".format(kotlin.math.abs(diff))
-                    setTextColor(Ui.color(ctx, if (diff >= 0) R.color.recovery_green else R.color.alert_amber))
+            val content = findViewById<LinearLayout>(R.id.detailContent)
+            content.removeAllViews()
+
+            // ---------- Anillo ----------
+            content.addView(LinearLayout(ctx).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER_HORIZONTAL
+                setPadding(0, dp(14f), 0, 0)
+                addView(CircularRingView(ctx).apply {
+                    strokeRatio = 0.055f; numberRatio = 0.26f; suffixRatio = 0.5f; suffixSameColor = true; labelRatio = 0.052f
+                    topText = "PULSE"
+                    setTrackColor(Ui.color(ctx, R.color.w_track)); setLabelColor(Ui.color(ctx, R.color.text_primary))
+                    setValue((rec ?: 0) / 100f, rec?.let { "$it%" } ?: "--", "Recuperación",
+                        Ui.color(ctx, rec?.let { W.recoveryColor(it) } ?: R.color.w_recovery_high))
+                    layoutParams = LinearLayout.LayoutParams(dp(260f), dp(260f))
+                })
+            })
+
+            // ---------- Las 4 métricas, como WHOOP ----------
+            content.addView(W.card(ctx, 18f).apply {
+                addView(W.valueRow(ctx, R.drawable.ic_hrv, "Variabilidad de la\nfrecuencia cardíaca", day.hrv?.let { "%.0f".format(it) } ?: "--",
+                    W.trendOf(day.hrv, hrvAvg, 1.0), true, hrvAvg?.let { "%.0f".format(it) }))
+                addView(W.divider(ctx))
+                addView(W.valueRow(ctx, R.drawable.ic_heart, "Frecuencia cardíaca\nen reposo", day.rhr?.toString() ?: "--",
+                    W.trendOf(day.rhr?.toDouble(), rhrAvg, 0.5), false, rhrAvg?.let { "%.0f".format(it) }))
+                addView(W.divider(ctx))
+                addView(W.valueRow(ctx, R.drawable.ic_lungs, "Frecuencia\nrespiratoria", day.resp?.let { Ui.comma(it) } ?: "--",
+                    W.trendOf(day.resp, respAvg, 0.05), false, respAvg?.let { Ui.comma(it) }))
+                addView(W.divider(ctx))
+                addView(W.valueRow(ctx, R.drawable.ic_moon, "Calificación\ndel sueño", day.sleepScore?.let { "$it %" } ?: "--",
+                    W.trendOf(day.sleepScore?.toDouble(), scoreAvg, 0.5), true, scoreAvg?.let { "%.0f %%".format(it) }))
+                addView(LinearLayout(ctx).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    background = W.rounded(ctx, R.color.w_bg_bottom, 8f)
+                    setPadding(dp(16f), dp(12f), dp(16f), dp(12f))
+                    layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(12f) }
+                    addView(W.icon(ctx, R.drawable.ic_triangle_up, 9f, R.color.w_mint))
+                    addView(W.icon(ctx, R.drawable.ic_triangle_down, 9f, R.color.w_trend_amber))
+                    addView(W.body(ctx, if (offset == 0) "Hoy vs. los últimos 30 días" else "Este día vs. los 30 días anteriores", 14.5f, R.color.text_primary)
+                        .apply { setPadding(dp(8f), 0, 0, 0) })
+                })
+            })
+
+            // ---------- Cómo se calcula ----------
+            content.addView(TextView(ctx).apply {
+                text = "Cómo se calcula"; setTextAppearance(R.style.HeadingW); setPadding(0, dp(34f), 0, dp(2f))
+            })
+            content.addView(W.card(ctx, 14f).apply {
+                val s = d.summary
+                if (d.isToday && s != null) {
+                    val b = RecoveryCalculator().breakdown(s.avgHrv, s.restingHr, BaselineProvider().compute(AppDatabaseHolder.get(ctx)), s.respiratoryRate)
+                    addView(W.valueRow(ctx, null, "VFC frente a tu media", b.hrvDeltaPct?.let { (if (it >= 0) "+" else "") + Ui.comma(it) + " %" } ?: "--"))
+                    addView(W.divider(ctx))
+                    addView(W.valueRow(ctx, null, "FC en reposo frente a tu media", b.rhrDelta?.let { (if (it >= 0) "+" else "") + Ui.comma(it) + " lpm" } ?: "--"))
+                    addView(W.divider(ctx))
                 }
-                t(R.id.hrvBaselineText).text = "Tu media: %.0f ms".format(baseline.avgHrv)
-            } else {
-                t(R.id.hrvDeltaText).text = ""
-                t(R.id.hrvBaselineText).text = "Media disponible con ${BaselineProvider.MIN_DAYS_REQUIRED}+ días"
-            }
+                addView(W.body(ctx, "Como en WHOOP, la recuperación sale de tu VFC y tu FC en reposo de esta noche comparadas con tu propia " +
+                    "media de las últimas semanas (más VFC y menos pulso que de costumbre = más recuperación). Si la respiración se dispara, baja. " +
+                    "La calificación del sueño se muestra como en WHOOP pero no cambia la nota: en tus 199 noches de WHOOP no mejoraba el cálculo.", 14f)
+                    .apply { setPadding(0, dp(12f), 0, dp(6f)) })
+            })
 
-            // FC en reposo frente a tu media (más baja = mejor)
-            t(R.id.rhrValueText).text = summary.restingHr?.toString() ?: "--"
-            if (baseline != null && summary.restingHr != null) {
-                val diff = summary.restingHr - baseline.avgRestingHr
-                t(R.id.rhrDeltaText).apply {
-                    text = (if (diff > 0) "▲ +" else "▼ −") + "%.0f".format(kotlin.math.abs(diff))
-                    setTextColor(Ui.color(ctx, if (diff <= 0) R.color.recovery_green else R.color.alert_amber))
-                }
-                t(R.id.rhrBaselineText).text = "Tu media: %.0f lpm".format(baseline.avgRestingHr)
-            } else {
-                t(R.id.rhrDeltaText).text = ""
-                t(R.id.rhrBaselineText).text = "Media disponible con ${BaselineProvider.MIN_DAYS_REQUIRED}+ días"
-            }
-
-            // Qué la compone
-            val list: LinearLayout = findViewById(R.id.compositionList)
-            list.removeAllViews()
-            fun addRow(title: String, value: String, colorRes: Int, sub: String, bar: Float?) {
-                val row = Ui.listRow(ctx, title, value, colorRes, sub)
-                row.setPadding(0, Ui.dp(ctx, 12f), 0, Ui.dp(ctx, 6f))
-                list.addView(row)
-                if (bar != null) list.addView(Ui.progressBar(ctx, bar.coerceIn(0.02f, 1f), colorRes))
-            }
-            // VFC: lo que más pesa. Barra centrada en el 50 %: ±30 % de tu media llena o vacía la barra.
-            val hrvPct = b.hrvDeltaPct
-            addRow(
-                "VFC frente a tu media  ·  decide la nota",
-                hrvPct?.let { (if (it >= 0) "+" else "−") + "%.0f %%".format(kotlin.math.abs(it)) } ?: "--",
-                if ((hrvPct ?: 0.0) >= -5) R.color.recovery_green else if (hrvPct!! >= -20) R.color.alert_amber else R.color.alert_red,
-                if (b.personalBaseline) "Comparada con tu media ponderada de los últimos 14 días"
-                else "Aún sin noches propias: se compara con tu media de WHOOP antes de PulseApp (88 ms)",
-                hrvPct?.let { (0.5 + it / 60.0).toFloat() }
-            )
-            val rd = b.rhrDelta
-            addRow(
-                "FC en reposo frente a tu media  ·  ajuste pequeño",
-                rd?.let { (if (it > 0) "+" else "−") + "%.0f lpm".format(kotlin.math.abs(it)) } ?: "--",
-                if ((rd ?: 0.0) <= 2) R.color.recovery_green else R.color.alert_amber,
-                "Cada 5 lpm por encima de tu media resta unos 3 puntos",
-                null
-            )
-            addRow(
-                "Respiración",
-                if (b.respPenalty) "Alta" else if (summary.respiratoryRate != null) "Normal" else "--",
-                if (b.respPenalty) R.color.alert_red else R.color.text_primary,
-                if (b.respPenalty) "Mucho más alta que tu media: posible inicio de catarro o fatiga, resta puntos"
-                else "Solo resta si sube claramente sobre lo normal",
-                null
-            )
-            addRow(
-                "Sueño", "No suma", R.color.text_secondary,
-                "En tus 155 noches de WHOOP el sueño no cambia la nota: influye a través de la VFC",
-                null
-            )
-
-            // Últimos 7 días (los días guardados se recalculan con la necesidad base de sueño)
-            val days = db.dailyMetricsDao().getLastDays(6).sortedBy { it.date }
-            val items = days.map { d ->
-                val score = recoveryCalculator.breakdown(d.avgHrv, d.restingHr, baseline, d.respiratoryRate)
-                    .total.takeIf { d.avgHrv != null }
-                Triple(Ui.weekdayLetter(d.date), score?.toDouble(), Ui.recoveryColor(score ?: 0))
-            } + Triple("Hoy", b.total.toDouble(), colorRes)
-            Ui.fillWeekBars(findViewById(R.id.trendBars), items, 100.0) { "%.0f".format(it) }
-            val valid = items.mapNotNull { it.second }
-            t(R.id.trendAverageText).text = if (valid.size > 1) "Media ${valid.average().toInt()} %" else ""
-            t(R.id.trendNote).text = if (days.isEmpty()) "Cada día guardado añade una barra. La línea base personal se activa con 3 días." else ""
+            // ---------- Semana ----------
+            content.addView(TextView(ctx).apply {
+                text = "Tendencias semanales"; setTextAppearance(R.style.HeadingW); setPadding(0, dp(34f), 0, dp(2f))
+            })
+            val week = (6 downTo 0).map { d.date.minusDays(it.toLong()) }
+            val byDate = d.records.associateBy { it.date }
+            val recs = week.map { byDate[it]?.recovery ?: if (it == d.date) rec else null }
+            content.addView(W.chartCard(ctx, "Recuperación", emptyList(), WeekChartView(ctx).apply {
+                setBars(W.weekDays(week),
+                    recs.map { v -> v?.let { listOf(it.toFloat() to Ui.color(ctx, W.recoveryColor(it))) } },
+                    recs.map { v -> v?.let { WeekChartView.Label("$it %", Ui.color(ctx, W.recoveryColor(it))) } }, 100f)
+            }))
+            content.addView(View(ctx).apply { layoutParams = LinearLayout.LayoutParams(1, dp(30f)) })
         }
     }
 }

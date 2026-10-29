@@ -90,10 +90,16 @@ enum AutoActivityScanner {
                 continue
             }
             let nap = type == Formulas.napType
-            guard let session = ActivityRecorder.summarize(
+            guard var session = ActivityRecorder.summarize(
                 hrLog: hrLog, startMillis: start, endMillis: end,
                 ageYears: profile.ageYears(), weightKg: profile.weightKg, sex: profile.sex,
                 type: type, autoDetected: true, restingHr: rhr) else { continue }
+            // 29/10: deporte automático (si se parece claramente a tus actividades anteriores); con el deporte se rehace el esfuerzo
+            if type == Formulas.unclassified, let g = Formulas.guessSport(session, existing),
+               let typed = ActivityRecorder.summarize(hrLog: hrLog, startMillis: start, endMillis: end, ageYears: profile.ageYears(),
+                                                      weightKg: profile.weightKg, sex: profile.sex, type: g, autoDetected: true, restingHr: rhr) {
+                session = typed
+            }
             var s = session
             if nap { s.strain = 0; s.caloriesKcal = 0 } else { Formulas.updateObservedHrMax(session.maxHr) }
             s.id = store.saveSession(s)
@@ -101,6 +107,20 @@ enum AutoActivityScanner {
             saved += 1
         }
         if rescan { UserDefaults.standard.set(2, forKey: "pulseapp_act_rescan") }
+        // 29/10 (una vez): las automáticas "Sin clasificar" de los últimos 30 días reciben deporte si se parecen claramente a las tuyas
+        if UserDefaults.standard.integer(forKey: "pulseapp_act_classify") < 1 {
+            let all = store.allSessions()
+            for old in all where old.autoDetected && old.type == Formulas.unclassified && old.startMillis >= now - 30 * 86_400_000 {
+                guard let g = Formulas.guessSport(old, all) else { continue }
+                var fresh = ActivityRecorder.summarize(hrLog: hrLog, startMillis: old.startMillis, endMillis: old.endMillis,
+                                                       ageYears: profile.ageYears(), weightKg: profile.weightKg, sex: profile.sex,
+                                                       type: g, autoDetected: true, restingHr: rhr) ?? old
+                fresh.type = g; fresh.id = old.id
+                store.updateSession(fresh)
+                saved += 1
+            }
+            UserDefaults.standard.set(1, forKey: "pulseapp_act_classify")
+        }
         return saved
     }
 

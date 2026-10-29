@@ -47,7 +47,7 @@ enum Route: Hashable {
     case strain(Int)
     case health
     case stress
-    case recovery
+    case recovery(Int)
     case activity(Int64)
     case editActivity(Int64)
 }

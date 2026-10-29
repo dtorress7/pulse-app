@@ -117,58 +117,122 @@ struct ProfileView: View {
     @State private var note = ""
 
     var body: some View {
-        NavigationStack {
-            Screen("Perfil") {
-                Card {
-                    VStack(alignment: .leading, spacing: 12) {
-                        CapsLabel(text: "Tus datos")
-                        field("Peso (kg)", $weight)
-                        Hairline()
-                        field("Estatura (cm)", $height)
-                        Hairline()
-                        field("FC máxima (lpm)", $hrMax, placeholder: "auto")
-                        Hairline()
-                        field("FC en reposo para zonas", $zoneRhr, placeholder: "auto (\(Formulas.zoneRestingHr()))")
-                        Hairline()
-                        DatePicker("Nacimiento", selection: $birthday, displayedComponents: [.date])
-                        Hairline()
-                        HStack(spacing: 10) {
-                            sexButton("M", "Hombre")
-                            sexButton("F", "Mujer")
-                        }
-                    }
-                    .foregroundColor(Theme.textPrimary)
+        WScreen {
+            DetailHeader(title: "Sobre mí")
+            // Avatar y resumen
+            VStack(spacing: 14) {
+                Image(systemName: "person.fill").font(.system(size: 34)).foregroundColor(Theme.textSecondary)
+                    .frame(width: 80, height: 80).background(Circle().fill(Theme.wCard))
+                HStack(spacing: 0) {
+                    stat(ageText, "Años")
+                    stat(bmiText, "IMC")
+                    stat(AppStore.shared.getProfile()?.vo2Max.map { Fmt.int($0) } ?? "--", "VO₂ máx")
                 }
-                Button(action: { save() }) {
-                    Text("Guardar").font(Theme.label(17)).foregroundColor(Theme.onAccent)
-                        .frame(maxWidth: Double.infinity).padding(.vertical, 12)
-                        .background(Theme.recoveryGreen).cornerRadius(12)
-                }
-                if !note.isEmpty { Text(note).font(Theme.text(12)).foregroundColor(Theme.textSecondary) }
-                Text("Se usan para calorías, zonas de pulso, esfuerzo y VO₂ máx. FC máxima y FC en reposo para zonas: pon las mismas que en WHOOP (Ajustes de FC: la tuya 195 y 59); vacías = automáticas. Todo se queda en tu iPhone.")
-                    .font(Theme.text(12)).foregroundColor(Theme.textSecondary)
             }
-            .navigationTitle("Perfil")
-            .navigationBarTitleDisplayMode(.inline)
-            .onAppear { load() }
+            .frame(maxWidth: .infinity).padding(.top, 10)
+
+            WTitle(text: "Tus datos").padding(.top, 26).padding(.bottom, 10)
+            WCard(padding: 0) {
+                row("Peso (kg)") { input($weight, "--") }
+                WDivider()
+                row("Estatura (cm)") { input($height, "--") }
+                WDivider()
+                row("Nacimiento") { DatePicker("", selection: $birthday, displayedComponents: [.date]).labelsHidden().colorScheme(.dark) }
+                WDivider()
+                row("Sexo") {
+                    HStack(spacing: 8) { sexButton("M", "Hombre"); sexButton("F", "Mujer") }.frame(width: 190)
+                }
+            }
+
+            HStack {
+                WTitle(text: "Ajustes de FC")
+                Spacer()
+                WBody(text: "Como WHOOP: reserva de FC", size: 12.5)
+            }
+            .padding(.top, 26).padding(.bottom, 10)
+            WCard(padding: 0) {
+                row("FC máxima") { input($hrMax, "auto") }
+                WDivider()
+                row("FC en reposo para zonas") { input($zoneRhr, "auto (\(Formulas.zoneRestingHr()))") }
+                WDivider()
+                zonesList.padding(.horizontal, 16).padding(.vertical, 10)
+            }
+
+            Button(action: { save() }) {
+                WTitle(text: "Guardar", size: 16, color: Theme.onAccent)
+                    .frame(maxWidth: .infinity).padding(.vertical, 15)
+                    .background(Theme.wMint).cornerRadius(12)
+            }
+            .padding(.top, 22)
+            if !note.isEmpty { WBody(text: note, size: 13).padding(.top, 8) }
+            WBody(text: "Se usan para calorías, zonas de pulso, esfuerzo y VO₂ máx. FC máxima y FC en reposo para zonas: pon las mismas que en WHOOP (Ajustes de FC: la tuya 195 y 59); vacías = automáticas. Todo se queda en tu iPhone.", size: 12.5)
+                .padding(.top, 10).padding(.bottom, 30)
         }
+        .onAppear { load() }
     }
 
-    private func field(_ label: String, _ value: Binding<String>, placeholder: String = "") -> some View {
+    private var ageText: String {
+        let years = Calendar.current.dateComponents([.year], from: birthday, to: Date()).year ?? 0
+        return years > 0 ? "\(years)" : "--"
+    }
+
+    private var bmiText: String {
+        let w = Double(weight.replacingOccurrences(of: ",", with: ".")) ?? 0
+        let h = Double(height.replacingOccurrences(of: ",", with: ".")) ?? 0
+        return w > 0 && h > 0 ? Fmt.comma(w / ((h / 100) * (h / 100))) : "--"
+    }
+
+    private func stat(_ value: String, _ label: String) -> some View {
+        VStack(spacing: 4) {
+            WNumber(text: value, size: 26)
+            WTitle(text: label, size: 11, color: Theme.textSecondary)
+        }
+        .frame(width: 84)
+    }
+
+    private func row<V: View>(_ label: String, @ViewBuilder _ trailing: () -> V) -> some View {
         HStack {
-            Text(label).font(Theme.text(16)).foregroundColor(Theme.textSecondary)
-            Spacer()
-            TextField(placeholder, text: value).keyboardType(.decimalPad)
-                .multilineTextAlignment(.trailing).frame(maxWidth: 120)
+            WTitle(text: label, size: 13.5)
+            Spacer(minLength: 8)
+            trailing()
+        }
+        .padding(.horizontal, 16).padding(.vertical, 13)
+    }
+
+    private func input(_ value: Binding<String>, _ placeholder: String) -> some View {
+        TextField(placeholder, text: value).keyboardType(.decimalPad)
+            .font(Theme.number(20)).foregroundColor(Theme.textPrimary)
+            .multilineTextAlignment(.trailing).frame(maxWidth: 140)
+    }
+
+    /// Rangos de las zonas 1–5 (reserva de FC, como en las actividades y en WHOOP).
+    private var zonesList: some View {
+        let age = Calendar.current.dateComponents([.year], from: birthday, to: Date()).year ?? 30
+        let hm = Int(hrMax.trimmingCharacters(in: .whitespaces)) ?? 0
+        let zr = Int(zoneRhr.trimmingCharacters(in: .whitespaces)) ?? 0
+        let maxHr = hm > 0 ? Double(hm) : Formulas.hrMax(ageYears: age)
+        let b = Formulas.zoneBounds(hrMax: maxHr, rhr: zr > 0 ? zr : nil)
+        return VStack(spacing: 12) {
+            ForEach((1...5).reversed(), id: \.self) { z in
+                HStack(spacing: 12) {
+                    WTitle(text: "Zona \(z)", size: 13.5).frame(width: 64, alignment: .leading)
+                    GeometryReader { g in
+                        Capsule().fill(Theme.wZone[z]).frame(width: g.size.width * (1 - 0.12 * Double(5 - z)), height: 8)
+                            .frame(maxHeight: .infinity)
+                    }
+                    .frame(height: 14)
+                    WNumber(text: z == 5 ? "\(b[4])+ lpm" : "\(b[z - 1])–\(b[z] - 1) lpm", size: 17).frame(width: 96, alignment: .trailing)
+                }
+            }
         }
     }
 
     private func sexButton(_ code: String, _ label: String) -> some View {
         let on = sex == code
         return Button(action: { sex = code }) {
-            Text(label).font(Theme.label(16)).foregroundColor(on ? Theme.onAccent : Theme.textPrimary)
+            WTitle(text: label, size: 13, color: on ? Theme.onAccent : Theme.textPrimary)
                 .frame(maxWidth: Double.infinity).padding(.vertical, 9)
-                .background(on ? Theme.recoveryGreen : Theme.track).cornerRadius(10)
+                .background(on ? Theme.wMint : Theme.wChip).cornerRadius(8)
         }
     }
 

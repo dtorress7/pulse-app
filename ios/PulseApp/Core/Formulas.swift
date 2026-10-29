@@ -102,6 +102,40 @@ enum Formulas {
     // con el pulso mediano ≤ FC en reposo + 12. No cuenta en sueño ni recuperación; resta de la necesidad de sueño.
     static let napType = "Siesta"
 
+    // ---------- Deporte automático (29/10), igual que Android (Formulas.guessSport) ----------
+    // Las 5 actividades tuyas con deporte más parecidas (hora, día de la semana, duración, FC máxima, % por zona); decide si ≥ 4 coinciden.
+    // 213 entrenos del export (solo los anteriores a cada uno): fútbol 66 de 69 bien, funcional 48 de 64, 51 sin decidir.
+    static let unclassified = "Sin clasificar"
+    private static let notASport: Set<String> = [unclassified, napType, "Otro", "Actividad"]
+
+    static func guessSport(_ s: ActivitySession, _ history: [ActivitySession]) -> String? {
+        let refs = history.filter { $0.id != s.id && !notASport.contains($0.type) && $0.endMillis > $0.startMillis }
+        if refs.count < 5 { return nil }
+        let nb = refs.map { ($0, sportDistance(s, $0)) }.sorted { $0.1 < $1.1 }.prefix(5)
+        var count = [String: Int]()
+        var order = [String]()
+        for (r, _) in nb { if count[r.type] == nil { order.append(r.type) }; count[r.type, default: 0] += 1 }
+        guard let best = order.max(by: { count[$0]! < count[$1]! }) else { return nil }
+        return count[best]! >= 4 ? best : nil
+    }
+
+    private static func sportFeatures(_ a: ActivitySession) -> [Double] {
+        let p = TimeUtil.parts(a.startMillis)
+        let mins = [a.minutesZone0, a.minutesZone1, a.minutesZone2, a.minutesZone3, a.minutesZone4, a.minutesZone5]
+        let tot = Double(max(mins.reduce(0, +), 1))
+        return [Double(p.hour * 60 + p.minute), Double(p.weekday), max(1.0, Double(a.endMillis - a.startMillis) / 60_000.0), Double(a.maxHr)]
+            + mins.map { 100 * Double($0) / tot }
+    }
+
+    static func sportDistance(_ a: ActivitySession, _ b: ActivitySession) -> Double {
+        let x = sportFeatures(a), y = sportFeatures(b)
+        var dm = abs(x[0] - y[0]); dm = min(dm, 1440 - dm) / 60.0
+        let dl = log(x[2] / y[2]), dh = (x[3] - y[3]) / 10
+        var d = 0.5 * dm * dm + (x[1] == y[1] ? 0 : 1) + dl * dl + 0.5 * dh * dh
+        for z in 4...9 { let q = (x[z] - y[z]) / 20; d += 0.5 * q * q }
+        return d
+    }
+
     static func detectNaps(_ minutes: [(Int64, Double)], motion: [MotionMinute], rhr: Int) -> [(Int64, Int64)] {
         var byMin = [Int64: MotionMinute](minimumCapacity: motion.count)
         for mm in motion { byMin[mm.minuteStartUnix / 60] = mm }

@@ -128,11 +128,16 @@ object AutoActivityScanner {
                 saved++
                 continue
             }
-            val session = ActivityRecorder().summarize(
+            var session = ActivityRecorder().summarize(
                 csvFile, start, end,
                 ageYears = profile.ageYears(), weightKg = profile.weightKg, sex = profile.sex,
                 type = type, autoDetected = true, restingHr = rhr
             ) ?: continue
+            // 29/10: deporte automático (si se parece claramente a tus actividades anteriores); con el deporte se rehace el esfuerzo
+            if (type == Formulas.UNCLASSIFIED) Formulas.guessSport(session, existing)?.let { g ->
+                session = ActivityRecorder().summarize(csvFile, start, end, ageYears = profile.ageYears(), weightKg = profile.weightKg,
+                    sex = profile.sex, type = g, autoDetected = true, restingHr = rhr) ?: session
+            }
             val nap = type == Formulas.NAP_TYPE
             if (!nap) Formulas.updateObservedHrMax(context, session.maxHr)
             // Siesta: sin esfuerzo ni calorías extra (ese rato ya lo cuenta la base del día)
@@ -142,6 +147,18 @@ object AutoActivityScanner {
             saved++
         }
         if (rescan) sp.edit().putInt("act_rescan", 2).apply()
+        // 29/10 (una vez): las automáticas "Sin clasificar" de los últimos 30 días reciben deporte si se parecen claramente a las tuyas
+        if (sp.getInt("act_classify", 0) < 1) {
+            val all = db.activitySessionDao().getAll()
+            for (old in all.filter { it.autoDetected && it.type == Formulas.UNCLASSIFIED && it.startMillis >= now - 30 * 86_400_000L }) {
+                val g = Formulas.guessSport(old, all) ?: continue
+                val fresh = ActivityRecorder().summarize(csvFile, old.startMillis, old.endMillis, ageYears = profile.ageYears(),
+                    weightKg = profile.weightKg, sex = profile.sex, type = g, autoDetected = true, restingHr = rhr)
+                db.activitySessionDao().update((fresh ?: old.copy(type = g)).copy(id = old.id))
+                saved++
+            }
+            sp.edit().putInt("act_classify", 1).apply()
+        }
         return saved
     }
 }

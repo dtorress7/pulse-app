@@ -41,6 +41,7 @@ class ProfileActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_profile)
+        window.statusBarColor = Ui.color(this, R.color.w_bg_top)
         Ui.setupDetailHeader(this, "Sobre mí")
 
         findViewById<View>(R.id.rowBirthday).setOnClickListener { pickBirthday() }
@@ -177,38 +178,31 @@ class ProfileActivity : AppCompatActivity() {
         val zones: LinearLayout = findViewById(R.id.zonesList)
         zones.removeAllViews()
         val hrMax = Formulas.hrMax(this, age ?: 30)
-        findViewById<TextView>(R.id.hrMaxText).text = "Máx. %.0f".format(hrMax) +
+        findViewById<TextView>(R.id.hrMaxText).text = "Máx. %.0f · reposo %d".format(hrMax, Formulas.zoneRestingHr()) +
             if (Formulas.observedHrMax(this) != null) "" else if (age == null) " (edad estimada)" else " (por edad)"
+        // 29/10: zonas por reserva de FC, como WHOOP ("fórmula de FC de reserva"): las mismas que en las actividades
+        val bounds = Formulas.zoneBounds(hrMax)
         val zoneDefs = listOf(
-            Triple("Z5", 0.9 to 1.0, R.color.zone5),
-            Triple("Z4", 0.8 to 0.9, R.color.zone4),
-            Triple("Z3", 0.7 to 0.8, R.color.zone3),
-            Triple("Z2", 0.6 to 0.7, R.color.zone2),
-            Triple("Z1", 0.5 to 0.6, R.color.zone1)
+            Triple("Zona 5", "${bounds[4]}+", R.color.w_zone5),
+            Triple("Zona 4", "${bounds[3]}–${bounds[4] - 1}", R.color.w_zone4),
+            Triple("Zona 3", "${bounds[2]}–${bounds[3] - 1}", R.color.w_zone3),
+            Triple("Zona 2", "${bounds[1]}–${bounds[2] - 1}", R.color.w_zone2),
+            Triple("Zona 1", "${bounds[0]}–${bounds[1] - 1}", R.color.w_zone1)
         )
-        zoneDefs.forEach { (name, range, colorRes) ->
+        zoneDefs.forEachIndexed { i, (name, range, colorRes) ->
             zones.addView(LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding(0, Ui.dp(this@ProfileActivity, 9f), 0, Ui.dp(this@ProfileActivity, 9f))
-                addView(TextView(this@ProfileActivity).apply {
-                    text = name
-                    textSize = 12f
-                    letterSpacing = 0.14f
-                    typeface = ResourcesCompat.getFont(this@ProfileActivity, R.font.barlow_condensed_semibold)
-                    setTextColor(Ui.color(this@ProfileActivity, R.color.text_primary))
-                    layoutParams = LinearLayout.LayoutParams(Ui.dp(this@ProfileActivity, 30f), LinearLayout.LayoutParams.WRAP_CONTENT)
+                addView(W.title(this@ProfileActivity, name, 13.5f).apply {
+                    layoutParams = LinearLayout.LayoutParams(Ui.dp(this@ProfileActivity, 64f), LinearLayout.LayoutParams.WRAP_CONTENT)
                 })
-                addView(Ui.progressBar(this@ProfileActivity, range.second.toFloat(), colorRes).apply {
+                addView(Ui.progressBar(this@ProfileActivity, 1f - 0.12f * i, colorRes).apply {
                     layoutParams = LinearLayout.LayoutParams(0, Ui.dp(this@ProfileActivity, 8f), 1f)
                 })
-                addView(TextView(this@ProfileActivity).apply {
-                    text = "%.0f–%.0f".format(hrMax * range.first, hrMax * range.second)
-                    textSize = 16f
-                    typeface = Ui.boldCondensed(this@ProfileActivity)
+                addView(W.number(this@ProfileActivity, "$range lpm", 17f).apply {
                     gravity = Gravity.END
-                    setTextColor(Ui.color(this@ProfileActivity, R.color.text_primary))
-                    layoutParams = LinearLayout.LayoutParams(Ui.dp(this@ProfileActivity, 76f), LinearLayout.LayoutParams.WRAP_CONTENT)
+                    layoutParams = LinearLayout.LayoutParams(Ui.dp(this@ProfileActivity, 96f), LinearLayout.LayoutParams.WRAP_CONTENT)
                 })
             })
         }

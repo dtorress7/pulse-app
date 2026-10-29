@@ -327,7 +327,7 @@ struct HomeView: View {
                     "Sueño", .sleep(dayOffset)).frame(maxWidth: .infinity)
             ringBox(WRing(progress: Double(rec ?? 0) / 100, value: rec.map { "\($0)%" } ?? "--",
                           color: rec.map { Theme.wRecoveryColor($0) } ?? Theme.wRecoveryHigh),
-                    "Recuperación", .recovery).frame(maxWidth: .infinity).layoutPriority(1)
+                    "Recuperación", .recovery(dayOffset)).frame(maxWidth: .infinity).layoutPriority(1)
             ringBox(WRing(progress: (strain ?? 0) / 21, value: strain.map { Fmt.comma($0) } ?? "--", color: Theme.strainBlue),
                     "Esfuerzo", .strain(dayOffset)).frame(maxWidth: .infinity)
         }
@@ -355,7 +355,7 @@ struct HomeView: View {
             miniRing(WRing(progress: Double(sleepScore) / 100, value: "", color: Theme.wRingSleep, size: 26, strokeRatio: 0.14),
                      day?.sleepScore.map { "\($0)%" } ?? "--", .sleep(dayOffset))
             miniRing(WRing(progress: Double(rec ?? 0) / 100, value: "", color: rec.map { Theme.wRecoveryColor($0) } ?? Theme.wRecoveryHigh,
-                           size: 26, strokeRatio: 0.14), rec.map { "\($0)%" } ?? "--", .recovery)
+                           size: 26, strokeRatio: 0.14), rec.map { "\($0)%" } ?? "--", .recovery(dayOffset))
             miniRing(WRing(progress: strain / 21, value: "", color: Theme.strainBlue, size: 26, strokeRatio: 0.14),
                      day?.strain.map { Fmt.comma($0) } ?? "--", .strain(dayOffset))
         }
@@ -854,7 +854,7 @@ struct RouteView: View {
         case .strain(let o): StrainDetailView(dayOffset: o, showBack: true, path: $path)
         case .health: HealthMonitorView(showBack: true, path: $path)
         case .stress: StressDetailView()
-        case .recovery: RecoveryView().toolbar(.visible, for: .navigationBar)
+        case .recovery(let o): RecoveryDetailView(dayOffset: o)
         case .activity(let id): ActivityDetailView(sessionId: id, path: $path)
         case .editActivity(let id): EditSessionView(sessionId: id).toolbar(.visible, for: .navigationBar)
         }

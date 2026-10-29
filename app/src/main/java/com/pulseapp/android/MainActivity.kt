@@ -156,7 +156,9 @@ class MainActivity : AppCompatActivity() {
         recoveryRing.setValue(0f, "--", "", Ui.color(this, R.color.w_recovery_high))
         strainRing.setValue(0f, "--", "", Ui.color(this, R.color.strain_blue))
 
-        val openRecovery = View.OnClickListener { startActivity(Intent(this, RecoveryDetailActivity::class.java)) }
+        val openRecovery = View.OnClickListener {
+            startActivity(Intent(this, RecoveryDetailActivity::class.java).putExtra(RecoveryDetailActivity.EXTRA_DAY_OFFSET, dayOffset))
+        }
         val openSleep = View.OnClickListener {
             startActivity(Intent(this, SleepDetailActivity::class.java).putExtra(SleepDetailActivity.EXTRA_DAY_OFFSET, dayOffset))
         }
