@@ -361,11 +361,23 @@ enum Formulas {
     static let sleepStrainFloor = 0.05
 
     // ---------- Recuperación ----------
-    /// 23/10 (igual que Android): lineal, ajustada con 199 noches de WHOOP (error medio en validación cruzada 4,8):
-    ///   recuperación = 64,28 + 89,74 · (ln VFC − media) − 0,4625 · (FCR − media)
-    static let recBias = 64.2755
-    static let recKHrv = 89.7396
-    static let recKRhr = 0.4625
+    /// 30/10 (igual que Android): lineal + percentil de la VFC de hoy entre tus últimas 30 noches. 193 noches de WHOOP:
+    /// validación cruzada 4,67 → 3,92; por tiempo 4,57 → 4,07; con la VFC de PulseApp 23→30/10 5,6 → 4,1.
+    ///   recuperación = 44,89 + 39,11 · ΔlnVFC − 0,4969 · ΔFCR + 37,54 · Φ((ln VFC − media 30) / sd 30)
+    static let recBias = 44.8897
+    static let recKHrv = 39.1063
+    static let recKRhr = 0.4969
+    static let recKPct = 37.5384
+    static let recLnSdDefault = 0.196
+
+    /// Φ(x) (Abramowitz–Stegun 7.1.26), la misma aproximación que Android.
+    static func normalCdf(_ x: Double) -> Double {
+        let z = abs(x) / 2.0.squareRoot()
+        let t = 1.0 / (1.0 + 0.3275911 * z)
+        let poly = ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t
+        let e = 1.0 - poly * exp(-z * z)
+        return x >= 0 ? 0.5 * (1.0 + e) : 0.5 * (1.0 - e)
+    }
     /// Línea base de partida: la de WHOOP el 14/10, antes de usar PulseApp (VFC 88 ms, FC reposo 58,5 lpm).
     static let fallbackHrv = 88.0
     static let fallbackRhr = 58.5
@@ -384,13 +396,17 @@ enum Formulas {
         if let h = hrv, h > 0 { delta = log(h) - lnRef }
         var rhrDelta: Double? = nil
         if let r = restingHr { rhrDelta = Double(r) - (b?.avgRestingHr ?? fallbackRhr) }
-        var score = recBias + recKHrv * (delta ?? -0.1) - recKRhr * (rhrDelta ?? 0.0)
+        var lnToday = lnRef - 0.1
+        if let h = hrv, h > 0 { lnToday = log(h) }
+        let mu = b?.lnHrvMean30 ?? lnRef
+        let sdLn = (b?.lnHrvMean30 != nil) ? (b?.lnHrvSd ?? recLnSdDefault) : recLnSdDefault
+        var score = recBias + recKHrv * (delta ?? -0.1) - recKRhr * (rhrDelta ?? 0.0) + recKPct * normalCdf((lnToday - mu) / sdLn)
         var penalty = false
         if let rr = respiratoryRate, rr >= 8.0, rr <= 25.0, let bb = b, let m = bb.respMean, let sd = bb.respSd {
             let z = (rr - m) / sd
             if z > 2.0 { score -= 12.0 * (z - 2.0); penalty = true }
         }
-        let raw = Int(score.rounded(.down))
+        let raw = Int(score.rounded())
         let total = min(max(raw, 1), 99)
         var pct: Double? = nil
         if let d = delta { pct = (exp(d) - 1) * 100 }

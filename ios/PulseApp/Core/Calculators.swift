@@ -55,7 +55,8 @@ enum BaselineProvider {
             lnHrvSd: max(sd(lnHrv), minLnHrvSd),
             rhrSd: max(sd(validRhr), minRhrSd),
             respMean: respOk ? validResp.reduce(0, +) / Double(validResp.count) : nil,
-            respSd: respOk ? max(sd(validResp), minRespSd) : nil)
+            respSd: respOk ? max(sd(validResp), minRespSd) : nil,
+            lnHrvMean30: lnHrv.count >= 7 ? lnHrv.reduce(0, +) / Double(lnHrv.count) : nil)
     }
 
     private static func ewma(_ oldestFirst: [Double], prior: Double) -> Double {

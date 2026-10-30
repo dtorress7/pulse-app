@@ -17,7 +17,9 @@ data class PersonalBaseline(
     val lnHrvSd: Double = 0.12,
     val rhrSd: Double = 2.5,
     val respMean: Double? = null,
-    val respSd: Double? = null
+    val respSd: Double? = null,
+    /** Media simple de ln VFC de esas noches (para el percentil de la recuperación, 30/10); null con < 7 noches. */
+    val lnHrvMean30: Double? = null
 )
 
 class BaselineProvider {
@@ -74,7 +76,8 @@ class BaselineProvider {
             lnHrvSd = maxOf(sd(lnHrv), MIN_LN_HRV_SD),
             rhrSd = maxOf(sd(validRhr), MIN_RHR_SD),
             respMean = if (validResp.size >= MIN_DAYS_REQUIRED) validResp.average() else null,
-            respSd = if (validResp.size >= MIN_DAYS_REQUIRED) maxOf(sd(validResp), MIN_RESP_SD) else null
+            respSd = if (validResp.size >= MIN_DAYS_REQUIRED) maxOf(sd(validResp), MIN_RESP_SD) else null,
+            lnHrvMean30 = if (lnHrv.size >= 7) lnHrv.average() else null
         )
     }
 

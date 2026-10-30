@@ -67,6 +67,8 @@ struct PersonalBaseline {
     var rhrSd: Double = 2.5
     var respMean: Double? = nil
     var respSd: Double? = nil
+    /// Media simple de ln VFC de esas noches (percentil de la recuperación, 30/10); nil con < 7 noches.
+    var lnHrvMean30: Double? = nil
 }
 
 /// Una lectura de pulso con su hora real y los intervalos RR (ms) si los hay.

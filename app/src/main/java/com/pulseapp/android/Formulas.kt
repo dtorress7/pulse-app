@@ -483,13 +483,27 @@ object Formulas {
     // ---------- Recuperación ----------
 
     /**
-     * Recuperación (23/10): lineal, ajustada con 199 noches de WHOOP (export abr–sep + API sep–oct), validación cruzada
-     * 4,8 puntos de error medio (la sigmoide de antes: 5,9; en las 39 noches más recientes 4,3 frente a 6,6):
-     *   recuperación = 64,28 + 89,74 · (ln VFC − media ln VFC) − 0,4625 · (FCR − media FCR)
+     * Recuperación (30/10): lineal + PERCENTIL de la VFC de hoy entre tus últimas 30 noches (WHOOP satura en los extremos:
+     * una VFC muy alta o muy baja respecto a lo habitual pesa menos que la recta). 193 noches de WHOOP (export + API con decimales),
+     * línea base calculada como en BaselineProvider: validación cruzada 4,67 → 3,92; ajustando hasta el 14/09 y probando en las
+     * 46 noches siguientes 4,57 → 4,07; con la VFC/FCR de PulseApp en 23→30/10 5,6 → 4,1. El sueño sigue sin aportar (≤ 0,07).
+     *   recuperación = 44,89 + 39,11 · (ln VFC − EWMA14) − 0,4969 · (FCR − EWMA14) + 37,54 · Φ((ln VFC − media 30) / sd 30)
+     * (antes: 64,28 + 89,74 · ΔlnVFC − 0,4625 · ΔFCR, sin percentil).
      */
-    const val REC_BIAS = 64.2755
-    const val REC_K_HRV = 89.7396
-    const val REC_K_RHR = 0.4625
+    const val REC_BIAS = 44.8897
+    const val REC_K_HRV = 39.1063
+    const val REC_K_RHR = 0.4969
+    const val REC_K_PCT = 37.5384
+    /** Variación típica de ln VFC en 30 noches (tu historial: 0,196), si aún no hay 7 noches. */
+    const val REC_LN_SD_DEFAULT = 0.196
+
+    /** Función de distribución normal Φ(x) (Abramowitz–Stegun 7.1.26, error < 2e-7), igual en iOS. */
+    fun normalCdf(x: Double): Double {
+        val z = kotlin.math.abs(x) / kotlin.math.sqrt(2.0)
+        val t = 1.0 / (1.0 + 0.3275911 * z)
+        val erf = 1.0 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * exp(-z * z)
+        return if (x >= 0) 0.5 * (1.0 + erf) else 0.5 * (1.0 - erf)
+    }
     /**
      * Línea base de partida (23/10): la de WHOOP el 14/10, antes de usar PulseApp (media ponderada de 14 días de tus
      * 30 noches anteriores en WHOOP: VFC 88 ms, FC reposo 58,5). BaselineProvider parte de aquí y cada noche propia la mueve.
@@ -509,13 +523,17 @@ object Formulas {
         val lnRef = b?.lnHrvMean ?: ln(FALLBACK_HRV)
         val delta = hrv?.takeIf { it > 0 }?.let { ln(it) - lnRef }
         val rhrDelta = if (restingHr != null) restingHr - (b?.avgRestingHr ?: FALLBACK_RHR) else null
-        var score = REC_BIAS + REC_K_HRV * (delta ?: -0.1) - REC_K_RHR * (rhrDelta ?: 0.0)
+        val lnToday = hrv?.takeIf { it > 0 }?.let { ln(it) } ?: (lnRef - 0.1)
+        val mu = b?.lnHrvMean30 ?: lnRef
+        val sdLn = if (b?.lnHrvMean30 != null) b.lnHrvSd else REC_LN_SD_DEFAULT
+        var score = REC_BIAS + REC_K_HRV * (delta ?: -0.1) - REC_K_RHR * (rhrDelta ?: 0.0) +
+            REC_K_PCT * normalCdf((lnToday - mu) / sdLn)
         var penalty = false
         if (respiratoryRate != null && respiratoryRate in 8.0..25.0 && b?.respMean != null && b.respSd != null) {
             val z = (respiratoryRate - b.respMean) / b.respSd
             if (z > 2.0) { score -= 12.0 * (z - 2.0); penalty = true }
         }
-        val total = floor(score).toInt().coerceIn(1, 99)
+        val total = Math.round(score).toInt().coerceIn(1, 99)
         return RecoveryResult(total, delta?.let { (exp(it) - 1) * 100 }, rhrDelta, penalty, b != null)
     }
 

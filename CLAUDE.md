@@ -56,7 +56,13 @@ Peso/altura/edad/sexo → calorías (Mifflin + Keytel). Sexo → TRIMP. Recupera
   Zonas 0–5 por % FCmáx (<50, 50–60, 60–70, 70–80, 80–90, >90).
 - Esfuerzo = TRIMP Banister con reserva de FC, sólo minutos con FC ≥ 45 % FCmáx → 4,14·ln(1+TRIMP/2,6), máx 21.
   Misma curva para día y actividades. Error vs WHOOP: fútbol 0,7, global 1,7 (173 entrenos).
-- Recuperación (23/10) = 64,28 + 89,74·(ln VFC − EWMA14 ln VFC) − 0,4625·(FCR − EWMA FCR), suelo, 1–99; −12 por cada z>2 de respiración.
+- **Recuperación (30/10)** = 44,89 + 39,11·(ln VFC − EWMA14) − 0,4969·(FCR − EWMA14) + 37,54·Φ((ln VFC − media 30 noches)/sd 30), redondeo, 1–99;
+  −12 por cada z>2 de respiración. El percentil (Φ) recoge que WHOOP satura en los extremos. 193 noches de WHOOP (export + API con decimales,
+  scratchpad rec30/a–e.py; línea base como BaselineProvider): validación cruzada 4,67 → 3,92, ±5 puntos 66 % → 72 %; por tiempo (ajuste hasta 14/09,
+  prueba 46 noches) 4,57 → 4,07; con la VFC/FCR de PulseApp 23→30/10 5,6 → 4,1 (30/10: 76 → 81, WHOOP 84). Kotlin = Python (check/n30/R.kt, 3,88).
+  Probado y descartado: otras EWMA (7/10/21/30), ventanas 60/90, z-score, sigmoide (4,55), percentil de rango (4,0–4,2, más ruidoso), dV², VFC absoluta,
+  y añadir calificación/eficiencia/regularidad/horas/respiración (≤ 0,07). `PersonalBaseline.lnHrvMean30` (≥ 7 noches; si no, media EWMA y sd 0,196).
+  Antes (23/10): 64,28 + 89,74·(ln VFC − EWMA14 ln VFC) − 0,4625·(FCR − EWMA FCR), suelo.
   Ajustada con 199 noches (export + API): validación cruzada 4,8 (la sigmoide de antes 5,9; últimas 39 noches 4,3 vs 6,6).
   La EWMA de la línea base PARTE de 88 ms / 58,5 lpm (línea base de WHOOP el 14/10) y cada noche propia la mueve
   (antes empezaba en la 1.ª noche propia → base baja y recuperación +10–15). PulseApp 15→23/10: MAE 12,7 → 3,8. El sueño NO entra.
