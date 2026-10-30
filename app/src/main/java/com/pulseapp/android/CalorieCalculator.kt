@@ -40,10 +40,15 @@ class CalorieCalculator {
     fun estimateDailyTotal(
         elapsedMinutesToday: Double,
         activityKcalToday: Double,
-        ageYears: Int, weightKg: Float, heightCm: Float, sex: String
+        ageYears: Int, weightKg: Float, heightCm: Float, sex: String,
+        activityMinutesToday: Double = 0.0,
+        restKcalPerDay: Double? = null
     ): Double {
-        val bmr = basalMetabolicRate(ageYears, weightKg, heightCm, sex)
-        val bmrForPeriod = bmr * (elapsedMinutesToday / (24 * 60)) * DAY_FACTOR
-        return bmrForPeriod + activityKcalToday
+        // 30/10: como WHOOP. Fuera de las actividades WHOOP gasta un ritmo FIJO (tu caso: 1706 kcal/24 h, ±17 en 20 días de la API;
+        // mediana 1704 en los 197 días del export) y durante una actividad cuenta SOLO las calorías de la actividad (ya incluyen
+        // el basal). Antes se sumaba el basal las 24 h + las actividades → el tiempo de deporte contaba dos veces (29/10: +103 kcal).
+        val rate = restKcalPerDay ?: basalMetabolicRate(ageYears, weightKg, heightCm, sex)
+        val restMinutes = (elapsedMinutesToday - activityMinutesToday).coerceAtLeast(0.0)
+        return rate * (restMinutes / (24 * 60)) * DAY_FACTOR + activityKcalToday
     }
 }

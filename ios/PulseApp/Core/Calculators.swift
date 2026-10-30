@@ -117,10 +117,13 @@ enum CalorieCalculator {
     }
 
     static func estimateDailyTotal(elapsedMinutesToday: Double, activityKcalToday: Double,
-                                   ageYears: Int, weightKg: Double, heightCm: Double, sex: String) -> Double {
-        let bmr = basalMetabolicRate(ageYears: ageYears, weightKg: weightKg, heightCm: heightCm, sex: sex)
-        // Sin ×1,15 (20/10): fuera de los entrenamientos WHOOP da de mediana 1644 kcal/24 h ≈ tu metabolismo basal
-        return bmr * (elapsedMinutesToday / (24 * 60)) + activityKcalToday
+                                   ageYears: Int, weightKg: Double, heightCm: Double, sex: String,
+                                   activityMinutesToday: Double = 0, restKcalPerDay: Double? = nil) -> Double {
+        // 30/10 (igual que Android): fuera de las actividades WHOOP gasta un ritmo FIJO (tu caso 1706 kcal/24 h) y durante una
+        // actividad cuenta SOLO las calorías de la actividad. Antes el tiempo de deporte contaba dos veces (29/10: +103 kcal).
+        let rate = restKcalPerDay ?? basalMetabolicRate(ageYears: ageYears, weightKg: weightKg, heightCm: heightCm, sex: sex)
+        let restMinutes = max(0, elapsedMinutesToday - activityMinutesToday)
+        return rate * (restMinutes / (24 * 60)) + activityKcalToday
     }
 }
 

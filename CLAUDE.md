@@ -88,7 +88,7 @@ Peso/altura/edad/sexo → calorías (Mifflin + Keytel). Sexo → TRIMP. Recupera
   anteriores (eje desde las 12:00) × 100 − 7 (`Formulas.sleepConsistency(noches)`), MAE 4,9, 87 % a ±10. La de antes (sd de la hora de
   dormirse, 7 noches) tenía MAE 27. Ojo: esta semana WHOOP salió ~7 puntos por encima del export (92/89/64/76 vs J3 89/91/65/77 sin restar 7);
   revisar el −7 en la ronda grande.
-- Calorías = Mifflin-St Jeor × (min transcurridos/1440) × 1,15 + kcal de actividades (Keytel).
+- Calorías (30/10) = ritmo fuera de entrenos de WHOOP (1706/24 h, de tus días importados; si no, Mifflin) × (min transcurridos − min de actividades)/1440 + kcal de actividades (por zonas).
 - VO2máx = 15,3 × FCmáx / FC reposo, se recalcula sólo los martes.
 - Estrés (23/10): ventanas de 5 min, z = 3,4·(FC−FCRbase)/(FCmáx−FCRbase) + 0,2·ln(VFCbase/VFC); estrés = 0,3 + 2,7·(1−e^(−max(z,0))).
   Ajustado con la curva de WHOOP digitalizada de la captura (22/10 21:38 → 23/10 09:32, 135 ventanas): MAE 0,34 → 0,15. Estrés del sueño
@@ -486,6 +486,24 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
     Modelo actual (11 noches) en 27–30 fuera de muestra: acuerdo 78,1 %, MAE D/L/P/R 8/34/17/26. Reentrenado dejando cada noche fuera (15 noches):
     27–30 78,3 % (9/35/16/28) = igual; 16–26 82,1 %; total 81,0 % (10/23/10/18). No mejora las noches nuevas → se deja el modelo de 11 noches
     (copias *_11 en check/hyp; lab.pkl/raw.pkl/F.pkl ya tienen 15 noches para el próximo reentreno). 30: profundo 111 vs 85 (los dos modelos ~116–121).
+
+- **Pasos y calorías del 29/10 (30/10)**: WHOOP 10 113 pasos / 2078 kcal; PulseApp 7032 / 2181.
+  - Pasos: 0 minutos de movimiento grabado de 20:18 a 22:13 = el pádel (20:36–21:56, móvil lejos). **Contador de pasos de la PULSERA**: registro v18,
+    bytes [57..58] u16 = pasos del ciclo de WHOOP (sube ~2/s andando, vuelve a 0 al empezar ciclo; [61..62] es otro contador que también sube
+    dormido, no sirve). Comprobado con whoop_history_raw_6 (scratchpad v26/r.py): ciclo 20/10 = 6029 (WHOOP 6015) aunque faltaban 10 h de historial;
+    minuto a minuto r 0,71 con el contador de PulseApp (4122 vs 3672). v26 (88 B) = 1 min de señal cruda cada ~20 min, sin pasos. v18 [41] f32 =
+    nivel de actividad por segundo (andando 0,15–0,2, quieto 0,006).
+    **Aplicado (Android `BandSteps.kt` + iOS `Core/BandSteps.swift`)**: cada registro v18 → band_steps.csv ("unix,contador", al cambiar contador o minuto).
+    Pasos = diferencias entre muestras seguidas (si baja = reinicio, cuenta el valor nuevo) donde hay historial seguido (huecos ≤ 30 min);
+    PulseApp (motion_minutes) fuera de eso; en un hueco sin historial, el mayor de los dos. Inicio (día y hoy), detalle de actividad. Código real
+    (check/steps30/T.kt) = 6029; CI de iOS "Comprobar los pasos de la pulsera" con ios/Tests/bandsteps. Solo cuenta desde que se instala (el archivo
+    empieza vacío). Pendiente: comprobar el 29/10 (10 113) con un whoop_history_raw.txt reciente.
+  - Calorías: **WHOOP gasta un ritmo FIJO fuera de los entrenos**: (energía del ciclo − entrenos)/(duración − entrenos)·24 = 1706 ±17 kcal (20 ciclos API),
+    mediana 1704 en 197 ciclos del export, 1695–1728 por mes; no depende de los pasos (r 0,31). Y en los entrenos cuenta SOLO sus kcal.
+    PulseApp sumaba el basal 24 h + actividades (doble en el tiempo de deporte; 29/10 ~ +160). Ahora (Android + iOS) `CalorieCalculator.estimateDailyTotal`
+    = ritmo × (min transcurridos − min de actividades sin siestas)/1440 + kcal de actividades; ritmo = `Formulas.whoopRestKcalPerDay` (mediana con tus
+    días importados de WHOOP, código real 1707; se guarda en prefs `rest_kcal_day` / iOS `pulseapp_rest_kcal_day`), si no hay import el basal Mifflin.
+    29/10 con las actividades de WHOOP: 2102 (día de 24 h; con el ciclo de 23,8 h 2088; WHOOP 2078; antes 2181).
 
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,

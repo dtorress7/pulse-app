@@ -192,18 +192,27 @@ enum HomeDataLoader {
         for d in stored { byDate[d.date] = d }
         if isToday { AutoActivityScanner.scan(store: store, hrLog: hrLog) }
         let allSessions = store.allSessions()
-        let stepsByDay = stepsPerDay(motionFile)
+        let stepsByDay = stepsPerDay(motionFile)   // 30/10: pulsera + PulseApp (ver BandSteps)
         let zoneDays = ZoneDayCache.load(hrUrl: hrLog.url, hrMax: hrMax, today: today, days: 40)
         let base = SleepPlanner.baselineForAge(profile?.ageYears())
         let wake = SleepPlanner.wakeMinute()
 
         func rowsBefore(_ d: String) -> [DailyMetrics] { return stored.filter { $0.date < d } }
+        // Ritmo fuera de entrenos de WHOOP (de tus días importados), guardado para cuando ya no estén en la ventana de días
+        var restKcal = Formulas.whoopRestKcalPerDay(days: stored, sessions: allSessions)
+        if let r = restKcal { Formulas.setRestKcalPerDay(r) } else { restKcal = Formulas.restKcalPerDay() }
         func kcalFor(_ d: String, _ elapsed: Double) -> Double? {
             guard let p = profile else { return nil }
             let s = Day.start(d), e = Day.start(Day.add(d, 1))
-            let act = allSessions.filter { $0.startMillis >= s && $0.startMillis < e }.reduce(0.0) { $0 + $1.caloriesKcal }
+            let daySessions = allSessions.filter { $0.startMillis >= s && $0.startMillis < e }
+            let act = daySessions.reduce(0.0) { $0 + $1.caloriesKcal }
+            // minutos de actividad (sin siestas) dentro de lo transcurrido del día: ahí ya cuentan las kcal de la actividad
+            let limit = s + Int64(elapsed * 60_000)
+            let actMin = daySessions.filter { $0.type != Formulas.napType }
+                .reduce(0.0) { $0 + Double(max(0, min($1.endMillis, limit, e) - $1.startMillis)) / 60_000.0 }
             return CalorieCalculator.estimateDailyTotal(elapsedMinutesToday: elapsed, activityKcalToday: act,
-                                                        ageYears: p.ageYears(), weightKg: p.weightKg, heightCm: p.heightCm, sex: p.sex)
+                                                        ageYears: p.ageYears(), weightKg: p.weightKg, heightCm: p.heightCm, sex: p.sex,
+                                                        activityMinutesToday: actMin, restKcalPerDay: restKcal)
         }
         func strengthOf(_ d: String) -> Int {
             let s = Day.start(d), e = Day.start(Day.add(d, 1))
@@ -494,12 +503,9 @@ enum HomeDataLoader {
                            lo: lo, hi: hi, goodWhenHigh: goodWhenHigh, ok: ok)
     }
 
+    /// 30/10: pasos de la propia pulsera (historial) donde los hay; el acelerómetro de PulseApp solo donde la pulsera no llega.
     private static func stepsPerDay(_ file: URL) -> [String: Int] {
-        var out = [String: Int]()
-        for m in MotionTracker.readMinutes(file) {
-            out[TimeUtil.dayKey(m.minuteStartUnix * 1000), default: 0] += m.steps
-        }
-        return out
+        return BandSteps.perDay(BandSteps.read(), MotionTracker.readMinutes(file))
     }
 }
 

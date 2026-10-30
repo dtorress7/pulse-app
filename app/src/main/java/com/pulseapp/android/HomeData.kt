@@ -152,7 +152,7 @@ class HomeDataLoader(private val ctx: Context) {
         val byDate = stored.associateBy { it.date }
         if (isToday) AutoActivityScanner.scan(ctx, hrFile)
         val allSessions = db.activitySessionDao().getAll()
-        val stepsByDay = withContext(Dispatchers.IO) { stepsPerDay(motionFile) }
+        val stepsByDay = withContext(Dispatchers.IO) { stepsPerDay(motionFile, dir) }
         val zoneDays = withContext(Dispatchers.IO) { ZoneDayCache(ctx).load(hrFile, hrMax, today, 40) }
         val base = SleepPlanner.baselineForAge(profile?.ageYears())
         val calories = CalorieCalculator()
@@ -160,11 +160,19 @@ class HomeDataLoader(private val ctx: Context) {
         val wake = SleepPlanner.wakeMinute(ctx)
 
         fun rowsBefore(d: LocalDate): List<DailyMetrics> = stored.filter { it.date < d.format(iso) }
+        // Ritmo fuera de entrenos de WHOOP (de tus días importados), guardado para cuando ya no estén en la ventana de días
+        val restKcal = Formulas.whoopRestKcalPerDay(stored, allSessions, zone)?.also { Formulas.setRestKcalPerDay(ctx, it) }
+            ?: Formulas.restKcalPerDay(ctx)
         fun kcalFor(d: LocalDate, elapsedMinutes: Double): Double? = profile?.let {
             val s = d.atStartOfDay(zone).toInstant().toEpochMilli()
             val e = d.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
-            val act = allSessions.filter { x -> x.startMillis in s until e }.sumOf { x -> x.caloriesKcal }
-            calories.estimateDailyTotal(elapsedMinutes, act, it.ageYears(), it.weightKg, it.heightCm, it.sex)
+            val daySessions = allSessions.filter { x -> x.startMillis in s until e }
+            val act = daySessions.sumOf { x -> x.caloriesKcal }
+            // minutos de actividad (sin siestas) dentro de lo transcurrido del día: ahí ya cuentan las kcal de la actividad
+            val limit = s + (elapsedMinutes * 60_000).toLong()
+            val actMin = daySessions.filter { x -> x.type != Formulas.NAP_TYPE }
+                .sumOf { x -> (minOf(x.endMillis, limit, e) - x.startMillis).coerceAtLeast(0L) / 60000.0 }
+            calories.estimateDailyTotal(elapsedMinutes, act, it.ageYears(), it.weightKg, it.heightCm, it.sex, actMin, restKcal)
         }
 
         fun strengthOf(d: LocalDate): Int {
@@ -413,10 +421,9 @@ class HomeDataLoader(private val ctx: Context) {
         return VitalStatus(key, label, icon, value, unit, decimals, lo, hi, goodWhenHigh, ok)
     }
 
-    private fun stepsPerDay(motionFile: File): Map<LocalDate, Int> =
-        MotionTracker.readMinutes(motionFile).groupBy {
-            java.time.Instant.ofEpochSecond(it.minuteStartUnix).atZone(zone).toLocalDate()
-        }.mapValues { (_, v) -> v.sumOf { it.steps } }
+    /** 30/10: pasos de la propia pulsera (historial) donde los hay; el acelerómetro de PulseApp solo donde la pulsera no llega. */
+    private fun stepsPerDay(motionFile: File, dir: File?): Map<LocalDate, Int> =
+        BandSteps.perDay(BandSteps.read(dir), MotionTracker.readMinutes(motionFile), zone)
 }
 
 /** Segundos con pulso de un día y segundos en zonas 1–3 (50–80 % FC máx) y 4–5 (≥ 80 %), como las zonas de la app. */

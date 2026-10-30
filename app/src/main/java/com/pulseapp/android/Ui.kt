@@ -227,11 +227,17 @@ object Ui {
 
     /** Pasos de hoy: en directo si el acelerómetro está activo; si no, sumados de motion_minutes.csv. */
     fun stepsToday(ctx: Context): Int {
-        val live = MotionTrackerHolder.stepsToday()
-        if (live > 0) return live
         val zone = java.time.ZoneId.systemDefault()
         val day = java.time.LocalDate.now(zone)
-        val file = java.io.File(ctx.getExternalFilesDir(null), MotionTracker.FILE_NAME)
+        val dir = ctx.getExternalFilesDir(null)
+        val file = java.io.File(dir, MotionTracker.FILE_NAME)
+        // 30/10: con historial de la pulsera de hoy, sus pasos (cuentan aunque el móvil esté lejos) + PulseApp después de su última muestra
+        val band = BandSteps.read(dir)
+        val dayStart = day.atStartOfDay(zone).toInstant().toEpochMilli()
+        if (BandSteps.hasData(band, dayStart, dayStart + 86_400_000L))
+            return BandSteps.merged(band, MotionTracker.readMinutes(file), dayStart, System.currentTimeMillis() + 60_000L)
+        val live = MotionTrackerHolder.stepsToday()
+        if (live > 0) return live
         return MotionTracker.readMinutes(file)
             .filter { java.time.Instant.ofEpochSecond(it.minuteStartUnix).atZone(zone).toLocalDate() == day }
             .sumOf { it.steps }

@@ -26,6 +26,13 @@ struct Snapshot {
 enum Steps {
     /// Pasos de hoy: en directo si el acelerómetro está activo; si no, sumados de motion_minutes.csv.
     static func today(live: Int) -> Int {
+        // 30/10: con historial de la pulsera de hoy, sus pasos (cuentan aunque el móvil esté lejos) + PulseApp después
+        let band = BandSteps.read()
+        let start = Day.start(Day.today())
+        if BandSteps.hasData(band, fromMs: start, toMs: start + 86_400_000) {
+            return BandSteps.merged(band, MotionTracker.readMinutes(AppPaths.file(MotionTracker.fileName)),
+                                    fromMs: start, toMs: TimeUtil.nowMillis() + 60_000)
+        }
         if live > 0 { return live }
         let day = TimeUtil.dayKey(TimeUtil.nowMillis())
         return MotionTracker.stepsFor(day: day, file: AppPaths.file(MotionTracker.fileName))

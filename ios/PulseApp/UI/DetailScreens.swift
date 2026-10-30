@@ -380,7 +380,12 @@ struct ActivityDetailView: View {
         let all = store.allSessions()
         let hrMax = Formulas.hrMax(ageYears: store.getProfile()?.ageYears() ?? 30)
         let motion = MotionTracker.readMinutes(AppPaths.file(MotionTracker.fileName))
+        let band = BandSteps.read()
         func stepsIn(_ a: ActivitySession) -> Int? {
+            // 30/10: pasos de la pulsera (también sin el móvil cerca) + PulseApp donde la pulsera no llega
+            if BandSteps.hasData(band, fromMs: a.startMillis, toMs: a.endMillis) {
+                return BandSteps.merged(band, motion, fromMs: a.startMillis, toMs: a.endMillis)
+            }
             let m = motion.filter { $0.minuteStartUnix * 1000 >= a.startMillis && $0.minuteStartUnix * 1000 < a.endMillis }
             return m.isEmpty ? nil : m.reduce(0) { $0 + $1.steps }
         }

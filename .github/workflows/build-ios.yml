@@ -33,6 +33,12 @@ jobs:
           swiftc PulseApp/Core/TimeUtil.swift PulseApp/Core/HrLog.swift Tests/dst/main.swift -o dstcheck
           ./dstcheck
 
+      - name: Comprobar los pasos de la pulsera (Swift = Android)
+        working-directory: ios
+        run: |
+          swiftc PulseApp/Core/TimeUtil.swift PulseApp/Core/BandSteps.swift Tests/bandsteps/main.swift -o bandcheck
+          ./bandcheck
+
       - name: Compilar (sin firmar)
         run: |
           set -o pipefail

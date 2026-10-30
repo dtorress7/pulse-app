@@ -445,6 +445,8 @@ class WhoopBackgroundService : Service() {
             if (historyCount < 5) log("⚠️ Registro con hora rara (${bio.unixTime}), no se usa")
             return
         }
+        // Contador de pasos de la propia pulsera (30/10): cuenta también cuando el móvil no está cerca
+        BandSteps.counterOf(frame)?.let { BandSteps.record(getExternalFilesDir(null), bio.unixTime, it) }
         val live = false   // un registro de la memoria nunca es "en directo"
         if (!live) {
             historyCount++
@@ -467,6 +469,7 @@ class WhoopBackgroundService : Service() {
 
     private fun handleMeta(frame: ByteArray) {
         val meta = WhoopProtocol.decodeMetaPacket(frame) ?: return
+        BandSteps.flush(getExternalFilesDir(null))
         handler.removeCallbacks(offloadIdle)
         handler.postDelayed(offloadIdle, 60_000)
         when (meta.metaTypeByte) {
@@ -623,6 +626,7 @@ class WhoopBackgroundService : Service() {
     override fun onDestroy() {
         try { unregisterReceiver(btStateReceiver) } catch (_: Exception) { }
         hrStore.flush()
+        BandSteps.flush(getExternalFilesDir(null))
         isRunning = false
         ready = false
         handler.removeCallbacksAndMessages(null)

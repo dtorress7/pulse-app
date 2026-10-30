@@ -118,6 +118,42 @@ object Formulas {
 
     fun bmr(): Double = cachedBmr
 
+    /**
+     * Ritmo de calorías fuera de los entrenos que usa WHOOP (kcal/24 h), sacado de tus días importados de WHOOP (30/10):
+     * mediana de (energía del ciclo − entrenos) / (duración del ciclo − entrenos). Ciclo de D = desde que te dormiste la noche
+     * que acaba D hasta la noche siguiente. Con el export del usuario: 1705 (198 días); con la API 1706 ±17. null con < 7 días.
+     */
+    fun whoopRestKcalPerDay(days: List<com.pulseapp.android.data.DailyMetrics>, sessions: List<ActivitySession>, zone: java.time.ZoneId): Double? {
+        val until = whoopImportUntil()
+        if (until.isEmpty()) return null
+        val byDate = days.filter { it.date <= until && it.caloriesKcal != null && it.sleepStartMinuteOfDay != null }.associateBy { it.date }
+        val actByDay = HashMap<String, DoubleArray>()
+        for (s in sessions) {
+            if (s.type == NAP_TYPE) continue
+            val d = java.time.Instant.ofEpochMilli(s.startMillis).atZone(zone).toLocalDate().toString()
+            val a = actByDay.getOrPut(d) { DoubleArray(2) }; a[0] += s.caloriesKcal; a[1] += (s.endMillis - s.startMillis) / 60000.0
+        }
+        val rates = ArrayList<Double>()
+        for ((date, row) in byDate) {
+            val next = byDate[java.time.LocalDate.parse(date).plusDays(1).toString()] ?: continue
+            fun axis(m: Int) = if (m >= 720) m else m + 1440
+            val mins = 1440 + axis(next.sleepStartMinuteOfDay!!) - axis(row.sleepStartMinuteOfDay!!)
+            if (mins < 1000 || mins > 2000) continue
+            val a = actByDay[date] ?: DoubleArray(2)
+            if (mins - a[1] < 600) continue
+            rates.add((row.caloriesKcal!! - a[0]) / (mins - a[1]) * 1440)
+        }
+        if (rates.size < 7) return null
+        rates.sort()
+        return rates[rates.size / 2].takeIf { it in 1000.0..4000.0 }
+    }
+    private const val KEY_REST_KCAL = "rest_kcal_day"
+    fun restKcalPerDay(context: Context): Double? =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getFloat(KEY_REST_KCAL, 0f).toDouble().takeIf { it > 0 }
+    fun setRestKcalPerDay(context: Context, v: Double) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putFloat(KEY_REST_KCAL, v.toFloat()).apply()
+    }
+
     fun setBmr(context: Context, bmr: Double) {
         if (bmr < 800 || kotlin.math.abs(bmr - cachedBmr) < 1) return
         cachedBmr = bmr

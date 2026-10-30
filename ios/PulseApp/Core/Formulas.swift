@@ -102,6 +102,40 @@ enum Formulas {
     // con el pulso mediano ≤ FC en reposo + 12. No cuenta en sueño ni recuperación; resta de la necesidad de sueño.
     static let napType = "Siesta"
 
+    /// Ritmo de calorías fuera de los entrenos que usa WHOOP (kcal/24 h), de tus días importados (30/10, igual que Android):
+    /// mediana de (energía del ciclo − entrenos) / (duración del ciclo − entrenos). Export: 1705; API 1706 ±17. nil con < 7 días.
+    static func whoopRestKcalPerDay(days: [DailyMetrics], sessions: [ActivitySession]) -> Double? {
+        let until = WhoopImport.importedUntil()
+        if until.isEmpty { return nil }
+        var byDate = [String: DailyMetrics]()
+        for d in days where d.date <= until && d.caloriesKcal != nil && d.sleepStartMinuteOfDay != nil { byDate[d.date] = d }
+        var act = [String: (Double, Double)]()
+        for s in sessions where s.type != napType {
+            let k = TimeUtil.dayKey(s.startMillis)
+            let a = act[k] ?? (0, 0)
+            act[k] = (a.0 + s.caloriesKcal, a.1 + Double(s.endMillis - s.startMillis) / 60_000.0)
+        }
+        func axis(_ m: Int) -> Int { return m >= 720 ? m : m + 1440 }
+        var rates = [Double]()
+        for (date, row) in byDate {
+            guard let next = byDate[Day.add(date, 1)] else { continue }
+            let mins = Double(1440 + axis(next.sleepStartMinuteOfDay!) - axis(row.sleepStartMinuteOfDay!))
+            if mins < 1000 || mins > 2000 { continue }
+            let a = act[date] ?? (0, 0)
+            if mins - a.1 < 600 { continue }
+            rates.append((row.caloriesKcal! - a.0) / (mins - a.1) * 1440)
+        }
+        if rates.count < 7 { return nil }
+        rates.sort()
+        let m = rates[rates.count / 2]
+        return (m >= 1000 && m <= 4000) ? m : nil
+    }
+    private static let keyRestKcal = "pulseapp_rest_kcal_day"
+    static func restKcalPerDay() -> Double? {
+        let v = UserDefaults.standard.double(forKey: keyRestKcal); return v > 0 ? v : nil
+    }
+    static func setRestKcalPerDay(_ v: Double) { UserDefaults.standard.set(v, forKey: keyRestKcal) }
+
     // ---------- Deporte automático (29/10), igual que Android (Formulas.guessSport) ----------
     // Las 5 actividades tuyas con deporte más parecidas (hora, día de la semana, duración, FC máxima, % por zona); decide si ≥ 4 coinciden.
     // 213 entrenos del export (solo los anteriores a cada uno): fútbol 66 de 69 bien, funcional 48 de 64, 51 sin decidir.

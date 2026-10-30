@@ -91,7 +91,10 @@ class ActivityDetailActivity : AppCompatActivity() {
             val dir = getExternalFilesDir(null)
             val hrFile = File(dir, "hr_log.csv")
             val motion = withContext(Dispatchers.IO) { MotionTracker.readMinutes(File(dir, MotionTracker.FILE_NAME)) }
+            val band = withContext(Dispatchers.IO) { BandSteps.read(dir) }
             fun stepsIn(a: ActivitySession): Int? {
+                // 30/10: pasos de la pulsera (también sin el móvil cerca) + PulseApp donde la pulsera no llega
+                if (BandSteps.hasData(band, a.startMillis, a.endMillis)) return BandSteps.merged(band, motion, a.startMillis, a.endMillis)
                 val m = motion.filter { it.minuteStartUnix * 1000 in a.startMillis until a.endMillis }
                 return if (m.isEmpty()) null else m.sumOf { it.steps }
             }

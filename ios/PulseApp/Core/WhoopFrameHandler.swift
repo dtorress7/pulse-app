@@ -170,6 +170,8 @@ final class WhoopFrameHandler {
             if historyCount < 5 { log("⚠️ Registro con hora rara (\(b.unixTime)), no se usa") }
             return
         }
+        // Contador de pasos de la propia pulsera (30/10): cuenta también cuando el móvil no está cerca
+        if let c = BandSteps.counterOf(frame) { BandSteps.record(unix: b.unixTime, counter: c) }
         historyCount += 1
         if historyCount % 600 == 1 { log("📚 Historial: \(historyCount) registros (por \(TimeUtil.timestamp(t).prefix(16)))") }
         storeHr(t, b.heartRate, b.rrIntervalsMs.map { Double($0) }.filter { $0 >= 300 && $0 <= 2000 }, live: false)
@@ -189,6 +191,7 @@ final class WhoopFrameHandler {
 
     private func handleMeta(_ frame: [UInt8]) {
         guard let meta = WhoopProtocol.decodeMetaPacket(frame) else { return }
+        BandSteps.flush()
         onOffloadActivity?()
         switch meta.kind {
         case 1:
@@ -257,6 +260,6 @@ final class WhoopFrameHandler {
     }
 
     func flush() {
-        hrLog.flush(); bio.flush(); raw.flush()
+        hrLog.flush(); bio.flush(); raw.flush(); BandSteps.flush()
     }
 }
