@@ -86,7 +86,7 @@ class MetricsCalculator(ageYears: Int, private val male: Boolean = true) {
         // VFC: con fases, la de los tramos de sueño profundo (como WHOOP); ver NightMetrics
         val avgHrv = if (sleepReadings.isNotEmpty()) NightMetrics.hrv(sleepReadings.map { it.timeMillis to it.rr }, staged) else null
         val vo2Max = restingHr?.let { 15.3 * (hrMax / it) }
-        val strain = computeStrain(cycleReadings, restingHr)
+        val strain = computeStrain(cycleReadings, restingHr, window)
 
         val calStart = window?.first?.let { java.util.Calendar.getInstance().apply { timeInMillis = it } }
         val calEnd = window?.second?.let { java.util.Calendar.getInstance().apply { timeInMillis = it } }
@@ -200,6 +200,6 @@ class MetricsCalculator(ageYears: Int, private val male: Boolean = true) {
     }
 
     /** Esfuerzo del día con TRIMP de Banister + escala logarítmica (ver Formulas). */
-    private fun computeStrain(readings: List<Reading>, restingHr: Int?): Double =
-        Formulas.strainOf(readings.map { it.timeMillis to it.bpm }, restingHr, hrMax, male)
+    private fun computeStrain(readings: List<Reading>, restingHr: Int?, sleepWindow: Pair<Long, Long>?): Double =
+        Formulas.strainOf(readings.map { it.timeMillis to it.bpm }, restingHr, hrMax, male, sleepWindow = sleepWindow)
 }

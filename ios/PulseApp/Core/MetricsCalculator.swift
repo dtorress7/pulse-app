@@ -53,7 +53,7 @@ struct MetricsCalculator {
         var vo2Max: Double? = nil
         if let r = restingHr, r > 0 { vo2Max = 15.3 * (hrMax / Double(r)) }
         let strain = Formulas.strainOf(readings: cycleReadings.map { ($0.timeMillis, $0.bpm) },
-                                       restingHr: restingHr, hrMax: hrMax, male: male)
+                                       restingHr: restingHr, hrMax: hrMax, male: male, sleepWindow: window)
 
         let respiratoryRate: Double? = sleepReadings.isEmpty ? nil : RespiratoryRateCalculator.estimate(sleepReadings.flatMap { $0.rr })
 

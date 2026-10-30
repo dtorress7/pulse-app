@@ -312,10 +312,11 @@ enum Formulas {
         return 0
     }
 
-    static func trimp(minutes: Double, hr: Int, restingHr: Int, hrMax: Double, male: Bool = true, withBase: Bool = true) -> Double {
+    static func trimp(minutes: Double, hr: Int, restingHr: Int, hrMax: Double, male: Bool = true, withBase: Bool = true,
+                      floor: Double = 0) -> Double {
         if minutes <= 0 { return 0 }
         let reserve = max(hrMax - Double(restingHr), 20.0)
-        let hrr = min(max((Double(hr) - Double(restingHr)) / reserve, 0.0), 1.1)
+        let hrr = min(max((Double(hr) - Double(restingHr)) / reserve - floor, 0.0), 1.1)
         return minutes * (hrr * exp(strainExp * hrr) + (withBase ? strainBasePerMin : 0))
     }
 
@@ -340,17 +341,24 @@ enum Formulas {
     /// [readings] = (hora en ms, pulso), en orden. Esfuerzo del DÍA (27/10): sin la base por minuto (24 h en reposo sumaban
     /// 2,5–3 puntos que WHOOP no da); la base solo cuenta dentro de las actividades (addStrength).
     static func strainOf(readings: [(Int64, Int)], restingHr: Int?, hrMax: Double, male: Bool = true,
-                         maxGapMinutes: Double = 5.0) -> Double {
+                         maxGapMinutes: Double = 5.0, sleepWindow: (Int64, Int64)? = nil) -> Double {
         if readings.count < 2 { return 0 }
         let rhr = restingHr ?? defaultRestingHr
         var total = 0.0
         for i in 1..<readings.count {
             let dt = Double(readings[i].0 - readings[i - 1].0) / 60000.0
             if dt <= 0 || dt > maxGapMinutes { continue }
-            total += trimp(minutes: dt, hr: readings[i].1, restingHr: rhr, hrMax: hrMax, male: male, withBase: false)
+            var asleep = false
+            if let w = sleepWindow { asleep = readings[i].0 >= w.0 && readings[i].0 <= w.1 }
+            total += trimp(minutes: dt, hr: readings[i].1, restingHr: rhr, hrMax: hrMax, male: male, withBase: false,
+                           floor: asleep ? sleepStrainFloor : 0)
         }
         return strainFromTrimp(total)
     }
+
+    /// 30/10 (igual que Android): dormido, el pulso que pasa poco de la FC en reposo (< 5 % de la reserva) no suma esfuerzo.
+    /// La noche sola daba 0,7–0,8 (WHOOP 0,2). 11 ciclos de WHOOP: error medio 0,59 → 0,45, ningún día empeora.
+    static let sleepStrainFloor = 0.05
 
     // ---------- Recuperación ----------
     /// 23/10 (igual que Android): lineal, ajustada con 199 noches de WHOOP (error medio en validación cruzada 4,8):
@@ -435,8 +443,10 @@ enum Formulas {
         return min(max(v, 0), 100)
     }
 
-    /// Minutos extra de sueño por el esfuerzo del día (0 hasta 8, luego 6 min por punto).
+    /// Minutos extra de sueño por el esfuerzo del día (30/10, igual que Android): 0,0386 · esfuerzo^2,527, ajustado con 32 noches
+    /// de la API de WHOOP (error medio 0,8 min; la de antes, 6 min por punto desde 8, 3,9).
     static func sleepNeedFromStrain(_ strain: Double) -> Int {
-        return Int(max(0.0, strain - 8.0) * 6.0)
+        if strain <= 0 { return 0 }
+        return Int((0.0386 * pow(strain, 2.527)).rounded())
     }
 }

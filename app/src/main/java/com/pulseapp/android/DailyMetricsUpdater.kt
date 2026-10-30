@@ -18,7 +18,7 @@ class DailyMetricsUpdater {
         private const val REST_GRACE_MINUTES = 20
         private const val REST_MIN_DURATION_MINUTES = 90
         private const val DISCONNECT_GAP_MINUTES = 3
-        const val RECALC_FLAG = "night_recalc_v6"   // v6 (27/10): esfuerzo del día sin la base fuera de las actividades; v5 (26/10): modelo de fases con 11 noches (v4: VFC mezcla, esfuerzo v4, cambio de hora)
+        const val RECALC_FLAG = "night_recalc_v7"   // v7 (30/10): esfuerzo sin el pulso bajo dormido; v6 (27/10): esfuerzo del día sin la base fuera de las actividades; v5 (26/10): modelo de fases con 11 noches (v4: VFC mezcla, esfuerzo v4, cambio de hora)
     }
 
     private val dayFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
@@ -93,7 +93,7 @@ class DailyMetricsUpdater {
             NightMetrics.hrv(sleepWindowReadings.map { it.timeMillis to it.rr }, staged)
         } else null
         val vo2Max = restingHr?.let { 15.3 * (hrMax / it) }
-        val strainHr = Formulas.strainOf(dayReadings.map { it.timeMillis to it.bpm }, restingHr, hrMax, sex != "F")
+        val strainHr = Formulas.strainOf(dayReadings.map { it.timeMillis to it.bpm }, restingHr, hrMax, sex != "F", sleepWindow = window)
         // Día con fuerza/funcional: + carga muscular, como WHOOP (22/10)
         val daySessions = db.activitySessionDao().getAll()
             .filter { dayFormat.format(Date(it.startMillis)) == yesterdayKey }

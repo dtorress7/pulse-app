@@ -6,6 +6,7 @@ import kotlin.math.exp
 import kotlin.math.floor
 import kotlin.math.ln
 import kotlin.math.max
+import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
@@ -427,10 +428,12 @@ object Formulas {
     }
 
     @Suppress("UNUSED_PARAMETER")
-    fun trimp(minutes: Double, hr: Int, restingHr: Int, hrMax: Double, male: Boolean = true, withBase: Boolean = true): Double {
+    fun trimp(
+        minutes: Double, hr: Int, restingHr: Int, hrMax: Double, male: Boolean = true, withBase: Boolean = true, floor: Double = 0.0
+    ): Double {
         if (minutes <= 0) return 0.0
         val reserve = (hrMax - restingHr).coerceAtLeast(20.0)
-        val hrr = ((hr - restingHr) / reserve).coerceIn(0.0, 1.1)
+        val hrr = ((hr - restingHr) / reserve - floor).coerceIn(0.0, 1.1)
         return minutes * (hrr * exp(STRAIN_EXP * hrr) + if (withBase) STRAIN_BASE_PER_MIN else 0.0)
     }
 
@@ -455,7 +458,8 @@ object Formulas {
      * (noche 26→27: 2,8 vs 0,2; día 25/10 6,7 vs 4,1). La base solo cuenta dentro de las actividades ([addStrength]).
      */
     fun strainOf(
-        readings: List<Pair<Long, Int>>, restingHr: Int?, hrMax: Double, male: Boolean = true, maxGapMinutes: Double = 5.0
+        readings: List<Pair<Long, Int>>, restingHr: Int?, hrMax: Double, male: Boolean = true, maxGapMinutes: Double = 5.0,
+        sleepWindow: Pair<Long, Long>? = null
     ): Double {
         if (readings.size < 2) return 0.0
         val rhr = restingHr ?: DEFAULT_RESTING_HR
@@ -463,10 +467,18 @@ object Formulas {
         for (i in 1 until readings.size) {
             val dt = (readings[i].first - readings[i - 1].first) / 60000.0
             if (dt <= 0 || dt > maxGapMinutes) continue
-            total += trimp(dt, readings[i].second, rhr, hrMax, male, withBase = false)
+            val asleep = sleepWindow != null && readings[i].first in sleepWindow.first..sleepWindow.second
+            total += trimp(dt, readings[i].second, rhr, hrMax, male, withBase = false, floor = if (asleep) SLEEP_STRAIN_FLOOR else 0.0)
         }
         return strainFromTrimp(total)
     }
+
+    /**
+     * 30/10: dormido, el pulso que pasa poco de la FC en reposo (< 5 % de la reserva) no suma esfuerzo. Antes la noche sola daba
+     * 0,7–0,8 (WHOOP 0,2 las noches 26→27 y 29→30). Con 11 ciclos de WHOOP 20→30/10: error medio 0,59 → 0,45 y ningún día
+     * empeora (quitarlo también de día bajaba el día de descanso 25/10 de 4,3 a 2,5 con WHOOP 4,1 → solo dormido).
+     */
+    const val SLEEP_STRAIN_FLOOR = 0.05
 
     // ---------- Recuperación ----------
 
@@ -557,6 +569,10 @@ object Formulas {
         return (j * 100 - 7).roundToInt().coerceIn(0, 100)
     }
 
-    /** Minutos extra de sueño por el esfuerzo del día (0 hasta 8, luego 6 min por punto: 16 → +48 min). */
-    fun sleepNeedFromStrain(strain: Double): Int = (max(0.0, strain - 8.0) * 6.0).toInt()
+    /**
+     * Minutos extra de sueño por el esfuerzo del día (30/10): 0,0386 · esfuerzo^2,527, ajustado con 32 noches de la API de WHOOP
+     * (need_from_recent_strain frente al esfuerzo del ciclo anterior, 27/09→30/10): error medio 0,8 min dejando cada noche fuera
+     * (la de antes, 6 min por punto desde 8, 3,9). 4 → 1 min, 8 → 7, 12 → 21, 14 → 31, 16 → 43, 19 → 66.
+     */
+    fun sleepNeedFromStrain(strain: Double): Int = if (strain <= 0) 0 else (0.0386 * strain.pow(2.527)).roundToInt()
 }

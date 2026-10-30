@@ -75,7 +75,7 @@ Peso/altura/edad/sexo → calorías (Mifflin + Keytel). Sexo → TRIMP. Recupera
   FC reposo mediana 64 (WHOOP 64). Ciclo del día = desde que te duermes (o 00:00): esfuerzo y FC media solo de ese ciclo
   (antes usaba todo el archivo). `DailyMetricsUpdater` guarda la noche que TERMINA ese día (18:00 víspera → 14:00).
   `BaselineProvider` solo usa días con ≥ 3 h dormido. La media parte de 88 ms / 58,5 lpm (ver Recuperación).
-- Necesidad de sueño = 470 min + max(0, strain−8)·6 + deuda. **Deuda (18/10, ajustada con 152 noches del export)** = max(0, (necesidad
+- Necesidad de sueño = 470 min + 0,0386·strain^2,527 (30/10; antes max(0, strain−8)·6) + deuda. **Deuda (18/10, ajustada con 152 noches del export)** = max(0, (necesidad
   de esa noche − dormido) / 2) (`SleepPlanner.nextDebt`, MAE 1,5 min; la de antes ×0,7 sobre la base salía el doble). Sin dato esa noche: deuda/2.
   Hora de despertar editable (7:30 por defecto).
 - **Regularidad (18/10, 145 noches del export)** = media de intersección/unión del tramo en cama de la última noche con cada una de las 3
@@ -456,6 +456,30 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   por % de FC máx).
   **Finales**: probado ajustar la regla de final (umbral, tolerancia, subida, quietud): dentro de muestra 142 → 105 min de error, pero dejando
   un entreno fuera EMPEORA (1141 → 1168) → no se toca. Los finales de WHOOP no siguen un patrón (22/10 alarga 15 min sentado; 26/10 corta al andar).
+
+- **29→30 (15.ª referencia, funcional 18:00–19:00 manual + pádel 20:36–21:56 la víspera)**: WHOOP (API) 21:59:57Z–06:52:28Z (22:59–07:52), cama 8:52,
+  dormido 8:20, 32/324/85/92, 15 despertares, 95 %, VFC 102,5, FCR 56, resp 13,2, calificación 96 (100/86/95/0), recuperación 84, esfuerzo 0,2 a las 07:07.
+  PulseApp iPhone: 23:00–07:52, 8:05, 47/272/111/102, 17 desp., 91 %, VFC 105, FCR 56, resp 12,9, calificación 88 (96/83/91/0), recuperación 76,
+  esfuerzo 2,0 a las 9:12 (= arnés check/n30/N.kt con el código real: 47/272/111/102, 91 %, VFC 105,3, FCR 56).
+  - Recuperación 76 vs 84: con la VFC/FCR EXACTAS de WHOOP la fórmula da 75,6 → es la fórmula. Ajustes por mes (abr–oct) dan pendientes de 73 a 112:
+    ruido, no deriva; añadir dV² no mejora fuera de muestra (CV 4,82 → 4,68–4,73, octubre 5,30 → 5,27). No se toca.
+  - Calificación con los 3 valores de WHOOP: 91,7 (WHOOP 96); las noches 27–29 la fórmula sí cuadra (87/86/90 vs 87/85/90) → noche rara de WHOOP.
+  - **Esfuerzo dormido (30/10, Android + iOS)**: `Formulas.strainOf(..., sleepWindow)` resta 0,05 a la reserva dentro de la ventana de sueño
+    (`SLEEP_STRAIN_FLOOR`; MetricsCalculator y DailyMetricsUpdater pasan la ventana de las fases). 11 ciclos de WHOOP 20→30/10 (check/n30/Z3.kt con
+    las ventanas de WHOOP y V.kt con las de la app): error medio 0,59 → 0,45, NINGÚN día peor; noches 26→27 0,7 → 0,2 (W 0,2), 29→30 0,8 → 0,3 (W 0,2).
+    Quitarlo también de día (zona muerta global) daba 0,40 pero el día de descanso 25/10 bajaba de 4,3 a 2,5 (W 4,1) → solo dormido.
+    `night_recalc_v7` / iOS 7. Ojo: el esfuerzo de WHOOP en la API no se actualizó de 07:07 a 09:18 (sigue 0,24) → por la mañana compara con eso.
+  - **Necesidad por esfuerzo (30/10, Android + iOS)**: `sleepNeedFromStrain` = 0,0386 · esfuerzo^2,527 (redondeado). 32 noches de la API
+    (need_from_recent_strain frente al esfuerzo del ciclo anterior, 27/09→30/10): error 3,9 → 0,73 min (dejando una fuera 0,79, máx 1,3).
+    La de antes (6 min por punto desde 8) daba 0 por debajo de 8 (WHOOP 2–7 min). Otras formas: a·(e^(bs)−1) 1,47; a·e^(bs) 2,36.
+  - Despierto 47 vs 32 (17 vs 15 despertares): búsqueda de las reglas de despierto con 15 noches (check/wake, ST.kt copia de SleepStager con WAKE_* variables,
+    1200 combinaciones; API: despierto y disturbance_count). Mejor dentro de muestra: WAKE_MIN_SPIKE 12 → 15 (MAE 7,56 → 6,12), pero dejando una noche
+    fuera 7,12 y despertares 2,60 → 2,80; 27 y 29 empeoran → NO se aplica. Sesgo actual +4 min (eficiencia −2).
+    La eficiencia de WHOOP no es (cama − despierto)/cama: 30 → 94,0 calculada vs 94,7; 29 → 95,2 vs 96,9.
+  - **Fases**: capturas leídas (check/hyp/dig30.py, n27–n30, L/P/R a ±5 de la API), etiquetas lab30.py, rasgos feat30.py con hr_log_28/motion_16.
+    Modelo actual (11 noches) en 27–30 fuera de muestra: acuerdo 78,1 %, MAE D/L/P/R 8/34/17/26. Reentrenado dejando cada noche fuera (15 noches):
+    27–30 78,3 % (9/35/16/28) = igual; 16–26 82,1 %; total 81,0 % (10/23/10/18). No mejora las noches nuevas → se deja el modelo de 11 noches
+    (copias *_11 en check/hyp; lab.pkl/raw.pkl/F.pkl ya tienen 15 noches para el próximo reentreno). 30: profundo 111 vs 85 (los dos modelos ~116–121).
 
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
