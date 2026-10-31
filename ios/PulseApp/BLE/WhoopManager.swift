@@ -80,6 +80,7 @@ final class WhoopManager: NSObject, ObservableObject, CBCentralManagerDelegate, 
         let motion = MotionTracker(outFile: AppPaths.file(AppPaths.motion))
         let processor = LiveHrProcessor(store: store, hrLog: hrLog, onActivitySaved: { msg in
             DispatchQueue.main.async { ServiceLog.shared.log("🏃 " + msg) }
+            Notifier.post(id: "activity-\(Int(Date().timeIntervalSince1970))", title: "Actividad completada", body: msg)
         })
         handler = WhoopFrameHandler(
             hrLog: hrLog, bio: WhoopBioStore(url: AppPaths.file(AppPaths.bioLog)),
@@ -95,6 +96,14 @@ final class WhoopManager: NSObject, ObservableObject, CBCentralManagerDelegate, 
             DispatchQueue.main.async { self?.logVersion += 1 }
         }
         refreshHrMax()
+        BandBattery.onChange = { [weak self] in DispatchQueue.main.async { self?.objectWillChange.send() } }
+        // Como WHOOP (31/10): si cierras la app deslizándola, deja de medir (iOS no la vuelve a abrir) → aviso para abrirla
+        NotificationCenter.default.addObserver(forName: UIApplication.willTerminateNotification, object: nil, queue: .main) { [weak self] _ in
+            guard WhoopSettings.autoConnect else { return }
+            self?.handler.flush()
+            Notifier.post(id: "open-app", title: "Abre PulseApp",
+                          body: "Mantén la aplicación PulseApp abierta para que tus datos estén actualizados.")
+        }
         central = CBCentralManager(delegate: self, queue: DispatchQueue.main,
                                    options: [CBCentralManagerOptionRestoreIdentifierKey: WhoopManager.restoreId,
                                              CBCentralManagerOptionShowPowerAlertKey: true])
@@ -412,6 +421,8 @@ final class WhoopManager: NSObject, ObservableObject, CBCentralManagerDelegate, 
         command(WhoopProtocol.cmdGetClock, [], "Leer reloj (orden 11)")
         command(WhoopProtocol.cmdExitHighFreqSync, [0], "Salir de sincronización rápida (orden 97)")
         command(WhoopProtocol.cmdToggleRealtimeHr, [1], "Pulso en directo ON (orden 3)")
+        // Batería: la pulsera la manda sola (evento 3, ~cada 14 min); se pide también una vez para tenerla al conectar
+        command(WhoopProtocol.cmdGetBatteryLevel, [], "Batería (orden 26)")
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { [weak self] in
             guard let self = self, self.setupStarted else { return }
             self.ready = true

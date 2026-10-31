@@ -105,6 +105,7 @@ struct WhoopView: View {
                 ListRow(title: "Del historial", value: "\(mgr.historyCount)")
                 Hairline()
                 ListRow(title: "Pasos hoy", value: Fmt.thousands(Int64(mgr.stepsToday)))
+                ListRow(title: "Batería de la pulsera", value: BandBattery.percent.map { "\($0) %" + (BandBattery.isCharging ? " · cargando" : "") } ?? "—")
                 Hairline()
                 ListRow(title: "Tamaño del registro de pulso", value: "\(mgr.hrLog.fileSize() / 1024) KB")
             }
@@ -112,7 +113,7 @@ struct WhoopView: View {
     }
 
     private var exportCard: some View {
-        let names = [AppPaths.hrLog, AppPaths.motion, ImuTestRecorder.fileName, AppPaths.historyRaw, AppPaths.bioLog, AppPaths.serviceLog]
+        let names = [AppPaths.hrLog, AppPaths.motion, ImuTestRecorder.fileName, AppPaths.historyRaw, AppPaths.bioLog, AppPaths.serviceLog, BandSteps.fileName]
         let existing = names.filter { FileManager.default.fileExists(atPath: AppPaths.file($0).path) }
         return Card {
             VStack(alignment: .leading, spacing: 10) {

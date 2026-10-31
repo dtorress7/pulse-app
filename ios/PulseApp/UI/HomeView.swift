@@ -279,10 +279,20 @@ struct HomeView: View {
                 }
                 Spacer()
                 Button(action: { showWhoop = true }) {
-                    ZStack(alignment: .topTrailing) {
-                        Image(systemName: "applewatch.side.right").font(.system(size: 24)).foregroundColor(Theme.textPrimary)
-                            .frame(width: 44, height: 44)
-                        Circle().fill(bandDotColor).frame(width: 11, height: 11).padding(.top, 5).padding(.trailing, 6)
+                    HStack(spacing: 2) {
+                        // Batería de la pulsera como WHOOP ("34 %"), con un rayo si está cargando (31/10)
+                        if let pct = BandBattery.percent {
+                            if BandBattery.isCharging {
+                                Image(systemName: "bolt.fill").font(.system(size: 11, weight: .bold)).foregroundColor(Theme.wMint)
+                            }
+                            Text("\(pct) %").font(.system(size: 15, weight: .semibold))
+                                .foregroundColor(pct < 20 && !BandBattery.isCharging ? Color(red: 0.94, green: 0.30, blue: 0.33) : Theme.textSecondary)
+                        }
+                        ZStack(alignment: .topTrailing) {
+                            Image(systemName: "applewatch.side.right").font(.system(size: 24)).foregroundColor(Theme.textPrimary)
+                                .frame(width: 44, height: 44)
+                            Circle().fill(bandDotColor).frame(width: 11, height: 11).padding(.top, 5).padding(.trailing, 6)
+                        }
                     }
                 }
             }

@@ -514,6 +514,25 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   `restartLink` (cancela la conexión de PulseApp y la vuelve a pedir, como hacerlo a mano); preparación colgada de antes → se rehace;
   `ensureAlive()` al abrir la app (no midiendo, o > 2 min sin datos → reconecta). Android no tiene restauración de estado (servicio en primer plano).
 
+- **31/10 (2.ª parte)**: el whoop_service_log CONFIRMA la causa de la noche 30→31: 23:27:43 "♻️ iOS ha reabierto PulseApp" → "Conectada. Preparando
+  canal…" y nada más hasta las 09:27 (desconectar a mano). Corregido en d291602 (ver arriba).
+  - **Mañana tomada como noche**: sin datos de la noche, `SleepDetector` cogía la ventana más larga (9:38–12:40, "1:11 dormido", sueño 31 %,
+    recuperación 24 %). Ahora (Android + iOS) sin ≥ 30 min de madrugada (00:00–06:00) en la ventana → NO hay noche ("–"). Las 15 noches de
+    referencia salen igual (N.kt, mismos MAE); 30→31 → ninguna.
+  - **whoop_history_raw**: el iPhone dejaba de escribirlo al llegar a 40 MB (el subido hoy = el del 22/10, idéntico). Ahora (iOS BufferedAppender,
+    también el registro de servicio, y Android) al llenarse pasa a `<nombre>_anterior.<ext>` y se empieza otro. band_steps.csv en Exportar (iOS).
+    Sin raw reciente NO se pudo comprobar el 29/10 con el contador de la pulsera; se comprobará con los pasos de la API (cycles.step_count).
+  - **Batería de la pulsera (Android `BandBattery.kt` + iOS `Core/BandBattery.swift`)**: EVENTO 3 (tipo 48, [10]=3, llega solo ~cada 14 min por
+    fd4b0004/0005, retraso 5 s): [12..15] unix, [21..22] u16 = décimas de % (997 → 506 del 18 al 22/10, solo baja), [25..26] u16 = mV (4380 → 3869,
+    r 0,999 con el nivel). Segunda comprobación: WHOOP mostró 34 % el 30/10 9:12 y "< 20 %" el 31/10 8:01 → ~0,6 %/h; el evento 3 baja 0,52 %/h.
+    Numeración de eventos de WHOOP que cuadra con los datos: 3 batería, 11/12 conexión BLE sí/no (38 y 38), 16 puesta en hora. Carga: 7/8, 5/6,
+    21/22 (aún sin ver) o nivel/tensión que sube → "cargando". Inicio muestra "NN %" (rojo < 20) y rayo si carga; Mi WHOOP (iOS) fila de batería.
+    Aviso "Recordatorio de carga de batería" una vez al bajar del 20 % (se rearma al cargar o > 25 %). Orden 26 (GET_BATTERY) se envía una vez al
+    conectar y su respuesta se guarda entera en el registro ("🔋 Respuesta a la orden 26") para descifrarla.
+  - **Notificaciones como WHOOP (iOS)**: permiso al arrancar; "Abre PulseApp — Mantén la aplicación PulseApp abierta…" al cerrarla deslizando
+    (UIApplication.willTerminateNotification; iOS no la vuelve a abrir tras cerrarla a mano); "Actividad completada" al guardar una actividad
+    automática. Android: canal "Avisos" (solo batería; el servicio sigue aunque cierres la app).
+
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
 esfuerzo 11,5, 271 kcal, FC media 127 (la media aritmética de esos segundos es 133: WHOOP no usa la media simple), máx 170,

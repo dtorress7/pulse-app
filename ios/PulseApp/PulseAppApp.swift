@@ -5,6 +5,7 @@ struct PulseAppApp: App {
     init() {
         // Crea el gestor Bluetooth al arrancar (también cuando iOS relanza la app en segundo plano)
         WhoopManager.shared.refreshHrMax()
+        Notifier.requestPermission()
         if WhoopSettings.autoConnect { WhoopManager.shared.start() }
     }
 

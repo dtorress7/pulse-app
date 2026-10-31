@@ -98,6 +98,8 @@ enum SleepDetector {
             return (n, keys[w.1] - keys[w.0])
         }
         guard let (s, e) = windows.max(by: { score($0) < score($1) }) else { return nil }
+        // 31/10 (igual que Android): sin al menos 30 min de madrugada NO hay noche (antes la más larga: 9:38–12:40 salió como noche)
+        if score((s, e)).0 < 30 { return nil }
 
         let inBed = Int(keys[e] - keys[s])
         let minutesInWindow = e - s + 1

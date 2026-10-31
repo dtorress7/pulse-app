@@ -67,7 +67,15 @@ final class BufferedAppender {
         defer { lock.unlock() }
         if buffer.isEmpty { return }
         let size = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? NSNumber)?.int64Value ?? 0
-        if size > maxBytes { buffer.removeAll(); return }
+        if size > maxBytes {
+            // 31/10: antes dejaba de escribir para siempre (whoop_history_raw se quedó en el 22/10). Ahora el lleno pasa a
+            // "<nombre>_anterior.<ext>" (se sustituye el de antes) y se empieza uno nuevo: siempre está lo más reciente.
+            let fm = FileManager.default
+            let old = url.deletingLastPathComponent()
+                .appendingPathComponent(url.deletingPathExtension().lastPathComponent + "_anterior." + url.pathExtension)
+            try? fm.removeItem(at: old)
+            try? fm.moveItem(at: url, to: old)
+        }
         if let h = try? FileHandle(forWritingTo: url) {
             h.seekToEndOfFile()
             h.write(buffer)

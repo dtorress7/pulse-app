@@ -343,6 +343,8 @@ class WhoopBackgroundService : Service() {
             command(WhoopProtocol.CMD_GET_CLOCK, ByteArray(0), "Leer reloj (orden 11)")
             command(WhoopProtocol.CMD_EXIT_HIGH_FREQ_SYNC, byteArrayOf(0), "Salir de sincronización rápida (orden 97)")
             command(WhoopProtocol.CMD_TOGGLE_REALTIME_HR, byteArrayOf(1), "Pulso en directo ON (orden 3)")
+            // Batería: llega sola (evento 3); se pide también una vez al conectar y se guarda la respuesta para descifrarla (31/10)
+            command(WhoopProtocol.CMD_GET_BATTERY_LEVEL, byteArrayOf(), "Batería (orden 26)")
             handler.postDelayed({
                 ready = true
                 offloadedThisConnection = false
@@ -423,11 +425,18 @@ class WhoopBackgroundService : Service() {
             47 -> handleHistoricalRecord(frame)
             40 -> handleRealtime(frame)
             49, 56 -> handleMeta(frame)
-            36, 38 -> if (responsesLogged++ < 40) {
+            36, 38 -> {
+              if (frame.size > 12 && (frame[10].toInt() and 0xFF) == WhoopProtocol.CMD_GET_BATTERY_LEVEL)
+                log("🔋 Respuesta a la orden 26 (batería): ${WhoopProtocol.bytesToHex(frame).replace(" ", "")}")
+              if (responsesLogged++ < 40) {
                 val res = when (frame[12].toInt() and 0xFF) { 1 -> "OK"; 2 -> "pendiente"; 3 -> "fallo"; 4 -> "no soportada"; else -> "código ${frame[12].toInt() and 0xFF}" }
                 log("↩️ Respuesta a la orden ${frame[10].toInt() and 0xFF}: $res")
+              }
             }
-            48, 53, 54 -> if (eventsLogged++ < 20) log("🔔 Evento de la pulsera nº ${frame[10].toInt() and 0xFF}")
+            48, 53, 54 -> {
+                if ((frame[8].toInt() and 0xFF) == 48) BandBattery.handleEvent(this, frame)?.let { log(it) }
+                if (eventsLogged++ < 20) log("🔔 Evento de la pulsera nº ${frame[10].toInt() and 0xFF}")
+            }
         }
     }
 
@@ -538,7 +547,11 @@ class WhoopBackgroundService : Service() {
     private fun recordRaw(dir: String, uuid: String, data: ByteArray) {
         rawCount++
         try {
-            if (rawFile.length() > 40_000_000L) return
+            if (rawFile.length() > 40_000_000L) {
+                // 31/10: antes dejaba de escribir para siempre; ahora el lleno pasa a whoop_history_raw_anterior.txt y se empieza otro
+                val old = File(rawFile.parentFile, "whoop_history_raw_anterior.txt")
+                old.delete(); rawFile.renameTo(old)
+            }
             rawFile.appendText("${System.currentTimeMillis()},$dir,$uuid,${WhoopProtocol.bytesToHex(data).replace(" ", "")}\n")
         } catch (_: Exception) { }
     }

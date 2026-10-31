@@ -269,6 +269,16 @@ class MainActivity : AppCompatActivity() {
             }
             (findViewById<View>(R.id.bandDot).background.mutate() as? android.graphics.drawable.GradientDrawable)
                 ?.setColor(Ui.color(this@MainActivity, dotColor))
+            // Batería de la pulsera como WHOOP ("34 %"), con rayo si está cargando (31/10)
+            findViewById<android.widget.TextView>(R.id.bandBattery).let { tv ->
+                val pct = BandBattery.percent(this@MainActivity)
+                tv.visibility = if (pct == null) View.GONE else View.VISIBLE
+                if (pct != null) {
+                    val charging = BandBattery.isCharging(this@MainActivity)
+                    tv.text = (if (charging) "⚡ " else "") + "$pct %"
+                    tv.setTextColor(Ui.color(this@MainActivity, if (pct < 20 && !charging) R.color.alert_red else R.color.text_secondary))
+                }
+            }
             connectionNote.visibility = if (live) View.GONE else View.VISIBLE
             connectionNote.text = when {
                 !bonded -> "Toca la pulsera de arriba a la derecha para vincular tu WHOOP"

@@ -84,9 +84,12 @@ object SleepDetector {
         }
         if (start != null) close(keys.size - 1)
         // La NOCHE es la ventana que más se solapa con las 00:00–06:00 (21/10: una reunión quieto de 9:30 a 11:29 con el pulso
-        // bajo salía como "la última ventana" y se tomaba como la noche). Si ninguna toca la madrugada, la más larga.
+        // bajo salía como "la última ventana" y se tomaba como la noche).
         val (s, e) = windows.maxWithOrNull(compareBy<Pair<Int, Int>>({ w -> (w.first..w.second).count { isSmallHours(keys[it] * 60_000L) } },
             { w -> keys[w.second] - keys[w.first] })) ?: return null
+        // 31/10: si ninguna ventana tiene al menos 30 min de madrugada, NO hay noche (antes se cogía la más larga: la noche 30→31 no se
+        // grabó y salió "sueño" 9:38–12:40, calificación 31 % y recuperación 24 %). En el export de WHOOP las noches empiezan 22:36–01:54.
+        if ((s..e).count { isSmallHours(keys[it] * 60_000L) } < 30) return null
 
         val inBed = (keys[e] - keys[s]).toInt()
         val minutesInWindow = (s..e).count()

@@ -135,6 +135,10 @@ final class WhoopFrameHandler {
         case 40: handleRealtime(frame)
         case 49, 56: handleMeta(frame)
         case 36, 38:
+            // Respuesta a "batería" (orden 26): se guarda entera en el registro para descifrarla (31/10)
+            if frame.count > 12 && Int(frame[10]) == WhoopProtocol.cmdGetBatteryLevel {
+                log("🔋 Respuesta a la orden 26 (batería): " + frame.map { String(format: "%02X", $0) }.joined())
+            }
             if responsesLogged < 40 {
                 responsesLogged += 1
                 let code = Int(frame[12])
@@ -149,6 +153,7 @@ final class WhoopFrameHandler {
                 log("↩️ Respuesta a la orden \(Int(frame[10])): \(res)")
             }
         case 48, 53, 54:
+            if frame[8] == 48, let msg = BandBattery.handleEvent(frame) { log(msg) }
             if eventsLogged < 20 { eventsLogged += 1; log("🔔 Evento de la pulsera nº \(Int(frame[10]))") }
         default: break
         }
