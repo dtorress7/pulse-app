@@ -505,6 +505,15 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
     días importados de WHOOP, código real 1707; se guarda en prefs `rest_kcal_day` / iOS `pulseapp_rest_kcal_day`), si no hay import el basal Mifflin.
     29/10 con las actividades de WHOOP: 2102 (día de 24 h; con el ciclo de 23,8 h 2088; WHOOP 2078; antes 2181).
 
+- **Noche 30→31 NO grabada (31/10, iPhone)**: ni pulso ni movimiento de 22:44 a 09:27; por la mañana "Conectada, preparando…" (amarillo) hasta
+  desconectar/conectar a mano. La app de WHOOP ya había descargado la noche → PulseApp no puede recuperarla (sin confirmar solo llega el 1.er bloque).
+  Causa probable (falta el whoop_service_log para confirmarlo): si iOS cierra la app de noche y la reabre por la pulsera, `willRestoreState` llamaba a
+  `beginSetup` ANTES de `.poweredOn` → iOS ignora discoverServices, `setupStarted` quedaba en true y ningún camino lo reintentaba (`beginSetup` salía
+  por `setupStarted`). También se quedaba colgado si no aparecían los servicios. **Arreglo (`BLE/WhoopManager.swift`)**: no preparar hasta
+  `.poweredOn`; vigilancia de 15 s (con tarea en segundo plano) tras empezar a preparar y tras quedar lista: si no mide / no llega ningún dato →
+  `restartLink` (cancela la conexión de PulseApp y la vuelve a pedir, como hacerlo a mano); preparación colgada de antes → se rehace;
+  `ensureAlive()` al abrir la app (no midiendo, o > 2 min sin datos → reconecta). Android no tiene restauración de estado (servicio en primer plano).
+
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
 esfuerzo 11,5, 271 kcal, FC media 127 (la media aritmética de esos segundos es 133: WHOOP no usa la media simple), máx 170,

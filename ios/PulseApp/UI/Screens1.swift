@@ -50,7 +50,7 @@ struct RootView: View {
             Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { _ in AppModel.shared.refresh() }
         }
         .onChange(of: scenePhase) { phase in
-            if phase == .active { model.refresh(); HomeStore.shared.invalidate() }
+            if phase == .active { mgr.ensureAlive(); model.refresh(); HomeStore.shared.invalidate() }
             if phase == .background { mgr.handler.flush() }
         }
     }

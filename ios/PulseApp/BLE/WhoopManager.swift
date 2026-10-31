@@ -1,6 +1,7 @@
 import Foundation
 import CoreBluetooth
 import Combine
+import UIKit
 
 /// CONEXIÓN PRINCIPAL CON LA WHOOP en iOS (equivale a WhoopBackgroundService de Android):
 ///  - Sigue conectada con la app en segundo plano (modo "bluetooth-central") y se reengancha sola: `connect` de
@@ -53,6 +54,13 @@ final class WhoopManager: NSObject, ObservableObject, CBCentralManagerDelegate, 
     private var offloadedThisConnection = false
     private var characteristicsPending = 0
     private var setupStarted = false
+    // Vigilancia (31/10): la noche 30→31 la app se quedó en "Conectada, preparando…" sin medir hasta reconectar a mano
+    private var setupStartedAt = Date.distantPast
+    private var setupWatch: DispatchWorkItem?
+    private var lastRxAt = Date.distantPast
+    private var bgTask: UIBackgroundTaskIdentifier = .invalid
+    private static let setupTimeout: TimeInterval = 15
+    private static let silenceLimit: TimeInterval = 120
 
     private enum Op {
         case subscribe(CBCharacteristic)
@@ -217,6 +225,8 @@ final class WhoopManager: NSObject, ObservableObject, CBCentralManagerDelegate, 
     private func resetLink() {
         ready = false
         setupStarted = false
+        setupWatch?.cancel()
+        endBgTask()
         cmdChar = nil
         queue.removeAll()
         busy = false
@@ -259,7 +269,10 @@ final class WhoopManager: NSObject, ObservableObject, CBCentralManagerDelegate, 
             isRunning = true
             stopping = false
             ServiceLog.shared.log("♻️ iOS ha reabierto PulseApp: recupero la conexión con la pulsera")
-            if p.state == .connected { beginSetup(p) }
+            // 31/10: aquí el Bluetooth aún NO está listo (iOS llama a esto antes de centralManagerDidUpdateState) y las órdenes se
+            // ignoran: antes se llamaba a beginSetup, la preparación se quedaba a medias y la app ya no lo reintentaba en toda la
+            // noche ("Conectada, preparando…"). Ahora se prepara al recibir .poweredOn (connectToKnownOrScan).
+            setupStarted = false
         }
     }
 
@@ -301,16 +314,69 @@ final class WhoopManager: NSObject, ObservableObject, CBCentralManagerDelegate, 
     // ---------- Preparación del canal ----------
 
     private func beginSetup(_ p: CBPeripheral) {
-        if setupStarted { return }
+        guard central.state == .poweredOn else {
+            ServiceLog.shared.log("⏳ Bluetooth aún no listo: preparo el canal en cuanto lo esté")
+            return
+        }
+        if setupStarted {
+            // Si una preparación anterior se quedó colgada, no se bloquea para siempre
+            if !ready && Date().timeIntervalSince(setupStartedAt) > WhoopManager.setupTimeout { restartLink(p, "la preparación anterior no terminó") }
+            return
+        }
         setupStarted = true
+        setupStartedAt = Date()
         queue.removeAll(); busy = false
+        beginBgTask()
+        // Vigilancia: si en 15 s no está midiendo, se corta y se vuelve a conectar (lo mismo que desconectar y conectar a mano)
+        setupWatch?.cancel()
+        let w = DispatchWorkItem { [weak self] in
+            guard let self = self, !self.stopping, !self.ready, let p = self.peripheral else { return }
+            self.restartLink(p, "la preparación no terminó en \(Int(WhoopManager.setupTimeout)) s")
+        }
+        setupWatch = w
+        DispatchQueue.main.asyncAfter(deadline: .now() + WhoopManager.setupTimeout, execute: w)
         p.discoverServices([WhoopManager.whoopService, WhoopManager.hrService])
+    }
+
+    /// Corta la conexión de PulseApp con la pulsera y la vuelve a pedir (la app de WHOOP no se ve afectada).
+    private func restartLink(_ p: CBPeripheral, _ reason: String) {
+        if stopping { return }
+        ServiceLog.shared.log("🔄 Reconectando sola: \(reason)")
+        resetLink()
+        setState("Reconectando…")
+        central.cancelPeripheralConnection(p)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+            guard let self = self, !self.stopping, self.central.state == .poweredOn else { return }
+            if p.state == .connected { self.beginSetup(p) } else { self.central.connect(p, options: nil) }
+        }
+    }
+
+    /// Al abrir la app: si debería estar midiendo y no lo está (o lleva 2 min sin recibir nada), se arregla sola.
+    func ensureAlive() {
+        guard WhoopSettings.autoConnect, !stopping, central.state == .poweredOn else { return }
+        guard let p = peripheral else { connectToKnownOrScan(); return }
+        if !ready {
+            if !setupStarted || Date().timeIntervalSince(setupStartedAt) > WhoopManager.setupTimeout {
+                if p.state == .connected { restartLink(p, "al abrir la app no estaba midiendo") } else { connectToKnownOrScan() }
+            }
+        } else if Date().timeIntervalSince(lastRxAt) > WhoopManager.silenceLimit {
+            restartLink(p, "llevaba más de 2 min sin recibir datos de la pulsera")
+        }
+    }
+
+    private func beginBgTask() {
+        endBgTask()
+        bgTask = UIApplication.shared.beginBackgroundTask(withName: "whoop-setup") { [weak self] in self?.endBgTask() }
+    }
+
+    private func endBgTask() {
+        if bgTask != .invalid { UIApplication.shared.endBackgroundTask(bgTask); bgTask = .invalid }
     }
 
     func peripheral(_ p: CBPeripheral, didDiscoverServices error: Error?) {
         guard let services = p.services, services.contains(where: { $0.uuid == WhoopManager.whoopService }) else {
             ServiceLog.shared.log("❌ La pulsera no muestra el servicio WHOOP (\(error?.localizedDescription ?? "sin error"))")
-            setupStarted = false
+            restartLink(p, "no aparecieron los servicios")
             return
         }
         characteristicsPending = services.count
@@ -349,10 +415,17 @@ final class WhoopManager: NSObject, ObservableObject, CBCentralManagerDelegate, 
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { [weak self] in
             guard let self = self, self.setupStarted else { return }
             self.ready = true
+            self.setupWatch?.cancel()
+            self.lastRxAt = Date()
             self.offloadedThisConnection = false
             self.setState("Conectada · esperando pulso")
             if WhoopSettings.imuEnabled { self.startImu() }
             self.lastOffloadRequest = Date.distantPast
+            // Si en 15 s no llega ningún dato, también se reconecta
+            DispatchQueue.main.asyncAfter(deadline: .now() + WhoopManager.setupTimeout) { [weak self] in
+                guard let self = self, self.ready, !self.stopping, let p = self.peripheral else { self?.endBgTask(); return }
+                if Date().timeIntervalSince(self.lastRxAt) >= WhoopManager.setupTimeout { self.restartLink(p, "conectada pero sin datos") } else { self.endBgTask() }
+            }
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in self?.tickOffload() }
         }
     }
@@ -406,6 +479,7 @@ final class WhoopManager: NSObject, ObservableObject, CBCentralManagerDelegate, 
 
     func peripheral(_ p: CBPeripheral, didUpdateValueFor c: CBCharacteristic, error: Error?) {
         guard error == nil, let data = c.value else { return }
+        lastRxAt = Date()
         let uuid: String = c.uuid == WhoopManager.hrMeasurement ? "00002a37" : String(c.uuid.uuidString.prefix(8)).lowercased()
         handler.handleNotification(uuid: uuid, data: [UInt8](data))
         tickOffload()
