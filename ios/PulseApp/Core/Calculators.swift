@@ -222,6 +222,39 @@ enum NightMetrics {
     /// 25/10: media de los dos métodos (profundo y toda la noche). 10 noches: error medio 2,6 → 1,8 ms, máx 11 → 5
     /// (noche tras el partido del 24/10: profundo 82, toda la noche 66, WHOOP 71; noche larga del 24: 94 / 100, WHOOP 92).
     static func hrv(_ readings: [HrReading], staged: SleepStager.Result?) -> Double? {
+        if let st = staged, let v = stageHrv(readings, staged: st) { return v }
+        return hrvOld(readings, staged: staged)
+    }
+
+    /// 1/11 (igual que Android): VFC = e^0,0819 · P^0,3808 · L^0,6030, P y L = media del RMSSD de los tramos de 2 min dentro del
+    /// profundo y del ligero (filtro de artefactos 30 %). 16 noches de WHOOP dejando cada una fuera: 1,9 → 1,42 ms (máx 5,3 → 3,4).
+    static let stageC = 0.0819
+    static let stageDeepExp = 0.3808
+    static let stageLightExp = 0.6030
+    static func stageHrv(_ readings: [HrReading], staged r: SleepStager.Result) -> Double? {
+        let st = r.stages
+        var deep = [Int64: [Double]](), light = [Int64: [Double]]()
+        for x in readings where !x.rr.isEmpty {
+            let i = Int(x.timeMillis / 60_000 - r.startMinute)
+            if i < 0 || i >= st.count { continue }
+            let rr = x.rr.filter { $0 >= 300 && $0 <= 2000 }
+            if st[i] == SleepStager.deep { deep[x.timeMillis / windowMs, default: []].append(contentsOf: rr) }
+            else if st[i] == SleepStager.light { light[x.timeMillis / windowMs, default: []].append(contentsOf: rr) }
+        }
+        func mean(_ m: [Int64: [Double]]) -> Double? {
+            var v = [Double]()
+            for k in m.keys.sorted() {
+                guard let rr = m[k], rr.count >= minRrPerWindow, let x = MetricsCalculator.computeRMSSD(rr, maxJump: 0.30) else { continue }
+                v.append(x)
+            }
+            return v.count < 10 ? nil : v.reduce(0, +) / Double(v.count)
+        }
+        guard let p = mean(deep), let l = mean(light) else { return nil }
+        return exp(stageC + stageDeepExp * log(p) + stageLightExp * log(l))
+    }
+
+    /// Método del 25/10 (media de profundo calibrado y toda la noche): solo si no hay fases suficientes.
+    static func hrvOld(_ readings: [HrReading], staged: SleepStager.Result?) -> Double? {
         let whole = wholeNightHrv(readings)
         if let st = staged, let deep = deepHrv(readings, staged: st) {
             if let w = whole { return (deep + w) / 2 }

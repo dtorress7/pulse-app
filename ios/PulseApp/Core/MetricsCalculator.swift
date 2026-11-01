@@ -83,18 +83,18 @@ struct MetricsCalculator {
     }
 
     /// Descarta intervalos RR que difieren >20 % del anterior (artefactos de movimiento, no VFC real).
-    static func filterRRArtifacts(_ rr: [Double]) -> [Double] {
+    static func filterRRArtifacts(_ rr: [Double], maxJump: Double = 0.20) -> [Double] {
         if rr.count < 2 { return rr }
         var filtered = [rr[0]]
         for i in 1..<rr.count {
             let prev = filtered[filtered.count - 1]
-            if abs(rr[i] - prev) / prev <= 0.20 { filtered.append(rr[i]) }
+            if abs(rr[i] - prev) / prev <= maxJump { filtered.append(rr[i]) }
         }
         return filtered
     }
 
-    static func computeRMSSD(_ rrRaw: [Double]) -> Double? {
-        let rr = filterRRArtifacts(rrRaw)
+    static func computeRMSSD(_ rrRaw: [Double], maxJump: Double = 0.20) -> Double? {
+        let rr = filterRRArtifacts(rrRaw, maxJump: maxJump)
         if rr.count < 2 { return nil }
         var sumSq = 0.0
         for i in 1..<rr.count { let d = rr[i] - rr[i - 1]; sumSq += d * d }

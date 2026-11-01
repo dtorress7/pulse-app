@@ -384,8 +384,9 @@ enum HomeDataLoader {
         if lastPoint == nil || lastPoint! < 1 { level = "BAJO" } else if lastPoint! < 2 { level = "MEDIO" }
 
         // ---------- Monitor de salud ----------
-        let twoWeeks = Day.add(date, -14)
-        let hist = records.values.filter { $0.date < date && $0.date >= twoWeeks }
+        // 1/11: 30 días como WHOOP (con 14 la VFC de WHOOP del 1/11, 78, también habría salido fuera; WHOOP la daba dentro)
+        let month = Day.add(date, -30)
+        let hist = records.values.filter { $0.date < date && $0.date >= month }
         let vitals = [
             vital("resp", "Frecuencia respiratoria", "lungs.fill", day.resp, "rpm", 1,
                   hist.filter { BaselineProvider.sameScale($0.date) }.compactMap { $0.resp }, goodWhenHigh: false),

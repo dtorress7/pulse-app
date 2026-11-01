@@ -306,7 +306,9 @@ class HomeDataLoader(private val ctx: Context) {
         }
 
         // ---------- Monitor de salud ----------
-        val hist = records.values.filter { it.date < date && it.date >= date.minusDays(14) }
+        // 1/11: 30 días como WHOOP ("Hoy vs. los últimos 30 días"). Con 14 días el rango de la VFC era 84–105 y la de WHOOP (78, media
+        // 30 d 90) también habría salido fuera; WHOOP la daba dentro (5/5). Con 30 días: 75–107.
+        val hist = records.values.filter { it.date < date && it.date >= date.minusDays(30) }
         val vitals = listOf(
             vital("resp", "Frecuencia respiratoria", R.drawable.ic_lungs, day.resp, "rpm", 1,
                 hist.filter { BaselineProvider.sameScale(it.date.format(iso)) }.mapNotNull { it.resp }, goodWhenHigh = false),

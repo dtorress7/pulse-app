@@ -549,6 +549,19 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
     10:45 y 62,1 a las 11:30; en la API la cifra no cambió de 10:14 a 11:57). PulseApp hasta 10:40 da 0,2. El +1 es la hora levantado a 75–90 lpm que
     WHOOP aún no había sumado. Días completos (12 ciclos) error medio 0,46; un suelo de día (0,02–0,15, también solo sin pasos) hunde el día de descanso
     25/10 (4,1 → 1,4–3,5) → no se toca. Arnés check/n30/Z4.kt / Z5.kt / Zm.kt.
+  - **VFC nueva (1/11, Android + iOS `NightMetrics.stageHrv`)**: VFC = e^0,0819 · P^0,3808 · L^0,6030, P/L = media del RMSSD de los tramos de 2 min
+    (≥ 60 RR) dentro del PROFUNDO / LIGERO del modelo, filtro de artefactos 30 % (el 20 % tiraba latidos buenos). Sin fases o < 10 tramos → `hrvOld`.
+    16 noches dejando cada una fuera: 1,9 → 1,42 ms (máx 5,3 → 3,4); ajustando con 16–25/10 y probando 26/10–1/11: 2,28 → 1,62; con las fases EXACTAS
+    de WHOOP 1,40. Código real (N.kt): MAE 1,13, 1/11 79,6 (W 78,2). Probado y descartado: más peso al profundo del final, solo profundo de WHOOP,
+    mediana/recortada, filtro con mediana local, otros umbrales (0,25–0,40 igual; 0,10/0,5+ peor). Arnés check/vfc01 (Dump.kt, a–e.py).
+    Recuperación de PulseApp 23/10→1/11 (historial WHOOP hasta 22/10): error medio 4,7 → 3,4 (1/11 52 → 48, W 43; 24/10 73 → 69, W 60).
+    `night_recalc_v9` / iOS 9.
+  - **Fórmula de recuperación (1/11)**: búsqueda con 209 noches (scratchpad rec30/g.py, k.py). Validación EN LÍNEA (reajustando cada semana con lo
+    anterior, como se usaría de verdad): actual 3,78 (desde 1/9 4,27). Nada la mejora de forma fiable: + sd de la VFC 30 d mejora la validación cruzada
+    (3,36) pero EMPEORA hacia delante (5,23: hace de reloj); + Φ FCR, z-score, EWMA 7, media 30 d, calificación, regularidad, horas, respiración,
+    árboles: 3,8–5,2. El error que queda (±4) es de la línea base interna de WHOOP, que no se ve. No se cambia.
+  - **Monitor de salud (1/11, Android + iOS)**: rango = media ± 1 sd de 30 días (antes 14). Con 14 días el rango de VFC era 83–105 y hasta el 78 de
+    WHOOP salía fuera (WHOOP: 5/5 dentro). Con 30: VFC 75–107, FCR 54–61 → 3/3. Falta una captura del detalle del Monitor de salud de WHOOP para afinar.
 
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
