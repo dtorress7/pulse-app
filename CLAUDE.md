@@ -533,6 +533,23 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
     (UIApplication.willTerminateNotification; iOS no la vuelve a abrir tras cerrarla a mano); "Actividad completada" al guardar una actividad
     automática. Android: canal "Avisos" (solo batería; el servicio sigue aunque cierres la app).
 
+- **31/10→1/11 (16.ª referencia, fútbol 18:15–19:35 + paseo la víspera, acostarse 03:24)**: WHOOP (API) 02:24:55Z–09:12:51Z (03:24–10:12), cama 6:48,
+  dormido 6:27, 21/221/110/57, 4 despertares, 96 %, VFC 78,2, FCR 58, resp 13,4, calificación 75 (horas 75 / regularidad 43 / 96), recuperación 43.
+  PulseApp iPhone: 03:25–10:38, 6:54, 19/228/103/83, VFC 83, FCR 59, calificación 70 (79/34/95), recuperación 53.
+  - **Fin de la noche (1/11, Android + iOS `trimBounds`)**: tras un despertar de ≥ 5 min (10:12–10:16) seguía tumbado quieto 21 min y contaba como sueño.
+    Ahora un despertar ≥ 5 min seguido de < 30 min dormido al final = fin de la noche. 16 noches (código real, check/n30/N.kt + check/end01/T.kt):
+    solo cambia la 1/11 → 10:11 (WHOOP 10:12), 14/211/103/79, dormido 6:33 (6:27); error del fin 3,1 → 1,5 min. Mismo resultado con 25–40 min.
+    Con 4 min cambiaba también 16 (−6) y 24 (+10 → 0): no se usa. `night_recalc_v8` / iOS 8.
+  - Recuperación: con la VFC/FCR EXACTAS de WHOOP la fórmula da 46 (WHOOP 43) → la diferencia (53) es la VFC: profundo 90,5 / toda la noche 76,6 → 83,5
+    (WHOOP 78,2). Probado otro reparto de los dos métodos (peso, escala, "más cerca del menor"): dentro de muestra 1,6–1,7 pero dejando una noche
+    fuera 1,7–2,2 frente a 1,97 actual → no se toca (+5 = el máximo de las 16 noches; 25/10 igual: profundo mucho mayor que toda la noche).
+  - Regularidad 34 vs 43: PulseApp no tiene la noche 30→31 (no se grabó) y compara con 28–30/10; con las horas de WHOOP sale 40. No se arregla
+    con fórmulas (ya está corregida la causa de la noche perdida).
+  - **Esfuerzo de la mañana**: WHOOP 0,3 a las 11:38 = ciclo que solo llegaba a ~10:40 (FC media 60 del ciclo: la nuestra es 60,1 hasta 10:30, 60,4 a
+    10:45 y 62,1 a las 11:30; en la API la cifra no cambió de 10:14 a 11:57). PulseApp hasta 10:40 da 0,2. El +1 es la hora levantado a 75–90 lpm que
+    WHOOP aún no había sumado. Días completos (12 ciclos) error medio 0,46; un suelo de día (0,02–0,15, también solo sin pasos) hunde el día de descanso
+    25/10 (4,1 → 1,4–3,5) → no se toca. Arnés check/n30/Z4.kt / Z5.kt / Zm.kt.
+
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
 esfuerzo 11,5, 271 kcal, FC media 127 (la media aritmética de esos segundos es 133: WHOOP no usa la media simple), máx 170,

@@ -414,8 +414,21 @@ object SleepStager {
         if (start < 0) return 0 to n
         var end = n
         while (end > start && st[end - 1] == AWAKE) end--
+        // 1/11: un despertar de ≥ FINAL_WAKE_MIN min seguido de < FINAL_DOZE_MAX min "dormido" al final = remolonear en la cama
+        // despierto: la noche acaba en ese despertar (31/10→1/11: 10:37 → 10:11, WHOOP 10:12). Las otras 15 noches no cambian.
+        while (true) {
+            var s = end
+            while (s > start && st[s - 1] != AWAKE) s--
+            if (s <= start) break
+            var a = s
+            while (a > start && st[a - 1] == AWAKE) a--
+            if (a > start && end - s < FINAL_DOZE_MAX && s - a >= FINAL_WAKE_MIN) end = a else break
+        }
         return start to end
     }
+
+    private const val FINAL_WAKE_MIN = 5
+    private const val FINAL_DOZE_MAX = 30
 
     private fun median(v: List<Double>): Double {
         val s = v.sorted(); val n = s.size

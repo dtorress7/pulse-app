@@ -387,8 +387,21 @@ enum SleepStager {
         if start < 0 { return (0, n) }
         var end = n
         while end > start && st[end - 1] == awake { end -= 1 }
+        // 1/11 (igual que Android): un despertar de ≥ 5 min seguido de < 30 min "dormido" al final = remolonear despierto:
+        // la noche acaba en ese despertar (31/10→1/11: 10:37 → 10:11, WHOOP 10:12). Las otras 15 noches no cambian.
+        while true {
+            var s = end
+            while s > start && st[s - 1] != awake { s -= 1 }
+            if s <= start { break }
+            var a = s
+            while a > start && st[a - 1] == awake { a -= 1 }
+            if a > start && end - s < finalDozeMax && s - a >= finalWakeMin { end = a } else { break }
+        }
         return (start, end)
     }
+
+    private static let finalWakeMin = 5
+    private static let finalDozeMax = 30
 
     private static func median(_ v: [Double]) -> Double {
         let s = v.sorted()
