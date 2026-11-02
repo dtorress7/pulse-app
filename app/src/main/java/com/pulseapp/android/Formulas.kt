@@ -49,6 +49,7 @@ object Formulas {
     @Volatile private var cachedObserved = 0
 
     fun init(context: Context) {
+        if (NapStages.dir == null) NapStages.dir = context.getExternalFilesDir(null)
         val sp = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         cachedObserved = sp.getInt(KEY_HR_MAX, 0)
         cachedZoneRhr = sp.getInt(KEY_RHR_ZONE, DEFAULT_RESTING_HR)
@@ -655,8 +656,7 @@ object Formulas {
      * Minutos que restan las siestas a la necesidad de la noche (2/11). WHOOP resta el tiempo DORMIDO de la siesta (need_from_recent_nap:
      * 29/09 −65,5 de 69 en cama, 1/10 −58,7 de 59,8, 1/11 −91,6 de 98,9 → 95 %).
      */
-    fun napNeedMinutes(naps: List<com.pulseapp.android.data.ActivitySession>): Int =
-        (naps.sumOf { (it.endMillis - it.startMillis) / 60_000.0 } * NAP_ASLEEP_FRACTION).roundToInt()
+    fun napNeedMinutes(naps: List<com.pulseapp.android.data.ActivitySession>): Int = naps.sumOf { NapStages.asleepMinutes(it) }
     const val NAP_ASLEEP_FRACTION = 0.95
 
     /**

@@ -78,6 +78,8 @@ data class HomeData(
     val sleepFromMillis: Long?,
     val sleepToMillis: Long?,
     val sessions: List<ActivitySession>,
+    /** Minutos dormido de cada siesta del día (id → min), para la píldora de "Actividades" (2/11). */
+    val napAsleep: Map<Long, Int> = emptyMap(),
     val bedtime: String?,
     val wakeMinute: Int,
     val panel: List<PanelRow>,
@@ -152,6 +154,12 @@ class HomeDataLoader(private val ctx: Context) {
         val byDate = stored.associateBy { it.date }
         if (isToday) AutoActivityScanner.scan(ctx, hrFile)
         val allSessions = db.activitySessionDao().getAll()
+        // 2/11: fases de las siestas recientes (una vez cada una; restan de la necesidad con su tiempo dormido)
+        if (NapStages.dir == null) NapStages.dir = dir
+        withContext(Dispatchers.IO) {
+            val since = date.minusDays(2).atStartOfDay(zone).toInstant().toEpochMilli()
+            allSessions.filter { it.type == Formulas.NAP_TYPE && it.startMillis >= since }.forEach { NapStages.get(it) }
+        }
         val stepsByDay = withContext(Dispatchers.IO) { stepsPerDay(motionFile, dir) }
         val zoneDays = withContext(Dispatchers.IO) { ZoneDayCache(ctx).load(hrFile, hrMax, today, 40) }
         val base = SleepPlanner.baselineForAge(profile?.ageYears())
@@ -404,7 +412,8 @@ class HomeDataLoader(private val ctx: Context) {
             vitals = vitals, healthOk = healthOk, healthTotal = withRange.size,
             stressScore = lastPoint, stressLevel = level, stressMinute = lastMinute, stressSeries = series,
             stressFrom = dayStart, stressTo = stressTo, sleepFromMillis = sleepFrom, sleepToMillis = sleepTo,
-            sessions = sessionsOfDay, bedtime = bedtime, wakeMinute = wake, panel = panel, week = week, streak = streak,
+            sessions = sessionsOfDay, napAsleep = sessionsOfDay.filter { it.type == Formulas.NAP_TYPE }.associate { it.id to NapStages.asleepMinutes(it) },
+            bedtime = bedtime, wakeMinute = wake, panel = panel, week = week, streak = streak,
             insight = Insight.build(day, previous, isToday, baselineNow != null),
             baselineReady = baselineNow != null, profileMissing = profile == null,
             records = records.values.sortedBy { it.date }, sleepStressSeries = sleepStress,

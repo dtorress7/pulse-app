@@ -119,6 +119,12 @@ class ActivityDetailActivity : AppCompatActivity() {
 
             val content = findViewById<LinearLayout>(R.id.detailContent)
             content.removeAllViews()
+            // 2/11: la siesta se muestra como en WHOOP (horas de sueño, sueño reparador y fases), no como una actividad
+            if (s.type == Formulas.NAP_TYPE) {
+                val st = withContext(Dispatchers.IO) { NapStages.dir = NapStages.dir ?: dir; NapStages.get(s) }
+                showNap(content, s, st, samples)
+                return@launch
+            }
 
             // Esfuerzo y pasos
             content.addView(LinearLayout(ctx).apply {
@@ -275,6 +281,118 @@ class ActivityDetailActivity : AppCompatActivity() {
                 })
             }
         }
+    }
+
+    private fun showNap(content: LinearLayout, s: ActivitySession, st: SleepStager.Result?, samples: List<StressCalculator.Sample>) {
+        val ctx = this
+        val asleep = NapStages.asleepMinutes(s)
+        val restorative = st?.let { it.deepMinutes + it.remMinutes }
+        content.addView(LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                topMargin = Ui.dp(ctx, 26f)
+            }
+            addView(bigStat(Ui.hm(asleep), R.color.w_ring_sleep, null, null, "Horas de sueño").apply { layoutParams = W.weight() })
+            addView(bigStat(restorative?.let { Ui.hm(it) } ?: "--", R.color.text_primary, null, null, "Sueño reparador").apply { layoutParams = W.weight() })
+        })
+        content.addView(W.card(ctx, 22f).apply {
+            setBackgroundResource(R.drawable.bg_outline_card_w)
+            setPadding(Ui.dp(ctx, 20f), Ui.dp(ctx, 18f), Ui.dp(ctx, 20f), Ui.dp(ctx, 18f))
+            addView(W.body(ctx, "Esta siesta redujo tu sueño requerido por $asleep minutos.", 17f, R.color.text_primary))
+        })
+        val inBed = s.copy(startMillis = st?.startMillis ?: s.startMillis, endMillis = st?.endMillis ?: s.endMillis)
+        val chartPts = samples.groupBy { it.timeMillis / 10_000 }.entries.sortedBy { it.key }
+            .map { (k, v) -> k * 10_000 to Math.round(v.map { it.bpm }.average()).toInt() }
+        var hrChart: ActivityHrChartView? = null
+        if (chartPts.size >= 2) content.addView(ActivityHrChartView(ctx).apply {
+            hrChart = this
+            setData(chartPts, inBed.startMillis, inBed.endMillis)
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, Ui.dp(ctx, 300f)).apply { topMargin = Ui.dp(ctx, 22f) }
+        })
+        val durMin = ((inBed.endMillis - inBed.startMillis) / 60_000L).toInt()
+        content.addView(LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                topMargin = Ui.dp(ctx, 22f)
+            }
+            addView(W.title(ctx, "Fases de la siesta", 14.5f, R.color.text_secondary).apply { layoutParams = W.weight() })
+            addView(W.title(ctx, "Duración  ", 14.5f, R.color.text_secondary))
+            addView(W.number(ctx, Ui.hm(durMin), 18f))
+        })
+        if (st == null) {
+            content.addView(W.body(ctx, "Sin movimiento grabado en la siesta no se pueden calcular las fases.", 14.5f).apply {
+                setPadding(0, Ui.dp(ctx, 12f), 0, 0)
+            })
+            return
+        }
+        val names = listOf("Despierto", "Ligero", "Sueño profundo (SWS)", "REM")
+        val colors = listOf(R.color.w_stage_awake, R.color.w_stage_light, R.color.w_stage_deep, R.color.w_stage_rem)
+        val order = listOf(SleepStager.AWAKE, SleepStager.LIGHT, SleepStager.DEEP, SleepStager.REM)
+        // Tramos de cada fase (para pintar la gráfica de pulso al tocarla, como en Sueño)
+        val runs = Array(4) { ArrayList<Pair<Long, Long>>() }
+        var i = 0
+        while (i < st.stages.size) {
+            var j = i
+            while (j < st.stages.size && st.stages[j] == st.stages[i]) j++
+            runs[st.stages[i]].add((st.startMinute + i) * 60_000L to (st.startMinute + j) * 60_000L)
+            i = j
+        }
+        val box = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
+        content.addView(box)
+        var selected: Int? = null
+        fun render() {
+            box.removeAllViews()
+            for ((k, stage) in order.withIndex()) {
+                val min = st.count(stage)
+                val row = LinearLayout(ctx).apply {
+                    orientation = LinearLayout.VERTICAL
+                    setBackgroundResource(R.drawable.bg_card_w)
+                    setPadding(Ui.dp(ctx, 18f), Ui.dp(ctx, 14f), Ui.dp(ctx, 18f), Ui.dp(ctx, 12f))
+                    layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                        topMargin = Ui.dp(ctx, 12f)
+                    }
+                    alpha = if (min == 0 || (selected != null && selected != stage)) 0.55f else 1f
+                    addView(LinearLayout(ctx).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        gravity = Gravity.CENTER_VERTICAL
+                        addView(W.title(ctx, names[k], 15.5f))
+                        addView(W.number(ctx, "%d %%".format(min * 100 / st.stages.size.coerceAtLeast(1)), 15f, colors[k]).apply {
+                            setPadding(Ui.dp(ctx, 12f), 0, 0, 0); layoutParams = W.weight()
+                        })
+                        addView(W.number(ctx, Ui.hm(min), 22f))
+                    })
+                    if (min > 0) addView(StageTimelineBarView(ctx).apply {
+                        setData(st.stages, stage, Ui.color(ctx, colors[k]), true)
+                        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, Ui.dp(ctx, 30f)).apply { topMargin = Ui.dp(ctx, 10f) }
+                    })
+                }
+                if (min > 0) row.setOnClickListener {
+                    selected = if (selected == stage) null else stage
+                    render()
+                }
+                box.addView(row)
+            }
+            val sel = selected
+            if (sel != null) hrChart?.setHighlights(runs[sel], Ui.color(ctx, colors[order.indexOf(sel)])) else hrChart?.setHighlights(emptyList(), 0)
+        }
+        render()
+        // Métricas de la siesta
+        content.addView(W.title(ctx, "Métricas de la siesta", 15.5f).apply { setPadding(0, Ui.dp(ctx, 30f), 0, 0) })
+        val strip = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL }
+        strip.addView(statCard(R.drawable.ic_moon, "Despertares", st.awakenings.toString(), "", null, null))
+        strip.addView(statCard(R.drawable.ic_moon, "Eficiencia", st.efficiencyPct.toString(), "%", null, null))
+        strip.addView(statCard(R.drawable.ic_heart, "FC prom.", s.avgHr.toString(), "lpm", null, null))
+        content.addView(HorizontalScrollView(ctx).apply {
+            isHorizontalScrollBarEnabled = false
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                topMargin = Ui.dp(ctx, 16f)
+            }
+            addView(strip)
+        })
+        content.addView(W.body(ctx, "Fases calculadas con tu pulso y movimiento (el mismo método que la noche). Las siestas restan su tiempo dormido de lo que necesitas dormir esa noche, como en WHOOP.", 14f).apply {
+            setPadding(0, Ui.dp(ctx, 18f), 0, 0)
+        })
     }
 
     private fun trendOf(value: Double, avg: Double): Trend = when {

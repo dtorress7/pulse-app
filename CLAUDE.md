@@ -580,6 +580,13 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
     Mañana 2/11: WHOOP 1,0 a las 9:14 (la API dice 4,0 a las 10:33); PulseApp 2,0 (con FCR 54), 1,4 con 58.
   - Sueño: inicio 23:07 vs 23:11, despierto +15, profundo −16. Respiración 14,1 vs 13,8 (por eso el Monitor de salud dice 2/3: respiración
     "elevada", rango 12,7–14,1).
+  - **Siestas como WHOOP (2/11, Android + iOS)**: `SleepStager.stageNap` (mismo clasificador sobre la ventana de la siesta, mínimo 20 min, sin
+    REM en los primeros 60 min: de las 4 siestas de WHOOP en la API solo una tuvo REM) + `NapStages` (nap_stages.csv, se calcula una vez;
+    `asleepMinutes` = dormido de las fases o 95 % del tiempo). La necesidad resta ese tiempo dormido. Inicio: píldora azul de sueño con el
+    tiempo dormido (antes "0,0" de esfuerzo). Detalle: horas de sueño, sueño reparador (profundo + REM), "Esta siesta redujo tu sueño requerido
+    por N minutos", pulso, fases tocables (pintan la gráfica) y despertares/eficiencia/FC. Siesta 1/11 (código real, check/nap02/Ns.kt):
+    15:58–17:36, 2/74/22/0, dormido 1:36, reparador 0:22 (WHOOP 15:57–17:36, 7/51/40/0, 1:31, 0:40, resta 91). Profundo corto: solo 1 siesta
+    para comparar (el modelo se entrenó con noches) → recalibrar con más siestas.
 
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,

@@ -449,7 +449,11 @@ class MainActivity : AppCompatActivity() {
             todayList.addView(row)
         }
         d.sessions.forEach { s ->
-            val row = W.activityRow(this, R.color.strain_blue, W.sportIcon(s.type), Ui.comma(s.strain), s.type,
+            // 2/11: la siesta se muestra como WHOOP: color de sueño y el tiempo dormido (no el esfuerzo, que siempre es 0)
+            val nap = s.type == Formulas.NAP_TYPE
+            val row = if (nap) W.activityRow(this, R.color.w_ring_sleep, W.sportIcon(s.type),
+                Ui.hm(d.napAsleep[s.id] ?: NapStages.asleepMinutes(s)), s.type, timeFmt.format(Date(s.startMillis)), timeFmt.format(Date(s.endMillis)))
+            else W.activityRow(this, R.color.strain_blue, W.sportIcon(s.type), Ui.comma(s.strain), s.type,
                 timeFmt.format(Date(s.startMillis)), timeFmt.format(Date(s.endMillis)))
             row.setOnClickListener {
                 startActivity(Intent(this, ActivityDetailActivity::class.java).putExtra(ActivityDetailActivity.EXTRA_SESSION_ID, s.id))

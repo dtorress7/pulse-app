@@ -484,6 +484,7 @@ enum WText {
         if t.contains("fútbol") || t.contains("futbol") { return "soccerball" }
         if t.contains("pádel") || t.contains("padel") || t.contains("pickle") || t.contains("tenis") { return "tennis.racket" }
         if t.contains("fuerza") || t.contains("gimnasio") { return "dumbbell.fill" }
+        if t == "siesta" { return "bed.double.fill" }
         return "figure.run"
     }
 

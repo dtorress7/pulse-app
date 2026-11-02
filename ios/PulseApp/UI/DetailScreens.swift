@@ -319,6 +319,7 @@ struct ActivityDetailView: View {
     @State private var showMenu = false
     @State private var confirmDelete = false
     @State private var selectedZone: Int? = nil
+    @State private var selectedStage: Int? = nil
 
     struct Stats { let strain: Double; let steps: Int?; let kcal: Double; let avgHr: Int; let maxHr: Int; let seconds: Int64 }
     struct Model {
@@ -332,6 +333,8 @@ struct ActivityDetailView: View {
         /// 29/10: tramos [desde, hasta) en ms de cada zona y zona de cada tramo de 10 s (−1 = sin pulso), para marcar una zona
         let zoneRuns: [[(Int64, Int64)]]
         let bucketZone: [Int]
+        /// 2/11: fases de la siesta (nil si no es siesta o no se pudieron calcular)
+        var nap: SleepStager.Result? = nil
     }
 
     var body: some View {
@@ -438,8 +441,9 @@ struct ActivityDetailView: View {
             }
             return fr.count >= 2 ? (fr.min()!, fr.max()!) : nil
         }
+        let nap = s.type == Formulas.napType ? NapStages.get(s, hrLog: WhoopManager.shared.hrLog) : nil
         return Model(session: s, me: stats(s), avg: pool.map { stats($0) }, chart: chart, zoneSec: zoneSec, typical: typical, hrMax: hrMax,
-                     zoneRuns: zoneRuns, bucketZone: bucketZone)
+                     zoneRuns: zoneRuns, bucketZone: bucketZone, nap: nap)
     }
 
     private func trendOf(_ value: Double, _ avg: Double) -> Trend {
@@ -467,13 +471,102 @@ struct ActivityDetailView: View {
 
     @ViewBuilder private func content(_ m: Model) -> some View {
         let s = m.session
-        let me = m.me
         VStack(spacing: 10) {
             Image(systemName: WText.sportIcon(s.type)).font(.system(size: 34)).foregroundColor(Theme.textPrimary)
             WTitle(text: s.type, size: 22)
             Text(whenText(s)).font(Theme.text(15)).foregroundColor(Theme.textSecondary)
         }
         .frame(maxWidth: .infinity)
+        if s.type == Formulas.napType { napContent(m) } else { activityContent(m) }
+    }
+
+    // 2/11: la siesta se muestra como en WHOOP (horas de sueño, sueño reparador y fases), no como una actividad
+    @ViewBuilder private func napContent(_ m: Model) -> some View {
+        let s = m.session
+        let st = m.nap
+        let asleep = NapStages.asleepMinutes(s)
+        HStack(alignment: .top, spacing: 12) {
+            bigStat(Fmt.hm(asleep), Theme.wRingSleep, nil, nil, "Horas de sueño")
+            bigStat(st.map { Fmt.hm($0.deepMinutes + $0.remMinutes) } ?? "--", Theme.textPrimary, nil, nil, "Sueño reparador")
+        }
+        .padding(.top, 26)
+        Text("Esta siesta redujo tu sueño requerido por \(asleep) minutos.")
+            .font(Theme.text(17)).foregroundColor(Theme.textPrimary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(18)
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Theme.wRingSleep.opacity(0.7), lineWidth: 1.5))
+            .padding(.top, 22)
+        let start = st?.startMillis ?? s.startMillis, end = st?.endMillis ?? s.endMillis
+        let names = ["Despierto", "Ligero", "Sueño profundo (SWS)", "REM"]
+        let colors = [Theme.wStageAwake, Theme.wStageLight, Theme.wStageDeep, Theme.wStageRem]
+        let order = [SleepStager.awake, SleepStager.light, SleepStager.deep, SleepStager.rem]
+        let runs: [[(Int64, Int64)]] = {
+            var r = [[(Int64, Int64)]](repeating: [], count: 4)
+            guard let st = st else { return r }
+            var i = 0
+            while i < st.stages.count {
+                var j = i
+                while j < st.stages.count && st.stages[j] == st.stages[i] { j += 1 }
+                r[st.stages[i]].append(((st.startMinute + Int64(i)) * 60_000, (st.startMinute + Int64(j)) * 60_000))
+                i = j
+            }
+            return r
+        }()
+        if m.chart.count >= 2 {
+            ActivityHrChart(points: m.chart, start: start, end: end,
+                            highlights: selectedStage.map { runs[$0] } ?? [],
+                            highlightColor: selectedStage.map { colors[order.firstIndex(of: $0) ?? 0] } ?? .clear).frame(height: 300).padding(.top, 22)
+        }
+        HStack(spacing: 0) {
+            WTitle(text: "Fases de la siesta", size: 14.5, color: Theme.textSecondary)
+            Spacer()
+            WTitle(text: "Duración", size: 14.5, color: Theme.textSecondary).padding(.trailing, 8)
+            WNumber(text: Fmt.hm(Int((end - start) / 60_000)), size: 18)
+        }
+        .padding(.top, 22)
+        if let st = st {
+            ForEach(0..<4, id: \.self) { k in
+                let stage = order[k]
+                let mins = st.count(stage)
+                let on = selectedStage == stage
+                VStack(spacing: 6) {
+                    HStack(spacing: 12) {
+                        WTitle(text: names[k], size: 15.5)
+                        WNumber(text: "\(mins * 100 / max(st.stages.count, 1)) %", size: 15, color: colors[k])
+                        Spacer()
+                        WNumber(text: Fmt.hm(mins), size: 22)
+                    }
+                    if mins > 0 {
+                        StageTimelineBar(stages: st.stages, stage: stage, color: colors[k], active: true).frame(height: 30).padding(.top, 4)
+                    }
+                }
+                .padding(.horizontal, 18).padding(.top, 14).padding(.bottom, 12)
+                .background(Theme.wCard).cornerRadius(14)
+                .opacity(mins == 0 || (selectedStage != nil && !on) ? 0.55 : 1)
+                .padding(.top, 12)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    if mins > 0 { selectedStage = on ? nil : stage; UIImpactFeedbackGenerator(style: .light).impactOccurred() }
+                }
+            }
+            WTitle(text: "Métricas de la siesta", size: 15.5).frame(maxWidth: .infinity, alignment: .leading).padding(.top, 30)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    statCard("bell", "Despertares", "\(st.awakenings)", "", nil, nil)
+                    statCard("bed.double", "Eficiencia", "\(st.efficiencyPct)", "%", nil, nil)
+                    statCard("heart", "FC prom.", "\(s.avgHr)", "lpm", nil, nil)
+                }
+            }
+            .padding(.top, 16)
+        } else {
+            WBody(text: "Sin movimiento grabado en la siesta no se pueden calcular las fases.", size: 14.5).padding(.top, 12)
+        }
+        WBody(text: "Fases calculadas con tu pulso y movimiento (el mismo método que la noche). Las siestas restan su tiempo dormido de lo que necesitas dormir esa noche, como en WHOOP.", size: 14).padding(.top, 18)
+    }
+
+    @ViewBuilder private func activityContent(_ m: Model) -> some View {
+        let s = m.session
+        let me = m.me
 
         let avgStrain = average(m.avg.map { $0.strain })
         let avgSteps = average(m.avg.compactMap { $0.steps.map { Double($0) } })

@@ -183,11 +183,25 @@ enum SleepStager {
         return computed
     }
 
-    static func stage(startMillis: Int64, endMillis: Int64, readings: [HrReading], motion: [MotionMinute]) -> Result? {
+    /// Fases de una SIESTA (2/11, igual que Android `stageNap`): el mismo clasificador sobre la ventana de la siesta (mínimo 20 min) y sin
+    /// REM en los primeros 60 min. Siesta del 1/11 15:51–17:35 → 2/74/22/0 (WHOOP 7/51/40/0).
+    static func stageNap(hrLog: HrLog, motionFile: URL, startMillis: Int64, endMillis: Int64) -> Result? {
+        if !FileManager.default.fileExists(atPath: motionFile.path) { return nil }
+        let lo = startMillis / 60_000, hi = endMillis / 60_000
+        let motion = MotionTracker.readMinutes(motionFile).filter { $0.minuteStartUnix / 60 >= lo && $0.minuteStartUnix / 60 <= hi }
+        if motion.isEmpty { return nil }
+        guard let r = stage(startMillis: startMillis, endMillis: endMillis, readings: hrLog.readings(from: startMillis, to: endMillis),
+                            motion: motion, minWindow: 20) else { return nil }
+        var st = r.stages
+        for i in 0..<min(60, st.count) where st[i] == rem { st[i] = light }
+        return Result(startMinute: r.startMinute, stages: st)
+    }
+
+    static func stage(startMillis: Int64, endMillis: Int64, readings: [HrReading], motion: [MotionMinute], minWindow: Int = minWindowMinutes) -> Result? {
         let m0 = startMillis / 60_000
         let m1 = endMillis / 60_000
         let n = Int(m1 - m0 + 1)
-        if n < minWindowMinutes { return nil }
+        if n < minWindow { return nil }
 
         // ---- Pulso y RR por minuto ----
         var hrSum = [Double](repeating: 0, count: n)

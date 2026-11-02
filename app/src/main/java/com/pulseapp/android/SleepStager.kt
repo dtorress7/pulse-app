@@ -235,11 +235,12 @@ object SleepStager {
         return best * 60_000L
     }
 
-    fun stage(startMillis: Long, endMillis: Long, readings: List<HrReading>, motion: List<MotionMinute>): Result? {
+    fun stage(startMillis: Long, endMillis: Long, readings: List<HrReading>, motion: List<MotionMinute>,
+              minWindow: Int = MIN_WINDOW_MINUTES): Result? {
         val m0 = startMillis / 60_000L
         val m1 = endMillis / 60_000L
         val n = (m1 - m0 + 1).toInt()
-        if (n < MIN_WINDOW_MINUTES) return null
+        if (n < minWindow) return null
 
         // ---- Pulso y RR por minuto ----
         val hrSum = DoubleArray(n); val hrCnt = IntArray(n)
@@ -383,6 +384,26 @@ object SleepStager {
         val (a, b) = trimBounds(st)
         return Result(m0 + a, st.copyOfRange(a, b))
     }
+
+    /**
+     * Fases de una SIESTA (2/11), como WHOOP en el detalle de la siesta. Mismo clasificador que la noche sobre la ventana de la siesta
+     * (sin buscar límites por quietud: la siesta ya viene recortada por la detección), y sin REM en los primeros [NAP_NO_REM_MIN] minutos:
+     * en las 4 siestas de WHOOP de la API (60–99 min) solo una tuvo REM (9 min, la de 69 min). Siesta del 1/11 15:51–17:35:
+     * 15:58–17:36, despierto 2 / ligero 74 / profundo 22 / REM 0 (WHOOP 15:57–17:36, 7/51/40/0): el profundo sale corto (solo 1 siesta
+     * para comparar; el modelo se entrenó con noches).
+     */
+    fun stageNap(hrFile: File, motionFile: File, startMillis: Long, endMillis: Long): Result? {
+        if (!motionFile.exists()) return null
+        val motion = MotionTracker.readMinutes(motionFile).filter { it.minuteStartUnix / 60 in (startMillis / 60_000L)..(endMillis / 60_000L) }
+        if (motion.isEmpty()) return null
+        val r = stage(startMillis, endMillis, parseHr(hrFile, startMillis, endMillis), motion, NAP_MIN_MINUTES) ?: return null
+        val st = r.stages.copyOf()
+        for (i in 0 until minOf(NAP_NO_REM_MIN, st.size)) if (st[i] == REM) st[i] = LIGHT
+        return Result(r.startMinute, st)
+    }
+
+    private const val NAP_MIN_MINUTES = 20
+    private const val NAP_NO_REM_MIN = 60
 
     /** Fases con SleepModel (pulso y RR de cada segundo + movimiento de cada minuto de la ventana). */
     private fun modelStages(m0: Long, n: Int, readings: List<HrReading>, motion: List<MotionMinute>): IntArray? {

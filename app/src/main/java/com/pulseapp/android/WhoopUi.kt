@@ -36,6 +36,7 @@ object W {
             "fútbol" in t || "futbol" in t -> R.drawable.ic_ball
             "pádel" in t || "padel" in t || "pickle" in t || "tenis" in t -> R.drawable.ic_racket
             "fuerza" in t -> R.drawable.ic_dumbbell
+            t == "siesta" -> R.drawable.ic_moon_filled
             else -> R.drawable.ic_run
         }
     }

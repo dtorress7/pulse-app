@@ -103,6 +103,8 @@ struct HomeData {
     var sleepFromMillis: Int64?
     var sleepToMillis: Int64?
     var sessions: [ActivitySession]
+    /// Minutos dormido de cada siesta del día (id → min), para la píldora de "Actividades" (2/11).
+    var napAsleep: [Int64: Int] = [:]
     var bedtime: String?
     var wakeMinute: Int
     var panel: [PanelRow]
@@ -192,6 +194,9 @@ enum HomeDataLoader {
         for d in stored { byDate[d.date] = d }
         if isToday { AutoActivityScanner.scan(store: store, hrLog: hrLog) }
         let allSessions = store.allSessions()
+        // 2/11: fases de las siestas recientes (una vez cada una; restan de la necesidad con su tiempo dormido)
+        let napSince = Day.start(Day.add(date, -2))
+        for s in allSessions where s.type == Formulas.napType && s.startMillis >= napSince { _ = NapStages.get(s, hrLog: hrLog) }
         let stepsByDay = stepsPerDay(motionFile)   // 30/10: pulsera + PulseApp (ver BandSteps)
         let zoneDays = ZoneDayCache.load(hrUrl: hrLog.url, hrMax: hrMax, today: today, days: 40)
         let base = SleepPlanner.baselineForAge(profile?.ageYears())
@@ -475,7 +480,9 @@ enum HomeDataLoader {
             vitals: vitals, healthOk: healthOk, healthTotal: withRange.count,
             stressScore: lastPoint, stressLevel: level, stressMinute: lastMinute, stressSeries: series,
             stressFrom: dayStart, stressTo: stressTo, sleepFromMillis: sleepFrom, sleepToMillis: sleepTo,
-            sessions: sessionsOfDay, bedtime: bedtime, wakeMinute: wake, panel: panel, week: week, streak: streak,
+            sessions: sessionsOfDay,
+            napAsleep: Dictionary(uniqueKeysWithValues: sessionsOfDay.filter { $0.type == Formulas.napType }.map { ($0.id, NapStages.asleepMinutes($0)) }),
+            bedtime: bedtime, wakeMinute: wake, panel: panel, week: week, streak: streak,
             insight: Insight.build(day: day, previous: previous, isToday: isToday, baselineReady: baselineNow != nil),
             baselineReady: baselineNow != nil, profileMissing: profile == nil,
             records: records.values.sorted { $0.date < $1.date }, sleepStressSeries: sleepStress,

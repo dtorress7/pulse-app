@@ -528,8 +528,7 @@ enum Formulas {
     /// Minutos que restan las siestas a la necesidad (WHOOP resta el tiempo DORMIDO de la siesta: ~95 % del tiempo en cama).
     static let napAsleepFraction = 0.95
     static func napNeedMinutes(_ naps: [ActivitySession]) -> Int {
-        let m = naps.reduce(0.0) { $0 + Double($1.endMillis - $1.startMillis) / 60_000.0 }
-        return Int((m * napAsleepFraction).rounded())
+        return naps.reduce(0) { $0 + NapStages.asleepMinutes($1) }
     }
 
     /// Minutos extra de sueño por el esfuerzo del día (30/10, igual que Android): 0,0386 · esfuerzo^2,527, ajustado con 32 noches

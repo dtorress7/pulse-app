@@ -547,8 +547,15 @@ struct HomeView: View {
             }
             ForEach(sessions) { s in
                 Button(action: { path.append(.activity(s.id)) }) {
-                    ActivityRowView(color: Theme.strainBlue, icon: WText.sportIcon(s.type), value: Fmt.comma(s.strain), name: s.type,
-                                    start: WText.time(s.startMillis), end: WText.time(s.endMillis))
+                    // 2/11: la siesta como en WHOOP: color de sueño y el tiempo dormido (no el esfuerzo, que siempre es 0)
+                    if s.type == Formulas.napType {
+                        ActivityRowView(color: Theme.wRingSleep, icon: WText.sportIcon(s.type),
+                                        value: Fmt.hm(d?.napAsleep[s.id] ?? NapStages.asleepMinutes(s)), name: s.type,
+                                        start: WText.time(s.startMillis), end: WText.time(s.endMillis))
+                    } else {
+                        ActivityRowView(color: Theme.strainBlue, icon: WText.sportIcon(s.type), value: Fmt.comma(s.strain), name: s.type,
+                                        start: WText.time(s.startMillis), end: WText.time(s.endMillis))
+                    }
                 }
                 .buttonStyle(.plain)
             }
