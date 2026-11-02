@@ -235,9 +235,12 @@ enum HomeDataLoader {
             let prevStrain = byDate[Day.add(d, -1)]?.strain
             let debtBefore = SleepPlanner.debtFrom(Array(before.suffix(14)), base: base)
             let strainAdj = Formulas.sleepNeedFromStrain(prevStrain ?? 0)
-            let needLastNight = row.whoopSleepNeed ?? (base + strainAdj + debtBefore)
-            // Regularidad de esa noche: ella y las 3 anteriores
-            let consistency = row.whoopConsistency ?? Formulas.sleepConsistency(HomeDataLoader.nights(last7 + [row]))
+            let napAdj = Formulas.napNeedMinutes(Formulas.napsForNight(allSessions, d))
+            let needLastNight = row.whoopSleepNeed ?? (base + strainAdj + debtBefore - napAdj)
+            // Regularidad de esa noche: ella y las 3 anteriores (2/11: con las siestas de cada día)
+            let nightRows = (last7 + [row]).filter { $0.sleepStartMinuteOfDay != nil && $0.sleepEndMinuteOfDay != nil }
+            let consistency = row.whoopConsistency ?? Formulas.sleepConsistency(HomeDataLoader.nights(nightRows),
+                naps: nightRows.map { Formulas.napMinutes(Formulas.napsForNight(allSessions, $0.date)) })
             if let w = row.whoopSleepScore {
                 r.sleepScore = w
             } else if let m = row.sleepMinutes {
@@ -288,7 +291,9 @@ enum HomeDataLoader {
             bedtime = plan.suggestedBedtime
             var consistency: Int? = nil
             if let a = s.sleepStartMinuteOfDay, let b = s.sleepEndMinuteOfDay {
-                consistency = Formulas.sleepConsistency(HomeDataLoader.nights(Array(stored.filter { $0.date < date }.suffix(3))) + [Formulas.standardNight(date, a, b)])
+                let prevRows = Array(stored.filter { $0.date < date && $0.sleepStartMinuteOfDay != nil && $0.sleepEndMinuteOfDay != nil }.suffix(3))
+                let naps = prevRows.map { Formulas.napMinutes(Formulas.napsForNight(allSessions, $0.date)) } + [Formulas.napMinutes(Formulas.napsForNight(allSessions, date))]
+                consistency = Formulas.sleepConsistency(HomeDataLoader.nights(prevRows) + [Formulas.standardNight(date, a, b)], naps: naps)
             }
             if let m = s.sleepMinutes {
                 r.sleepScore = Formulas.sleepScore(hoursVsNeedPct: min(m * 100 / max(lastPlan.totalNeedMinutes, 1), 100),

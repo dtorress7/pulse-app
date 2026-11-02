@@ -604,7 +604,15 @@ object Formulas {
         return (s - shift(startDay, s)) to (e - shift(d, e))
     }
 
-    fun sleepConsistency(nightsOldestFirst: List<Pair<Int, Int>>): Int? {
+    /**
+     * 2/11: cada noche cuenta con las SIESTAS de su día (las que empiezan entre las 12:00 de la víspera y las 12:00 del día en que
+     * acaba la noche) y la corrección pasa de −7 a −4. 44 noches de la API de WHOOP (20/09 → 2/11, 3 con siesta antes): error medio
+     * 4,49 → 3,26; las dos mitades por separado piden −4 (20/09–15/10: 3,78; 16/10–2/11: 2,67, con −7 4,17 / 4,00). El −7 salió del
+     * export (abril–octubre); WHOOP parece haberlo cambiado. [napsOldestFirst] va alineado con las noches (null = sin siestas).
+     */
+    const val CONSISTENCY_OFFSET = 4
+
+    fun sleepConsistency(nightsOldestFirst: List<Pair<Int, Int>>, napsOldestFirst: List<List<Pair<Int, Int>>>? = null): Int? {
         if (nightsOldestFirst.size < 2) return null
         // Eje desde las 12:00: la noche queda en un tramo continuo [ini, fin)
         fun axis(n: Pair<Int, Int>): Pair<Int, Int> {
@@ -613,15 +621,43 @@ object Formulas {
             if (e <= s) e += 1440
             return s to e
         }
-        val last = axis(nightsOldestFirst.last())
-        val prev = nightsOldestFirst.dropLast(1).takeLast(3).map { axis(it) }
-        val j = prev.map { p ->
-            val inter = (minOf(last.second, p.second) - maxOf(last.first, p.first)).coerceAtLeast(0)
-            val union = (last.second - last.first) + (p.second - p.first) - inter
-            if (union > 0) inter.toDouble() / union else 0.0
-        }.average()
-        return (j * 100 - 7).roundToInt().coerceIn(0, 100)
+        val sets = nightsOldestFirst.mapIndexed { i, n -> listOf(axis(n)) + (napsOldestFirst?.getOrNull(i) ?: emptyList()).map { axis(it) } }
+        fun overlap(a: List<Pair<Int, Int>>, b: List<Pair<Int, Int>>): Int =
+            a.sumOf { x -> b.sumOf { y -> (minOf(x.second, y.second) - maxOf(x.first, y.first)).coerceAtLeast(0) } }
+        fun unionLen(v: List<Pair<Int, Int>>): Int {
+            val l = v.sortedBy { it.first }; var tot = 0; var cs = l[0].first; var ce = l[0].second
+            for (k in 1 until l.size) { val (a, b) = l[k]; if (a <= ce) ce = maxOf(ce, b) else { tot += ce - cs; cs = a; ce = b } }
+            return tot + ce - cs
+        }
+        val last = sets.last()
+        val prev = sets.dropLast(1).takeLast(3)
+        val j = prev.map { p -> val u = unionLen(last + p); if (u > 0) overlap(last, p).toDouble() / u else 0.0 }.average()
+        return (j * 100 - CONSISTENCY_OFFSET).roundToInt().coerceIn(0, 100)
     }
+
+    /** Siestas del día de la noche que acaba el [nightDate] (yyyy-MM-dd): empiezan entre las 12:00 de la víspera y las 12:00 de ese día. */
+    fun napsForNight(sessions: List<com.pulseapp.android.data.ActivitySession>, nightDate: String,
+                     zone: java.time.ZoneId = java.time.ZoneId.systemDefault()): List<com.pulseapp.android.data.ActivitySession> {
+        val d = try { java.time.LocalDate.parse(nightDate) } catch (e: Exception) { return emptyList() }
+        val to = d.atTime(12, 0).atZone(zone).toInstant().toEpochMilli()
+        val from = to - 86_400_000L
+        return sessions.filter { it.type == NAP_TYPE && it.startMillis in from until to }
+    }
+
+    /** Siestas como (minuto de inicio, minuto de fin) del día en hora de invierno, para [sleepConsistency]. */
+    fun napMinutes(naps: List<com.pulseapp.android.data.ActivitySession>, zone: java.time.ZoneId = java.time.ZoneId.systemDefault()): List<Pair<Int, Int>> =
+        naps.map { n ->
+            val a = java.time.Instant.ofEpochMilli(n.startMillis).atZone(zone); val b = java.time.Instant.ofEpochMilli(n.endMillis).atZone(zone)
+            standardNight(a.toLocalDate().toString(), a.hour * 60 + a.minute, b.hour * 60 + b.minute)
+        }
+
+    /**
+     * Minutos que restan las siestas a la necesidad de la noche (2/11). WHOOP resta el tiempo DORMIDO de la siesta (need_from_recent_nap:
+     * 29/09 −65,5 de 69 en cama, 1/10 −58,7 de 59,8, 1/11 −91,6 de 98,9 → 95 %).
+     */
+    fun napNeedMinutes(naps: List<com.pulseapp.android.data.ActivitySession>): Int =
+        (naps.sumOf { (it.endMillis - it.startMillis) / 60_000.0 } * NAP_ASLEEP_FRACTION).roundToInt()
+    const val NAP_ASLEEP_FRACTION = 0.95
 
     /**
      * Minutos extra de sueño por el esfuerzo del día (30/10): 0,0386 · esfuerzo^2,527, ajustado con 32 noches de la API de WHOOP

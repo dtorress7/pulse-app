@@ -52,8 +52,9 @@ struct MetricsCalculator {
         let avgHrv: Double? = sleepReadings.isEmpty ? nil : NightMetrics.hrv(sleepReadings, staged: staged)
         var vo2Max: Double? = nil
         if let r = restingHr, r > 0 { vo2Max = 15.3 * (hrMax / Double(r)) }
+        // 2/11: el esfuerzo del día usa la FC en reposo de referencia (la de las zonas, como WHOOP), no la de anoche
         let strain = Formulas.strainOf(readings: cycleReadings.map { ($0.timeMillis, $0.bpm) },
-                                       restingHr: restingHr, hrMax: hrMax, male: male, sleepWindow: window)
+                                       restingHr: Formulas.zoneRestingHr(), hrMax: hrMax, male: male, sleepWindow: window)
 
         let respiratoryRate: Double? = sleepReadings.isEmpty ? nil : RespiratoryRateCalculator.estimate(sleepReadings.flatMap { $0.rr })
 
@@ -158,19 +159,21 @@ enum SleepPlanner {
             let yesterday = TimeUtil.addDays(TimeUtil.nowMillis(), -1)
             if let s = store.getDay(TimeUtil.dayKey(yesterday))?.strain { strain = s }
         }
-        return computeTonightPlan(store: store, todayStrain: strain)
+        // 2/11: la noche que acabas de dormir resta las siestas de SU día (ayer por la tarde), no las de hoy desde las 00:00
+        let nightDate = TimeUtil.dayKey(summary.sleepEndMillis ?? TimeUtil.nowMillis())
+        let naps = Formulas.napNeedMinutes(Formulas.napsForNight(store.allSessions(), nightDate))
+        return computeTonightPlan(store: store, todayStrain: strain, napOverride: naps)
     }
 
     /// [debtOverride]: deuda ya calculada (la de después de la última noche); nil = la de las noches guardadas.
     static func computeTonightPlan(store: AppStore, todayStrain: Double?, wakeHour: Int = 7, wakeMinute: Int = 30,
-                                   debtOverride: Int? = nil) -> SleepPlan {
+                                   debtOverride: Int? = nil, napOverride: Int? = nil) -> SleepPlan {
         let strainMinutes = todayStrain.map { Formulas.sleepNeedFromStrain($0) } ?? 0
         let base = baselineForAge(store.getProfile()?.ageYears())
         let debt = debtOverride ?? computeAccumulatedDebt(store: store, base: base)
         // Siestas de hoy (AutoActivityScanner, 21/10): restan de la necesidad de esta noche, como en WHOOP
         let dayStart = TimeUtil.startOfDay(TimeUtil.nowMillis())
-        let nap = store.allSessions().filter { $0.type == Formulas.napType && $0.startMillis >= dayStart }
-            .reduce(0) { $0 + Int(($1.endMillis - $1.startMillis) / 60_000) }
+        let nap = napOverride ?? Formulas.napNeedMinutes(store.allSessions().filter { $0.type == Formulas.napType && $0.startMillis >= dayStart })
         let total = base + strainMinutes + debt - nap
         return SleepPlan(baselineMinutes: base, strainAdjustmentMinutes: strainMinutes, debtAdjustmentMinutes: debt,
                          napAdjustmentMinutes: nap, totalNeedMinutes: total,

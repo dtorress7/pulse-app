@@ -562,6 +562,24 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
     árboles: 3,8–5,2. El error que queda (±4) es de la línea base interna de WHOOP, que no se ve. No se cambia.
   - **Monitor de salud (1/11, Android + iOS)**: rango = media ± 1 sd de 30 días (antes 14). Con 14 días el rango de VFC era 83–105 y hasta el 78 de
     WHOOP salía fuera (WHOOP: 5/5 dentro). Con 30: VFC 75–107, FCR 54–61 → 3/3. Falta una captura del detalle del Monitor de salud de WHOOP para afinar.
+- **1/11→2/11 (17.ª referencia, siesta 15:57–17:36 la víspera)**: WHOOP (API) 22:11:53Z–06:49:25Z (23:11–07:49), cama 8:37, dormido 8:25,
+  12/310/112/84, 11 despertares, 98 %, VFC 115,7, FCR 54, resp 13,8, calificación 80 (100/45/98/0), recuperación 93; necesidad 443 = 470 + 2 + 64
+  deuda − 92 siesta. PulseApp iPhone (versión 1/11): 23:07–07:49, 8:15, 27/321/96/78, 94 %, VFC 116, FCR 54, resp 14,1, calificación 82
+  (92/62/94/0), recuperación 91. Código real (N.kt) = app. VFC 17 noches MAE 1,08.
+  - **Siesta en la necesidad (2/11, Android + iOS)**: la siesta SÍ se detectó (código real: 15:51–17:35), pero `planForLastNight` solo restaba
+    las siestas de HOY desde las 00:00 → la de ayer por la tarde no contaba (horas vs necesidad 92 %, WHOOP 100 %). Ahora la noche resta las
+    siestas de su día (`Formulas.napsForNight`: de las 12:00 de la víspera a las 12:00 del día en que acaba) × 0,95 (`napNeedMinutes`: WHOOP
+    resta el tiempo dormido: −65,5/69, −58,7/59,8, −91,6/98,9). También en los días guardados (HomeData.recordFromStored).
+  - **Regularidad con siestas y −4 (2/11, Android + iOS)**: 44 noches de la API (20/09→2/11, check/reg2/r.py): sin siestas −7 4,49; con siestas
+    −7 4,11; con siestas −4 3,26. Cada mitad por separado: −4 (3,78 / 2,67 frente a 4,17 / 4,00 con −7). Kotlin = Python (check/reg2k/R.kt:
+    2/11 58, 2/10 77). La 2/11 sigue alta (58 con las horas de WHOOP, 61 con las de PulseApp, WHOOP 45): no se explica con una noche.
+  - **Esfuerzo del día con la FCR de referencia (2/11, Android + iOS)**: `strainOf` del día usaba la FCR de anoche (54 hoy → la mañana sumaba
+    más). Ahora `Formulas.zoneRestingHr()` (la de las zonas: manual o media de tus noches, WHOOP "FCR de referencia 59"). 14 ciclos de WHOOP
+    (check/n30/Z6.kt): FCR de cada noche 0,54; fija 58 0,46; 59 0,37; media 14/30 d 0,48. `night_recalc_v10` / iOS 10.
+    Ojo: el error baja siempre al subir la FCR (60 0,29, 62 0,19) → hay un sesgo de +0,3–0,5 en los días; no se ajusta a mano.
+    Mañana 2/11: WHOOP 1,0 a las 9:14 (la API dice 4,0 a las 10:33); PulseApp 2,0 (con FCR 54), 1,4 con 58.
+  - Sueño: inicio 23:07 vs 23:11, despierto +15, profundo −16. Respiración 14,1 vs 13,8 (por eso el Monitor de salud dice 2/3: respiración
+    "elevada", rango 12,7–14,1).
 
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,

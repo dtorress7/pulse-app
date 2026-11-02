@@ -81,12 +81,16 @@ class SleepPlanner {
             val key = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(cal.time)
             db.dailyMetricsDao().getByDate(key)?.strain?.let { strain = it }
         }
-        return computeTonightPlan(db, strain)
+        // 2/11: la noche que acabas de dormir resta las siestas de SU día (ayer por la tarde), no las de hoy desde las 00:00:
+        // la siesta del 1/11 15:51–17:35 no restaba nada y "horas vs. lo necesario" salía 92 % (WHOOP 100 %, necesidad −92 min)
+        val nightDate = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date(end ?: System.currentTimeMillis()))
+        val naps = Formulas.napNeedMinutes(Formulas.napsForNight(db.activitySessionDao().getAll(), nightDate))
+        return computeTonightPlan(db, strain, napOverride = naps)
     }
 
     /** [debtOverride]: deuda ya calculada (p. ej. la de después de la última noche); null = la de las noches guardadas. */
     suspend fun computeTonightPlan(db: AppDatabase, todayStrain: Double?, wakeUpHour: Int = 7, wakeUpMinute: Int = 30,
-                                   debtOverride: Int? = null): SleepPlan {
+                                   debtOverride: Int? = null, napOverride: Int? = null): SleepPlan {
         val strainMinutes = todayStrain?.let { Formulas.sleepNeedFromStrain(it) } ?: 0
 
         val debtMinutes = debtOverride ?: computeAccumulatedDebt(db, baselineForAge(db.userProfileDao().getOnce()?.ageYears()))
@@ -95,9 +99,8 @@ class SleepPlanner {
         val dayStart = Calendar.getInstance().apply {
             set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
         }.timeInMillis
-        val napMinutes = db.activitySessionDao().getAll()
-            .filter { it.type == Formulas.NAP_TYPE && it.startMillis >= dayStart }
-            .sumOf { ((it.endMillis - it.startMillis) / 60_000L).toInt() }
+        val napMinutes = napOverride ?: Formulas.napNeedMinutes(db.activitySessionDao().getAll()
+            .filter { it.type == Formulas.NAP_TYPE && it.startMillis >= dayStart })
 
         val baseline = baselineForAge(db.userProfileDao().getOnce()?.ageYears())
         val totalNeed = baseline + strainMinutes + debtMinutes - napMinutes

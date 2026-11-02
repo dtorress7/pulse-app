@@ -192,10 +192,13 @@ class HomeDataLoader(private val ctx: Context) {
                 Formulas.recovery(row.avgHrv, row.restingHr, row.respiratoryRate, baseline).total else null
             val prevStrain = byDate[d.minusDays(1).format(iso)]?.strain
             val debtBefore = SleepPlanner.debtFrom(before.takeLast(14), base)
-            val needLastNight = row.whoopSleepNeed ?: (base + Formulas.sleepNeedFromStrain(prevStrain ?: 0.0) + debtBefore)
-            // Regularidad de esa noche: ella y las 3 anteriores
-            val consistency = row.whoopConsistency ?: Formulas.sleepConsistency((last7 + row).mapNotNull { r ->
-                r.sleepStartMinuteOfDay?.let { s -> r.sleepEndMinuteOfDay?.let { e -> Formulas.standardNight(r.date, s, e) } } })
+            val napAdj = Formulas.napNeedMinutes(Formulas.napsForNight(allSessions, d.format(iso), zone))
+            val needLastNight = row.whoopSleepNeed ?: (base + Formulas.sleepNeedFromStrain(prevStrain ?: 0.0) + debtBefore - napAdj)
+            // Regularidad de esa noche: ella y las 3 anteriores (2/11: con las siestas de cada día)
+            val nightRows = (last7 + row).filter { it.sleepStartMinuteOfDay != null && it.sleepEndMinuteOfDay != null }
+            val consistency = row.whoopConsistency ?: Formulas.sleepConsistency(
+                nightRows.map { r -> Formulas.standardNight(r.date, r.sleepStartMinuteOfDay!!, r.sleepEndMinuteOfDay!!) },
+                nightRows.map { r -> Formulas.napMinutes(Formulas.napsForNight(allSessions, r.date, zone), zone) })
             val score = row.whoopSleepScore ?: row.sleepMinutes?.let {
                 Formulas.sleepScore((it * 100 / needLastNight.coerceAtLeast(1)).coerceAtMost(100), row.sleepEfficiencyPct, consistency)
             }
@@ -233,10 +236,12 @@ class HomeDataLoader(private val ctx: Context) {
             val dayStrain = summary.strain?.let { Formulas.addStrength(it, strengthMin, activityMin) }
             val plan = planner.computeTonightPlan(db, dayStrain, wake / 60, wake % 60, debtOverride = debtAfter)
             bedtime = plan.suggestedBedtime
-            val prevNights = stored.filter { it.date < date.format(iso) }.takeLast(3)
-                .mapNotNull { r -> r.sleepStartMinuteOfDay?.let { s -> r.sleepEndMinuteOfDay?.let { e -> Formulas.standardNight(r.date, s, e) } } }
+            val prevRows = stored.filter { it.date < date.format(iso) && it.sleepStartMinuteOfDay != null && it.sleepEndMinuteOfDay != null }.takeLast(3)
+            val prevNights = prevRows.map { r -> Formulas.standardNight(r.date, r.sleepStartMinuteOfDay!!, r.sleepEndMinuteOfDay!!) }
+            val prevNaps = prevRows.map { r -> Formulas.napMinutes(Formulas.napsForNight(allSessions, r.date, zone), zone) }
             val tonight = summary.sleepStartMinuteOfDay?.let { s -> summary.sleepEndMinuteOfDay?.let { e -> Formulas.standardNight(date.format(iso), s, e) } }
-            val consistency = if (tonight != null) Formulas.sleepConsistency(prevNights + tonight) else null
+            val tonightNaps = Formulas.napMinutes(Formulas.napsForNight(allSessions, date.format(iso), zone), zone)
+            val consistency = if (tonight != null) Formulas.sleepConsistency(prevNights + tonight, prevNaps + listOf(tonightNaps)) else null
             val score = summary.sleepMinutes?.let {
                 Formulas.sleepScore((it * 100 / lastNightNeed.coerceAtLeast(1)).coerceAtMost(100), summary.sleepEfficiencyPct, consistency)
             }

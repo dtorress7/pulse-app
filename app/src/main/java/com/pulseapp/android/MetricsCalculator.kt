@@ -200,6 +200,9 @@ class MetricsCalculator(ageYears: Int, private val male: Boolean = true) {
     }
 
     /** Esfuerzo del día con TRIMP de Banister + escala logarítmica (ver Formulas). */
+    // 2/11: el esfuerzo del día usa la FC en reposo de REFERENCIA (la de las zonas, como WHOOP: "FCR de referencia 59"), no la de
+    // anoche. Con la de cada noche una noche de FCR baja (54) subía el esfuerzo de toda la mañana. 14 ciclos de WHOOP: 0,54 → 0,37–0,46.
+    @Suppress("UNUSED_PARAMETER")
     private fun computeStrain(readings: List<Reading>, restingHr: Int?, sleepWindow: Pair<Long, Long>?): Double =
-        Formulas.strainOf(readings.map { it.timeMillis to it.bpm }, restingHr, hrMax, male, sleepWindow = sleepWindow)
+        Formulas.strainOf(readings.map { it.timeMillis to it.bpm }, Formulas.zoneRestingHr(), hrMax, male, sleepWindow = sleepWindow)
 }

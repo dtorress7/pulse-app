@@ -17,14 +17,14 @@ enum DailyMetricsUpdater {
     /// Una sola vez tras actualizar (23/10, VFC y recuperación nuevas): rehace con las fórmulas de ahora los días guardados
     /// que tengan pulso guardado, para que la línea base de VFC esté en la misma escala. Sin pulso, se dejan igual.
     static func recalcPastNightsOnce(store: AppStore, hrLog: HrLog, motionFile: URL, ageYears: Int, weightKg: Double, sex: String) {
-        if UserDefaults.standard.integer(forKey: recalcKey) >= 9 { return }   // 9 (1/11): VFC por profundo + ligero; 8 (1/11): fin de la noche sin remolonear; 7 (30/10): esfuerzo sin el pulso bajo dormido; 6 (27/10): esfuerzo del día sin base fuera de actividades; 5: fases 11 noches
+        if UserDefaults.standard.integer(forKey: recalcKey) >= 10 { return }   // 10 (2/11): esfuerzo con la FCR de referencia; 9 (1/11): VFC por profundo + ligero; 8 (1/11): fin de la noche sin remolonear; 7 (30/10): esfuerzo sin el pulso bajo dormido; 6 (27/10): esfuerzo del día sin base fuera de actividades; 5: fases 11 noches
         let today = TimeUtil.dayKey(TimeUtil.nowMillis())
         let importUntil = WhoopImport.importedUntil()
         for row in store.lastDays(60) where row.date < today && (importUntil.isEmpty || row.date > importUntil) {
             if let d = computeDay(store: store, hrLog: hrLog, motionFile: motionFile, key: row.date,
                                   ageYears: ageYears, weightKg: weightKg, sex: sex) { store.saveDay(d) }
         }
-        UserDefaults.standard.set(9, forKey: recalcKey)
+        UserDefaults.standard.set(10, forKey: recalcKey)
     }
 
     private static func computeDay(store: AppStore, hrLog: HrLog, motionFile: URL, key yesterdayKey: String,
@@ -56,7 +56,7 @@ enum DailyMetricsUpdater {
         let avgHrv: Double? = sleepWindowReadings.isEmpty ? nil : NightMetrics.hrv(sleepWindowReadings, staged: staged)
         var vo2: Double? = nil
         if let r = restingHr, r > 0 { vo2 = 15.3 * (hrMax / Double(r)) }
-        var strain = Formulas.strainOf(readings: dayReadings.map { ($0.timeMillis, $0.bpm) }, restingHr: restingHr,
+        var strain = Formulas.strainOf(readings: dayReadings.map { ($0.timeMillis, $0.bpm) }, restingHr: Formulas.zoneRestingHr(),   // 2/11: FCR de referencia
                                        hrMax: hrMax, male: sex != "F", sleepWindow: window)
         // Día con fuerza/funcional: + carga muscular, como WHOOP (22/10)
         let daySessions = store.allSessions().filter { $0.startMillis >= dayStart && $0.startMillis < dayEnd }

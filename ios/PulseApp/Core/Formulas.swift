@@ -473,7 +473,10 @@ enum Formulas {
         return (s - shift(startDay, s), e - shift(day, e))
     }
 
-    static func sleepConsistency(_ nightsOldestFirst: [(Int, Int)]) -> Int? {
+    /// 2/11 (igual que Android): cada noche cuenta con las siestas de su día y la corrección pasa de −7 a −4
+    /// (44 noches de la API de WHOOP: error medio 4,49 → 3,26). [napsOldestFirst] alineado con las noches.
+    static let consistencyOffset = 4
+    static func sleepConsistency(_ nightsOldestFirst: [(Int, Int)], naps napsOldestFirst: [[(Int, Int)]]? = nil) -> Int? {
         if nightsOldestFirst.count < 2 { return nil }
         func axis(_ n: (Int, Int)) -> (Int, Int) {
             let s = ((n.0 - 720) % 1440 + 1440) % 1440
@@ -481,16 +484,52 @@ enum Formulas {
             if e <= s { e += 1440 }
             return (s, e)
         }
-        let last = axis(nightsOldestFirst.last!)
-        let prev = nightsOldestFirst.dropLast().suffix(3).map { axis($0) }
-        var sum = 0.0
-        for p in prev {
-            let inter = max(min(last.1, p.1) - max(last.0, p.0), 0)
-            let union = (last.1 - last.0) + (p.1 - p.0) - inter
-            sum += union > 0 ? Double(inter) / Double(union) : 0
+        var sets = [[(Int, Int)]]()
+        for (i, n) in nightsOldestFirst.enumerated() {
+            var v = [axis(n)]
+            if let np = napsOldestFirst, i < np.count { v += np[i].map { axis($0) } }
+            sets.append(v)
         }
-        let v = Int((sum / Double(prev.count) * 100 - 7).rounded())
+        func overlap(_ a: [(Int, Int)], _ b: [(Int, Int)]) -> Int {
+            var t = 0
+            for x in a { for y in b { t += max(min(x.1, y.1) - max(x.0, y.0), 0) } }
+            return t
+        }
+        func unionLen(_ v: [(Int, Int)]) -> Int {
+            let l = v.sorted { $0.0 < $1.0 }
+            var tot = 0, cs = l[0].0, ce = l[0].1
+            for k in 1..<l.count { let (a, b) = l[k]; if a <= ce { ce = max(ce, b) } else { tot += ce - cs; cs = a; ce = b } }
+            return tot + ce - cs
+        }
+        let last = sets.last!
+        let prev = Array(sets.dropLast().suffix(3))
+        var sum = 0.0
+        for p in prev { let u = unionLen(last + p); sum += u > 0 ? Double(overlap(last, p)) / Double(u) : 0 }
+        let v = Int((sum / Double(prev.count) * 100 - Double(consistencyOffset)).rounded())
         return min(max(v, 0), 100)
+    }
+
+    /// Siestas del día de la noche que acaba el [nightDate]: empiezan entre las 12:00 de la víspera y las 12:00 de ese día.
+    static func napsForNight(_ sessions: [ActivitySession], _ nightDate: String) -> [ActivitySession] {
+        guard let d0 = TimeUtil.parseDayKey(nightDate) else { return [] }
+        let to = d0 + 12 * 3_600_000
+        let from = to - 86_400_000
+        return sessions.filter { $0.type == napType && $0.startMillis >= from && $0.startMillis < to }
+    }
+
+    /// Siestas como (minuto de inicio, minuto de fin) en hora de invierno, para sleepConsistency.
+    static func napMinutes(_ naps: [ActivitySession]) -> [(Int, Int)] {
+        return naps.map { n in
+            let a = TimeUtil.parts(n.startMillis), b = TimeUtil.parts(n.endMillis)
+            return standardNight(TimeUtil.dayKey(n.startMillis), a.hour * 60 + a.minute, b.hour * 60 + b.minute)
+        }
+    }
+
+    /// Minutos que restan las siestas a la necesidad (WHOOP resta el tiempo DORMIDO de la siesta: ~95 % del tiempo en cama).
+    static let napAsleepFraction = 0.95
+    static func napNeedMinutes(_ naps: [ActivitySession]) -> Int {
+        let m = naps.reduce(0.0) { $0 + Double($1.endMillis - $1.startMillis) / 60_000.0 }
+        return Int((m * napAsleepFraction).rounded())
     }
 
     /// Minutos extra de sueño por el esfuerzo del día (30/10, igual que Android): 0,0386 · esfuerzo^2,527, ajustado con 32 noches
