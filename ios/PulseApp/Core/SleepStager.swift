@@ -123,7 +123,7 @@ enum SleepStager {
                 while true {
                     var b = end + 1, steps = 0
                     while let x = byMin[b], !still(x), b - end <= 3 { steps += x.steps; b += 1 }
-                    if b - end - 1 > 2 || steps > 15 || !still(byMin[b]) { break }
+                    if b - end - 1 > 2 || steps > 40 || !still(byMin[b]) { break }   // 3/11: 15 → 40 pasos (levantarse 2 min y volver a dormir sigue siendo noche)
                     while still(byMin[b + 1]) { b += 1 }
                     end = b
                 }

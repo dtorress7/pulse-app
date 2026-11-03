@@ -17,6 +17,7 @@ struct HomeView: View {
     @State private var showSyncBanner = false
     @State private var syncTime = ""
     @State private var showLoading = true
+    @Environment(\.scenePhase) private var scenePhase
     @State private var loadingShownAt = Date()
     @State private var showSticky = false
     @State private var manualStart: Int64? = ActivityState.manualStart()
@@ -101,6 +102,16 @@ struct HomeView: View {
             if manualStart != nil { manualStart = ActivityState.manualStart() }
         }
         .onChange(of: store.version) { _ in refresh(force: false) }
+        // 3/11: al volver a la app tras un rato se veían un instante los números de la última vez (recuperación 52 calculada a medianoche
+        // con la noche a medias) y luego los buenos (59). Si lo mostrado tiene más de 5 min, se tapa con la carga hasta recalcular.
+        .onChange(of: scenePhase) { p in
+            if p == .active && dayOffset == 0 && Date().timeIntervalSince(lastRefresh) > 300 {
+                loadingShownAt = Date(); showLoading = true
+                loadingOffset = nil
+                refresh(force: true)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 9) { hideLoading() }
+            }
+        }
         .sheet(isPresented: $showProfile, onDismiss: { HomeStore.shared.invalidate() }) { ProfileView() }
         .sheet(isPresented: $showWhoop) { WhoopView() }
         .sheet(isPresented: $showAdd) {

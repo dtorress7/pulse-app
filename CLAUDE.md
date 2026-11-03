@@ -587,6 +587,23 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
     por N minutos", pulso, fases tocables (pintan la gráfica) y despertares/eficiencia/FC. Siesta 1/11 (código real, check/nap02/Ns.kt):
     15:58–17:36, 2/74/22/0, dormido 1:36, reparador 0:22 (WHOOP 15:57–17:36, 7/51/40/0, 1:31, 0:40, resta 91). Profundo corto: solo 1 siesta
     para comparar (el modelo se entrenó con noches) → recalibrar con más siestas.
+- **2/11→3/11 (18.ª referencia, pesas 19:04–19:31 la víspera)**: WHOOP (API) 21:59:11Z–05:55:20Z (22:59–06:55), dormido 7:47, 9/296/108/63,
+  98,5 %, VFC 85,7, FCR 56, resp 13,2, calificación 82 (99/63/99), recuperación 53. PulseApp iPhone: 22:59–06:45, 7:25, 21/261/94/90, VFC 87,
+  FCR 57, resp 12,9, calificación 79 (87/58/95), recuperación 59 (con VFC/FCR exactas de WHOOP la fórmula da 58 → fórmula).
+  - **Fin de la noche (3/11, Android + iOS `motionBounds`)**: se levantó 2 min (06:45–06:46, 16 + 9 pasos) y volvió a dormirse hasta 06:54; el
+    alargue del final cortaba con > 15 pasos. Ahora 40 (`END_EXT_STEPS`). 18 noches: solo cambia la 3/11 → 06:54 (W 06:55), error del fin
+    1,9 → 1,3 min; igual con 25–60 pasos. Arnés check/end01/E2.kt. 3/11 ahora 25/246/116/89, VFC 87,6.
+  - **Recuperación 52 un instante y luego 59 (iOS)**: Inicio enseñaba los números de la última vez hasta recalcular. Con la noche hasta las 03:00
+    la app da 52 (check/n30/Pt.kt: 02:00 55, 03:00 52, 04:00+ 59–60) → era un cálculo viejo. Ahora al volver a la app con datos de > 5 min
+    se tapa con la pantalla de carga hasta tener los nuevos (`scenePhase`).
+  - **Pesas (3/11, Android + iOS `Formulas.isWeights`)**: "Entrenamiento de fuerza"/pesas/gimnasio/potencia llevan 4,2 de carga muscular por
+    minuto (funcional/crossfit siguen con 14,61). Export: Entrenador de fuerza (8 sesiones) mediana ≈ 4/min, funcional (62) 14/min; 9 sesiones
+    de fuerza MAE 3,87 → 2,16. Pesas 2/11: solo pulso 2,5, antes 8,3 (app 8,6), ahora 5,0 (WHOOP 4,46). `act_recalc` 6, `night_recalc_v11` / iOS 11.
+  - **Pasos 43 564 el 2/11 (WHOOP 8999, PulseApp por movimiento 9294)**: `BandSteps` contaba cualquier BAJADA del contador como reinicio
+    (+ el valor nuevo, ~2000). Llegan registros de dos fuentes con el contador desfasado unos pasos (en el archivo del 20/10 hay segundos con
+    2254 y 2260 a la vez). Simulado con ese archivo (10 bajadas pequeñas entre segundos): código anterior 33 372, nuevo 6029 (= sin desfase).
+    Ahora solo es reinicio si baja a menos de la mitad; si baja poco se ignora y se sigue desde el valor más alto (Android + iOS; CI de iOS con
+    band_steps_jitter.csv). Falta el band_steps.csv del 2/11 para confirmarlo con el dato real.
 
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,

@@ -450,6 +450,18 @@ object Formulas {
         return "funcional" in t || "fuerza" in t || "crossfit" in t || "gimnasio" in t || "pesas" in t
     }
 
+    /**
+     * Pesas / "Entrenamiento de fuerza" (3/11): WHOOP ("Entrenador de fuerza") les suma MUCHA menos carga muscular que al funcional.
+     * Export: 8 sesiones de fuerza/potencia → carga muscular por minuto de mediana ≈ 4 (funcional, 62 sesiones: 14). Ejemplo: 60 min a
+     * 92–93 lpm de media = fuerza 4,3–4,6, funcional 54 min a 91 = 10,7. Pesas 2/11 19:04–19:31: solo pulso 2,5, WHOOP 4,46 → 3,05/min;
+     * con la carga del funcional PulseApp daba 8,3–8,6. Con 4,2/min: 4,9.
+     */
+    fun isWeights(type: String?): Boolean {
+        val t = type?.lowercase() ?: return false
+        return "funcional" !in t && "crossfit" !in t && ("fuerza" in t || "pesas" in t || "gimnasio" in t || "potencia" in t)
+    }
+    const val WEIGHTS_LOAD_PER_MIN = 4.2
+
     /** Paseo / caminar / senderismo: WHOOP también les suma carga por minuto (25/10). */
     fun isWalk(type: String?): Boolean {
         val t = type?.lowercase() ?: return false
@@ -459,6 +471,7 @@ object Formulas {
     /** Minutos "de fuerza equivalentes" de una actividad: fuerza = sus minutos; paseo = sus minutos × 4,38/14,61; resto 0. */
     fun muscleMinutes(type: String?, minutes: Double): Double = when {
         minutes <= 0 -> 0.0
+        isWeights(type) -> minutes * WEIGHTS_LOAD_PER_MIN / STRENGTH_LOAD_PER_MIN
         isStrength(type) -> minutes
         isWalk(type) -> minutes * WALK_LOAD_PER_MIN / STRENGTH_LOAD_PER_MIN
         else -> 0.0

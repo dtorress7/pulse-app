@@ -11,3 +11,9 @@ let imuFew = [MotionMinute(minuteStartUnix: 1792500000, steps: 10)]
 let withImu = BandSteps.merged(band, imuFew, fromMs: 1792444279000, toMs: 1792530893000)
 print("BandSteps Swift: ciclo 20/10 = \(cycle) (Android 6029, WHOOP 6015); con PulseApp en el hueco = \(withImu)")
 if cycle != 6029 || withImu != 6029 { print("::error::BandSteps.swift no da lo mismo que Android"); exit(1) }
+
+// 3/11: registros de dos fuentes con el contador desfasado unos pasos (bajadas pequeñas entre segundos): no son reinicios
+let jit = BandSteps.read(url: URL(fileURLWithPath: "Tests/bandsteps/band_steps_jitter.csv"))
+let cj = BandSteps.merged(jit, [], fromMs: 1792444279000, toMs: 1792530893000)
+print("BandSteps Swift con contador desfasado: \(cj) (Android 6029; el código anterior daba 33 372)")
+if cj != 6029 { print("::error::BandSteps.swift cuenta los desfases como reinicios"); exit(1) }

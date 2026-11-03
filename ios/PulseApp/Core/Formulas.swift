@@ -333,6 +333,15 @@ enum Formulas {
         return t.contains("funcional") || t.contains("fuerza") || t.contains("crossfit") || t.contains("gimnasio") || t.contains("pesas")
     }
 
+    /// Pesas / "Entrenamiento de fuerza" (3/11, igual que Android): WHOOP les suma mucha menos carga muscular que al funcional
+    /// (export: mediana ≈ 4 por minuto frente a 14; pesas 2/11 WHOOP 4,46, antes PulseApp 8,3–8,6, ahora 4,9).
+    static func isWeights(_ type: String?) -> Bool {
+        guard let t = type?.lowercased() else { return false }
+        return !t.contains("funcional") && !t.contains("crossfit") &&
+            (t.contains("fuerza") || t.contains("pesas") || t.contains("gimnasio") || t.contains("potencia"))
+    }
+    static let weightsLoadPerMin = 4.2
+
     static func isWalk(_ type: String?) -> Bool {
         guard let t = type?.lowercased() else { return false }
         return t.contains("caminar") || t.contains("paseo") || t.contains("senderismo") || t.contains("andar")
@@ -341,6 +350,7 @@ enum Formulas {
     /// Minutos "de fuerza equivalentes": fuerza = sus minutos; paseo = sus minutos × 4,38/14,61; resto 0.
     static func muscleMinutes(_ type: String?, _ minutes: Double) -> Double {
         if minutes <= 0 { return 0 }
+        if isWeights(type) { return minutes * weightsLoadPerMin / strengthLoadPerMin }
         if isStrength(type) { return minutes }
         if isWalk(type) { return minutes * walkLoadPerMin / strengthLoadPerMin }
         return 0

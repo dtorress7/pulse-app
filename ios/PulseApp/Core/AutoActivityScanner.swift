@@ -127,7 +127,7 @@ enum AutoActivityScanner {
     /// Una sola vez tras actualizar (20/10): rehace zonas, calorías y esfuerzo de las actividades guardadas
     /// con las fórmulas nuevas. Mismo inicio, fin y deporte; si no hay pulso, se deja como estaba.
     private static func recalcAllOnce(store: AppStore, hrLog: HrLog, profile: UserProfile) {
-        if UserDefaults.standard.integer(forKey: keyRecalc) >= 5 { return }
+        if UserDefaults.standard.integer(forKey: keyRecalc) >= 6 { return }
         if Formulas.bmr() <= 0 {
             Formulas.setBmr(CalorieCalculator.basalMetabolicRate(ageYears: profile.ageYears(), weightKg: profile.weightKg,
                                                                  heightCm: profile.heightCm, sex: profile.sex))
@@ -146,6 +146,6 @@ enum AutoActivityScanner {
             if old.type == Formulas.napType { fresh.strain = 0; fresh.caloriesKcal = 0 }
             store.updateSession(fresh)
         }
-        UserDefaults.standard.set(5, forKey: keyRecalc)   // 5 = esfuerzo v4 del 25/10 (paseos)
+        UserDefaults.standard.set(6, forKey: keyRecalc)   // 6 = pesas con su propia carga muscular (3/11); 5 = esfuerzo v4 del 25/10 (paseos)
     }
 }

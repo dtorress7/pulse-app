@@ -83,7 +83,13 @@ object BandSteps {
         for ((t, v) in samples) {
             if (pt < 0) { covered.add(longArrayOf(t, t)) }
             else {
-                val inc = if (v >= pv) v - pv else v   // si baja, la pulsera reinició el contador (ciclo nuevo)
+                // 3/11: si baja a menos de la mitad, la pulsera reinició el contador (ciclo nuevo) y cuenta el valor nuevo. Si baja poco es
+                // ruido: llegan registros de dos fuentes con el contador desfasado unos pasos (en el archivo del 20/10 hay segundos con
+                // 2254 y 2260 a la vez) y antes cada bajadita contaba como reinicio (+2000 pasos cada vez: 43 564 el 2/11, WHOOP 8999).
+                // Se ignora y se sigue contando desde el valor más alto.
+                val reset = v < pv / 2
+                if (v < pv && !reset) { if (t - pt <= MAX_GAP_S) covered.last()[1] = t; pt = t; continue }
+                val inc = if (reset) v else v - pv
                 if (t - pt <= MAX_GAP_S) {
                     if (inc > 0) per[t / 60] = (per[t / 60] ?: 0) + inc
                     covered.last()[1] = t

@@ -79,7 +79,14 @@ enum BandSteps {
         for t in samples.keys.sorted() {
             let v = samples[t]!
             if pt < 0 { d.covered.append((t, t)) } else {
-                let inc = v >= pv ? v - pv : v   // si baja, la pulsera reinició el contador (ciclo nuevo)
+                // 3/11 (igual que Android): solo es reinicio si baja a menos de la mitad; una bajada pequeña es ruido de dos fuentes con el
+                // contador desfasado (antes cada una sumaba ~2000 pasos: 43 564 el 2/11, WHOOP 8999) y se sigue desde el valor más alto.
+                let reset = v < pv / 2
+                if v < pv && !reset {
+                    if t - pt <= maxGapS { d.covered[d.covered.count - 1].1 = t }
+                    pt = t; continue
+                }
+                let inc = reset ? v : v - pv
                 if t - pt <= maxGapS {
                     if inc > 0 { d.perMinute[t / 60, default: 0] += inc }
                     d.covered[d.covered.count - 1].1 = t

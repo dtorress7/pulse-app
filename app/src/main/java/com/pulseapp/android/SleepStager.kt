@@ -197,7 +197,7 @@ object SleepStager {
                 while (true) {
                     var b = end + 1; var steps = 0
                     while (byMin[b] != null && !still(byMin[b]) && b - end <= 3) { steps += byMin[b]!!.steps; b++ }
-                    if (b - end - 1 > 2 || steps > 15 || !still(byMin[b])) break
+                    if (b - end - 1 > 2 || steps > END_EXT_STEPS || !still(byMin[b])) break
                     while (still(byMin[b + 1])) b++
                     end = b
                 }
@@ -402,6 +402,9 @@ object SleepStager {
         return Result(r.startMinute, st)
     }
 
+    /** 3/11: levantarse 2 min (16 + 9 pasos, p. ej. al baño) y volver a dormirse sigue siendo noche (WHOOP 06:55, antes 06:44).
+     *  15 → 40 pasos: 18 noches, solo cambia la 3/11 (error del fin 1,9 → 1,3 min); igual con 25–60. */
+    private const val END_EXT_STEPS = 40
     private const val NAP_MIN_MINUTES = 20
     private const val NAP_NO_REM_MIN = 60
 
