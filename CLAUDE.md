@@ -603,7 +603,8 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
     (+ el valor nuevo, ~2000). Llegan registros de dos fuentes con el contador desfasado unos pasos (en el archivo del 20/10 hay segundos con
     2254 y 2260 a la vez). Simulado con ese archivo (10 bajadas pequeñas entre segundos): código anterior 33 372, nuevo 6029 (= sin desfase).
     Ahora solo es reinicio si baja a menos de la mitad; si baja poco se ignora y se sigue desde el valor más alto (Android + iOS; CI de iOS con
-    band_steps_jitter.csv). Falta el band_steps.csv del 2/11 para confirmarlo con el dato real.
+    band_steps_jitter.csv). CONFIRMADO con el band_steps.csv real (31/10→3/11, check/steps30/K.kt, código antiguo y nuevo): ciclo 2/11 antiguo 43 564 (= lo que mostró la app) → nuevo 9013 (WHOOP 8999); 1/11 1842 (1839); 3/11 hasta 16:44 2324 (2315 a las 9:00). Solo 2 bajadas pequeñas (17251→17245, 17300→17297) y 2 reinicios de verdad (al empezar ciclo).
+  - **Recuperación 3/11 (59 en la app, 52 un instante, WHOOP 53)**: el 52 era el cálculo con la noche hasta ~03:00 (Pt.kt), no más correcto. Desglose del +6 (Kotlin R4/R5.kt + Python rec30/m.py): fórmula con los valores de WHOOP 56 (+3, ruido propio: últimas 12 noches sesgo −1,2, MAE 3,7); falta la noche 30→31 (no grabada, VFC 103) en la línea base → +2; VFC 87,6/FCR 57 vs 85,7/56 → +1–2. Probado reajustar la fórmula cada día con más peso a lo reciente (vida media 30–180 d) o corregir el sesgo reciente (7–60 d): en línea 3,56–3,71 vs 3,52 fija, octubre 4,09–4,35 vs 4,06 → no se cambia. Reimportar un export de WHOOP reciente rellenaría la noche que falta.
 
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
