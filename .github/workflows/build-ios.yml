@@ -9,7 +9,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-15
+    runs-on: macos-15-intel   # 4/11: los Mac arm64 de GitHub no tenían sitio (3 intentos fallidos); volver a macos-15 cuando se arregle
     defaults:
       run:
         working-directory: ios
