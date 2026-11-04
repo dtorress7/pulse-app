@@ -23,7 +23,7 @@ enum AutoActivityScanner {
         // 28/10 (2): repasa 10 días para añadir las actividades suaves (funcional 22/10, fútbol 26/10)
         let rescan = UserDefaults.standard.integer(forKey: "pulseapp_act_rescan") < 2
         // 4/11 (igual que Android): una vez, se miran 10 días SOLO para borrar las suaves pegadas a un entreno (no se añade nada viejo)
-        let softClean = UserDefaults.standard.integer(forKey: "pulseapp_act_soft_clean") < 1
+        let softClean = UserDefaults.standard.integer(forKey: "pulseapp_act_soft_clean") < 2   // 2 (4/11): también recorta el inicio por los pasos
         let windowMs: Int64 = (rescan || softClean) ? 10 * 86_400_000 : 36 * 3_600_000
 
         let readings = hrLog.readings(from: now - windowMs, to: now)
@@ -48,8 +48,14 @@ enum AutoActivityScanner {
             .filter { w in !acts.contains { $0.0 <= w.1 && $0.1 >= w.0 } }
         // Suaves (28/10): solo lo que no es ya actividad ni paseo
         let soft = Formulas.detectSoftActivities(minutes, hrMax: hrMax, taken: acts + walks)
-        let found: [(Int64, Int64, String)] = acts.map { ($0.0, $0.1, "Sin clasificar") }
-            + walks.map { ($0.0, $0.1, Formulas.walkType) } + soft.map { ($0.0, $0.1, "Sin clasificar") }
+        // 4/11: el inicio de los entrenos y las suaves se recorta por los pasos de la pulsera (Formulas.trimStartByBandSteps)
+        let band = BandSteps.read()
+        var rawStart = [Int64: Int64]()
+        let trimmedActs: [(Int64, Int64, String)] = (acts + soft).map { a in
+            let t = Formulas.trimStartByBandSteps(a.0, a.1, band); rawStart[t] = a.0; return (t, a.1, "Sin clasificar")
+        }
+        let found: [(Int64, Int64, String)] = trimmedActs
+            + walks.map { ($0.0, $0.1, Formulas.walkType) }
             + naps.map { ($0.0, $0.1, Formulas.napType) }
 
         let manual = ActivityState.manualStart()
@@ -77,7 +83,10 @@ enum AutoActivityScanner {
         for (m0, m1, type) in found {
             let start = m0 * 60_000, end = m1 * 60_000 + 59_999
             if now - end < 10 * 60_000 { continue }                       // aún puede seguir
-            if !rescan && end < now - 36 * 3_600_000 { continue }         // repaso de limpieza: no se añade nada viejo
+            let raw0 = (type == Formulas.napType || type == Formulas.walkType) ? m0 : (rawStart[m0] ?? m0)
+            let trimmed = m0 > raw0
+            let isOld = end < now - 36 * 3_600_000
+            if !rescan && isOld && !(softClean && trimmed) { continue }   // repaso de limpieza: no se añade nada viejo
             // Un hueco de datos no es el final: ≥ 5 min de pulso en los 10 min siguientes, o que haya pasado ≥ 1 h
             if now - end < 60 * 60_000 && ((m1 + 1)...(m1 + 10)).filter({ minuteSet.contains($0) }).count < 5 { continue }
             if let m = manual, m <= end { continue }                       // la manual manda
@@ -86,8 +95,10 @@ enum AutoActivityScanner {
                 // Una automática guardada antes de tener todo el pulso se alarga (no si la has editado tú)
                 if type == Formulas.napType || overlap.contains(where: { !$0.autoDetected || $0.type == Formulas.napType }) { continue }
                 let oStart = overlap.map { $0.startMillis }.min()!, oEnd = overlap.map { $0.endMillis }.max()!
-                let ns = min(start, oStart), ne = max(end, oEnd)
-                if ns >= oStart - 60_000 && ne <= oEnd + 60_000 { continue }
+                // Recortada por los pasos de la pulsera: la guardada que empezaba en el trozo sin moverte empieza ahora donde la nueva
+                let ns = (trimmed && oStart >= raw0 * 60_000 - 60_000 && oStart < start) ? start : min(start, oStart)
+                let ne = max(end, oEnd)
+                if abs(ns - oStart) <= 60_000 && ne <= oEnd + 60_000 { continue }
                 let keep = overlap[0]
                 guard var fresh = ActivityRecorder.summarize(
                     hrLog: hrLog, startMillis: ns, endMillis: ne,
@@ -102,6 +113,7 @@ enum AutoActivityScanner {
                 saved += 1
                 continue
             }
+            if isOld && !rescan { continue }                              // el repaso solo recorta, no crea
             let nap = type == Formulas.napType
             guard var session = ActivityRecorder.summarize(
                 hrLog: hrLog, startMillis: start, endMillis: end,
@@ -120,7 +132,7 @@ enum AutoActivityScanner {
             saved += 1
         }
         if rescan { UserDefaults.standard.set(2, forKey: "pulseapp_act_rescan") }
-        if softClean { UserDefaults.standard.set(1, forKey: "pulseapp_act_soft_clean") }
+        if softClean { UserDefaults.standard.set(2, forKey: "pulseapp_act_soft_clean") }
         // 29/10 (una vez): las automáticas "Sin clasificar" de los últimos 30 días reciben deporte si se parecen claramente a las tuyas
         if UserDefaults.standard.integer(forKey: "pulseapp_act_classify") < 1 {
             let all = store.allSessions()

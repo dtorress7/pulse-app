@@ -35,8 +35,9 @@ enum Formulas {
     static func updateObservedHrMax(_ bpm: Int) {
         if bpm < 150 || bpm > 220 { return }
         let current = observedHrMax() ?? 0
-        // Un salto de más de 8 lpm sobre tu máximo suele ser un artefacto del sensor: no se acepta.
-        if bpm > current && (current == 0 || bpm <= current + 8) { setObservedHrMax(bpm) }
+        // 4/11 (igual que Android): WHOOP NO sube la FC máxima con un entreno (fútbol 3/11 con máx 197 y la suya sigue en 195).
+        // Solo se pone si aún no hay ninguna; después se cambia a mano en Sobre mí.
+        if current == 0 { setObservedHrMax(bpm) }
     }
 
     // ---------- Zonas de FC como WHOOP (20/10) ----------
@@ -210,6 +211,25 @@ enum Formulas {
     // ---------- Actividades suaves (28/10), igual que Android (Formulas.detectSoftActivities) ----------
     // Pulso moderado sostenido sin minutos intensos (funcional 22/10, fútbol 26/10 que WHOOP detectó): media móvil de 5 min ≥ 28 %
     // de reserva, huecos ≤ 5 min, ≥ 15 min, media ≥ 30 % y ≥ 80 % de minutos con pulso; solo lo que no se solapa con [taken].
+    /// 4/11 (igual que Android): WHOOP empieza la actividad cuando empiezas a moverte (pasos de la pulsera): si el principio tiene
+    /// ≥ 5 min seguidos con historial de la pulsera y ≤ 5 pasos/min, empieza en el primer minuto con ≥ 10 pasos
+    /// (fútbol 3/11 20:59 → 21:11 = WHOOP; 31/10 18:01 → 18:16, WHOOP 18:15).
+    static let bandTrimIdleSteps = 5
+    static let bandTrimStartSteps = 10
+    static let bandTrimMinIdle: Int64 = 5
+    static func trimStartByBandSteps(_ s: Int64, _ e: Int64, _ band: BandSteps.Data) -> Int64 {
+        if band.perMinute.isEmpty { return s }
+        var m = s
+        while m <= e - 12 {
+            if !band.covers(m * 60 + 30) { return s }
+            let st = band.perMinute[m] ?? 0
+            if st >= bandTrimStartSteps { return m - s >= bandTrimMinIdle ? m : s }
+            if st > bandTrimIdleSteps { return s }
+            m += 1
+        }
+        return s
+    }
+
     /// 4/11 (igual que Android): el pulso sigue alto después de un entreno (cenando tras el fútbol, 31/10 tras el partido) y antes
     /// (llegar/calentar): una suave que empieza ≤ 45 min después de otra actividad o acaba ≤ 30 min antes NO cuenta.
     static let softAfterGapMin: Int64 = 45

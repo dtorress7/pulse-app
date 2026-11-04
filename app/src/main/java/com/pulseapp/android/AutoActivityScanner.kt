@@ -60,8 +60,9 @@ object AutoActivityScanner {
         val sp = context.getSharedPreferences("pulseapp_formulas", Context.MODE_PRIVATE)
         // 28/10 (act_rescan 2): repasa 10 días para añadir las actividades suaves (funcional 22/10, fútbol 26/10)
         val rescan = sp.getInt("act_rescan", 0) < 2
-        // 4/11 (act_soft_clean 1): una vez, se miran 10 días SOLO para borrar las suaves pegadas a un entreno (no se añade nada viejo)
-        val softClean = sp.getInt("act_soft_clean", 0) < 1
+        // 4/11 (act_soft_clean 2): una vez, se miran 10 días SOLO para borrar las suaves pegadas a un entreno y recortar el inicio
+        // de las automáticas por los pasos de la pulsera (no se añade nada viejo)
+        val softClean = sp.getInt("act_soft_clean", 0) < 2
         val windowMs = if (rescan || softClean) 10 * 86_400_000L else 36 * 3_600_000L
         val db = AppDatabase.getInstance(context)
         val profile = db.userProfileDao().getOnce() ?: return 0
@@ -87,10 +88,12 @@ object AutoActivityScanner {
             .filter { w -> acts.none { it.first <= w.second && it.second >= w.first } }
         // Suaves (28/10): solo lo que no es ya actividad ni paseo
         val soft = Formulas.detectSoftActivities(minutes, hrMax, taken = acts + walks)
-        val found = acts.map { Triple(it.first, it.second, "Sin clasificar") } +
+        // 4/11: el inicio de los entrenos y las suaves se recorta por los pasos de la pulsera (ver Formulas.trimStartByBandSteps)
+        val band = BandSteps.read(csvFile.parentFile)
+        val found = (acts + soft).map { Triple(Formulas.trimStartByBandSteps(it.first, it.second, band), it.second, "Sin clasificar") } +
             walks.map { Triple(it.first, it.second, Formulas.WALK_TYPE) } +
-            soft.map { Triple(it.first, it.second, "Sin clasificar") } +
             naps.map { Triple(it.first, it.second, Formulas.NAP_TYPE) }
+        val rawStart = (acts + soft).associate { Formulas.trimStartByBandSteps(it.first, it.second, band) to it.first }
 
         val manual = ActivityState.manualStart(context)
         val existing = db.activitySessionDao().getAll().toMutableList()
@@ -116,7 +119,10 @@ object AutoActivityScanner {
             val start = m0 * 60_000L
             val end = m1 * 60_000L + 59_999L
             if (now - end < 10 * 60_000L) continue                       // aún puede seguir
-            if (!rescan && end < now - 36 * 3_600_000L) continue           // repaso de limpieza: no se añade nada viejo
+            val raw0 = if (type == Formulas.NAP_TYPE || type == Formulas.WALK_TYPE) m0 else rawStart[m0] ?: m0
+            val trimmed = m0 > raw0
+            val old = end < now - 36 * 3_600_000L
+            if (!rescan && old && !(softClean && trimmed)) continue      // repaso de limpieza: no se añade nada viejo
             // 25/10: un hueco de datos no es el final (el pulso del partido llegó tarde y se guardó 19:02–19:25):
             // hacen falta ≥ 5 min de pulso en los 10 min siguientes, o que haya pasado ≥ 1 h
             if (now - end < 60 * 60_000L && (m1 + 1..m1 + 10).count { it in minuteSet } < 5) continue
@@ -125,8 +131,11 @@ object AutoActivityScanner {
             if (overlap.isNotEmpty()) {
                 // Una actividad automática guardada antes de tener todo el pulso se alarga (no si la has editado tú)
                 if (type == Formulas.NAP_TYPE || overlap.any { !it.autoDetected || it.type == Formulas.NAP_TYPE }) continue
-                val ns = minOf(start, overlap.minOf { it.startMillis }); val ne = maxOf(end, overlap.maxOf { it.endMillis })
-                if (ns >= overlap.minOf { it.startMillis } - 60_000L && ne <= overlap.maxOf { it.endMillis } + 60_000L) continue
+                val oStart = overlap.minOf { it.startMillis }
+                // Recortada por los pasos de la pulsera: la guardada que empezaba en el trozo sin moverte empieza ahora donde la nueva
+                val ns = if (trimmed && oStart >= raw0 * 60_000L - 60_000L && oStart < start) start else minOf(start, oStart)
+                val ne = maxOf(end, overlap.maxOf { it.endMillis })
+                if (Math.abs(ns - oStart) <= 60_000L && ne <= overlap.maxOf { it.endMillis } + 60_000L) continue
                 val keep = overlap.first()
                 val fresh = ActivityRecorder().summarize(
                     csvFile, ns, ne, ageYears = profile.ageYears(), weightKg = profile.weightKg, sex = profile.sex,
@@ -139,6 +148,7 @@ object AutoActivityScanner {
                 saved++
                 continue
             }
+            if (old && !rescan) continue                                  // el repaso solo recorta, no crea
             var session = ActivityRecorder().summarize(
                 csvFile, start, end,
                 ageYears = profile.ageYears(), weightKg = profile.weightKg, sex = profile.sex,
@@ -158,7 +168,7 @@ object AutoActivityScanner {
             saved++
         }
         if (rescan) sp.edit().putInt("act_rescan", 2).apply()
-        if (softClean) sp.edit().putInt("act_soft_clean", 1).apply()
+        if (softClean) sp.edit().putInt("act_soft_clean", 2).apply()
         // 29/10 (una vez): las automáticas "Sin clasificar" de los últimos 30 días reciben deporte si se parecen claramente a las tuyas
         if (sp.getInt("act_classify", 0) < 1) {
             val all = db.activitySessionDao().getAll()

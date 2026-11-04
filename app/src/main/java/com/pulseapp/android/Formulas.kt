@@ -237,6 +237,26 @@ object Formulas {
     // 15/10→3/11: quita esas 3 (WHOOP no tiene nada ahí) y deja las 2 de verdad (funcional 22/10, fútbol 26/10: ninguna actividad cerca).
     const val SOFT_AFTER_GAP_MIN = 45
     const val SOFT_BEFORE_GAP_MIN = 30
+    // 4/11: WHOOP empieza la actividad cuando EMPIEZAS A MOVERTE (contador de pasos de la pulsera, que funciona aunque el móvil
+    // esté lejos): fútbol 3/11 sin pasos de 20:59 a 21:10 (calentando/esperando a 98–114 lpm) y 30 pasos a las 21:11 = inicio de
+    // WHOOP; 31/10 0–4 pasos/min de 18:01 a 18:15 y 11 a las 18:16 (WHOOP 18:15). Si el principio de la actividad tiene ≥ 5 min
+    // seguidos con historial de la pulsera y ≤ 5 pasos/min, empieza en el primer minuto con ≥ 10 pasos.
+    const val BAND_TRIM_IDLE_STEPS = 5
+    const val BAND_TRIM_START_STEPS = 10
+    const val BAND_TRIM_MIN_IDLE = 5
+    fun trimStartByBandSteps(s: Long, e: Long, band: BandSteps.Data): Long {
+        if (band.perMinute.isEmpty()) return s
+        var m = s
+        while (m <= e - 12) {
+            if (!band.covers(m * 60 + 30)) return s
+            val st = band.perMinute[m] ?: 0
+            if (st >= BAND_TRIM_START_STEPS) return if (m - s >= BAND_TRIM_MIN_IDLE) m else s
+            if (st > BAND_TRIM_IDLE_STEPS) return s
+            m++
+        }
+        return s
+    }
+
     /** ¿Una suave [s]..[e] (minutos) queda pegada a otra actividad de [taken]? */
     fun softNextToActivity(s: Long, e: Long, taken: List<Pair<Long, Long>>): Boolean =
         taken.any { (a, b) -> (s > b && s - b <= SOFT_AFTER_GAP_MIN) || (a > e && a - e <= SOFT_BEFORE_GAP_MIN) }
@@ -422,8 +442,10 @@ object Formulas {
     fun updateObservedHrMax(context: Context, bpm: Int) {
         if (bpm !in 150..220) return
         val current = observedHrMax(context) ?: 0
-        // Un salto de más de 8 lpm sobre tu máximo suele ser un artefacto del sensor: no se acepta.
-        if (bpm > current && (current == 0 || bpm <= current + 8)) setObservedHrMax(context, bpm)
+        // 4/11: WHOOP NO sube la FC máxima con un entreno (fútbol 3/11 con máx 197 y la suya sigue en 195; solo la revisa al
+        // actualizar las zonas, una vez al mes). Antes PulseApp la subía sola a 197 → zonas, esfuerzo y calorías distintos.
+        // Solo se pone si aún no hay ninguna; después se cambia a mano en Sobre mí.
+        if (current == 0) setObservedHrMax(context, bpm)
     }
 
     // ---------- Esfuerzo ----------

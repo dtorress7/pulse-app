@@ -55,7 +55,8 @@ Peso/altura/edad/sexo → calorías (Mifflin + Keytel). Sexo → TRIMP. Recupera
 ## Fórmulas actuales (calibradas con el export de WHOOP del usuario, 08/09/2026 — todo en `Formulas.kt`)
 - FCmáx = max(Tanaka 208 − 0,7·edad, FC máx observada). La observada se guarda en SharedPreferences
   `pulseapp_formulas/hr_max_observed`, se edita en Sobre mí ("FC máxima"; la suya en WHOOP = 199) y sube sola
-  al guardar una actividad con FC más alta (150–220 y ≤ +8 lpm sobre la actual). `Formulas.init(ctx)` en Main y servicios.
+  al guardar una actividad con FC más alta (150–220 y ≤ +8 lpm sobre la actual) — DESDE EL 4/11 YA NO: solo se pone si no hay ninguna
+  (WHOOP no la cambia con un entreno). `Formulas.init(ctx)` en Main y servicios.
   Zonas 0–5 por % FCmáx (<50, 50–60, 60–70, 70–80, 80–90, >90).
 - Esfuerzo = TRIMP Banister con reserva de FC, sólo minutos con FC ≥ 45 % FCmáx → 4,14·ln(1+TRIMP/2,6), máx 21.
   Misma curva para día y actividades. Error vs WHOOP: fútbol 0,7, global 1,7 (173 entrenos).
@@ -650,6 +651,19 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
     112/141/155/168/182 = calculados con FCR 59 (con 57 serían 111/140/154/168/182). Fútbol 3/11 con la ventana de WHOOP (check/n04): con FCR 59
     las zonas salen a 4 s en total de la API; con 57 102 s, con 58 139 s → WHOOP no rehace las zonas cada día. Recomendado poner 59 en
     "FC en reposo para zonas" (Sobre mí); también era lo mejor para el esfuerzo del día (2/11, Z6.kt).
+  - **IA de WHOOP sobre las zonas (4/11 tarde)**: se actualizan UNA VEZ AL MES (última 19/10), FCmáx 195. Dice que podrían ser de FCR 57, pero
+    los datos no: con 57 Z1 empezaría en 111 (ceil 110,1) y los segundos por zona del fútbol 3/11 fallan 102 s; con 59 → 112 y 4 s. El 59 lo
+    mostraba su pantalla de Ajustes de FC el 20/10. Próxima actualización ≈ 19/11: entonces habrá que poner su nueva FCR de referencia.
+  - **FC máxima fija (4/11, Android + iOS `updateObservedHrMax`)**: PulseApp la subía sola al guardar una actividad con FC más alta (3/11 máx 197 →
+    FCmáx 197). WHOOP NO la sube (sigue en 195 con ese mismo partido). Ahora solo se pone si no hay ninguna. 20 entrenos de WHOOP 19/10→3/11 con
+    sus ventanas (check/act25/F4.kt, código real): FCmáx 195 error medio 0,27 (sesgo +0,06), 197 0,30, 199 0,43 → 195 es lo mejor.
+  - **Inicio por los pasos de la pulsera (4/11, Android + iOS `Formulas.trimStartByBandSteps`)**: band_steps_1.csv (31/10→4/11): WHOOP empieza cuando
+    empiezas a moverte. 3/11 0 pasos/min 20:59–21:10 y 30 a las 21:11 (= WHOOP 21:11); 31/10 0–4 pasos/min 18:01–18:15, 11 a las 18:16 (WHOOP 18:15).
+    Regla: si el principio de un entreno/suave tiene ≥ 5 min seguidos con historial de la pulsera y ≤ 5 pasos/min, empieza en el primer minuto con
+    ≥ 10 pasos. Código real 15/10→3/11 (check/act25/D5.kt): solo cambian esas dos (las demás no tienen pasos de la pulsera). Una automática ya
+    guardada se recorta (no si la editaste); `act_soft_clean` 2 / iOS 2 repasa 10 días solo para recortar/borrar.
+    Las suaves falsas también se ven en los pasos: 20:25–20:50 0,1/min, 22:30–22:44 3,1/min, 31/10 20:00–20:58 4,6/min (fútbol 77/min, pesas 2/11 ~37/min).
+    Fútbol 3/11 (F3.kt): FCmáx 195 + 21:11–22:21 → 14,9 (WHOOP 14,4; con su ventana 14,8). El final sigue +15 min (andando 22:15–22:21).
 
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
