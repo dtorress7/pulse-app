@@ -210,6 +210,14 @@ enum Formulas {
     // ---------- Actividades suaves (28/10), igual que Android (Formulas.detectSoftActivities) ----------
     // Pulso moderado sostenido sin minutos intensos (funcional 22/10, fútbol 26/10 que WHOOP detectó): media móvil de 5 min ≥ 28 %
     // de reserva, huecos ≤ 5 min, ≥ 15 min, media ≥ 30 % y ≥ 80 % de minutos con pulso; solo lo que no se solapa con [taken].
+    /// 4/11 (igual que Android): el pulso sigue alto después de un entreno (cenando tras el fútbol, 31/10 tras el partido) y antes
+    /// (llegar/calentar): una suave que empieza ≤ 45 min después de otra actividad o acaba ≤ 30 min antes NO cuenta.
+    static let softAfterGapMin: Int64 = 45
+    static let softBeforeGapMin: Int64 = 30
+    static func softNextToActivity(_ s: Int64, _ e: Int64, _ taken: [(Int64, Int64)]) -> Bool {
+        return taken.contains { (s > $0.1 && s - $0.1 <= softAfterGapMin) || ($0.0 > e && $0.0 - e <= softBeforeGapMin) }
+    }
+
     static func detectSoftActivities(_ minutes: [(Int64, Double)], hrMax: Double, rhr: Int? = nil,
                                      taken: [(Int64, Int64)] = []) -> [(Int64, Int64)] {
         let r = Double(rhr ?? zoneRestingHr())
@@ -233,7 +241,7 @@ enum Formulas {
             let len = t[e] - t[s] + 1, count = e - s + 1
             let mean = (prefix[e + 1] - prefix[s]) / Double(count)
             if len >= 15 && mean >= meanThr && Double(count) >= 0.8 * Double(len)
-                && !taken.contains(where: { $0.0 < t[e] && $0.1 > t[s] }) { out.append((t[s], t[e])) }
+                && !taken.contains(where: { $0.0 < t[e] && $0.1 > t[s] }) && !softNextToActivity(t[s], t[e], taken) { out.append((t[s], t[e])) }
             i = e + 1
         }
         return out

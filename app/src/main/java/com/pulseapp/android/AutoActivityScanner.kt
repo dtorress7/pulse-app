@@ -60,7 +60,9 @@ object AutoActivityScanner {
         val sp = context.getSharedPreferences("pulseapp_formulas", Context.MODE_PRIVATE)
         // 28/10 (act_rescan 2): repasa 10 días para añadir las actividades suaves (funcional 22/10, fútbol 26/10)
         val rescan = sp.getInt("act_rescan", 0) < 2
-        val windowMs = if (rescan) 10 * 86_400_000L else 36 * 3_600_000L
+        // 4/11 (act_soft_clean 1): una vez, se miran 10 días SOLO para borrar las suaves pegadas a un entreno (no se añade nada viejo)
+        val softClean = sp.getInt("act_soft_clean", 0) < 1
+        val windowMs = if (rescan || softClean) 10 * 86_400_000L else 36 * 3_600_000L
         val db = AppDatabase.getInstance(context)
         val profile = db.userProfileDao().getOnce() ?: return 0
         Formulas.init(context)
@@ -102,10 +104,19 @@ object AutoActivityScanner {
                 }
             }
         }
+        // 4/11: una suave guardada antes de que apareciera el entreno de al lado (llegar/calentar antes del partido, cenar después)
+        // se borra si sigue siendo automática (no editada) y la detección de ahora ya no la da.
+        val strong = acts + walks
+        for (old in existing.filter { it.autoDetected && it.type != Formulas.NAP_TYPE && it.startMillis >= now - windowMs + 3 * 3_600_000L }) {
+            val s = old.startMillis / 60_000L; val e = old.endMillis / 60_000L
+            if (found.any { it.first <= e && it.second >= s }) continue
+            if (Formulas.softNextToActivity(s, e, strong)) { db.activitySessionDao().delete(old); existing.remove(old) }
+        }
         for ((m0, m1, type) in found) {
             val start = m0 * 60_000L
             val end = m1 * 60_000L + 59_999L
             if (now - end < 10 * 60_000L) continue                       // aún puede seguir
+            if (!rescan && end < now - 36 * 3_600_000L) continue           // repaso de limpieza: no se añade nada viejo
             // 25/10: un hueco de datos no es el final (el pulso del partido llegó tarde y se guardó 19:02–19:25):
             // hacen falta ≥ 5 min de pulso en los 10 min siguientes, o que haya pasado ≥ 1 h
             if (now - end < 60 * 60_000L && (m1 + 1..m1 + 10).count { it in minuteSet } < 5) continue
@@ -147,6 +158,7 @@ object AutoActivityScanner {
             saved++
         }
         if (rescan) sp.edit().putInt("act_rescan", 2).apply()
+        if (softClean) sp.edit().putInt("act_soft_clean", 1).apply()
         // 29/10 (una vez): las automáticas "Sin clasificar" de los últimos 30 días reciben deporte si se parecen claramente a las tuyas
         if (sp.getInt("act_classify", 0) < 1) {
             val all = db.activitySessionDao().getAll()

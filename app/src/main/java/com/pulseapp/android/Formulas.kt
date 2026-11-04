@@ -232,6 +232,14 @@ object Formulas {
     const val SOFT_MEAN_HRR = 0.30
     const val SOFT_MAX_LOW_MIN = 5
     const val SOFT_MIN_MINUTES = 15
+    // 4/11: el pulso sigue alto después de un entreno (cenando tras el fútbol 22:30–22:44, 31/10 20:00–20:58 tras el partido) y antes
+    // (llegar/calentar 20:25–20:50): una suave que empieza ≤ 45 min después de otra actividad o acaba ≤ 30 min antes NO cuenta.
+    // 15/10→3/11: quita esas 3 (WHOOP no tiene nada ahí) y deja las 2 de verdad (funcional 22/10, fútbol 26/10: ninguna actividad cerca).
+    const val SOFT_AFTER_GAP_MIN = 45
+    const val SOFT_BEFORE_GAP_MIN = 30
+    /** ¿Una suave [s]..[e] (minutos) queda pegada a otra actividad de [taken]? */
+    fun softNextToActivity(s: Long, e: Long, taken: List<Pair<Long, Long>>): Boolean =
+        taken.any { (a, b) -> (s > b && s - b <= SOFT_AFTER_GAP_MIN) || (a > e && a - e <= SOFT_BEFORE_GAP_MIN) }
 
     // ---------- Paseos (25/10) ----------
     // WHOOP detectó solo los dos paseos del 24/10 (21:26–21:49 y 22:20–22:49, FC media 107/100, casi todo zona 0): con el pulso no
@@ -345,7 +353,7 @@ object Formulas {
             val count = e - s + 1
             val mean = (prefix[e + 1] - prefix[s]) / count
             if (len >= SOFT_MIN_MINUTES && mean >= meanThr && count >= 0.8 * len &&
-                taken.none { it.first < t[e] && it.second > t[s] }) out.add(t[s] to t[e])
+                taken.none { it.first < t[e] && it.second > t[s] } && !softNextToActivity(t[s], t[e], taken)) out.add(t[s] to t[e])
             i = e + 1
         }
         return out

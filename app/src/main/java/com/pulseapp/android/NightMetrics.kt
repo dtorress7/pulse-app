@@ -43,8 +43,9 @@ object NightMetrics {
     /** [readings] = (hora en ms, intervalos RR) de la ventana de sueño, en orden; [staged] = fases de esa noche (o null). */
     // 25/10: media de los dos métodos (profundo y toda la noche). 10 noches con el pipeline de la app: error medio 2,6 → 1,8 ms,
     // máx 11 → 5 (noche tras el partido del 24/10: profundo 82, toda la noche 66, WHOOP 71; noche larga del 24: 94 / 100, WHOOP 92).
-    fun hrv(readings: List<Pair<Long, List<Double>>>, staged: SleepStager.Result?): Double? {
-        staged?.let { stageHrv(readings, it) }?.let { return it }
+    /** [bpm] = pulso de cada lectura (mismo orden que [readings]); si falta, no se quitan tramos por pulso alto. */
+    fun hrv(readings: List<Pair<Long, List<Double>>>, staged: SleepStager.Result?, bpm: List<Int>? = null): Double? {
+        staged?.let { stageHrv(readings, it, bpm) }?.let { return it }
         return hrvOld(readings, staged)
     }
 
@@ -55,30 +56,46 @@ object NightMetrics {
      * probando las 6 últimas 2,28 → 1,62; con las fases EXACTAS de WHOOP 1,40 (no depende de acertar cada minuto de fase).
      * Sin fases o con < 10 tramos de alguna de las dos → el método anterior.
      */
-    fun stageHrv(readings: List<Pair<Long, List<Double>>>, staged: SleepStager.Result): Double? {
+    // 4/11: fuera los tramos de 2 min con el pulso medio > FC en reposo de la noche (mediana) + 12. Tras el fútbol de las 21–22 h el
+    // primer profundo iba a 72–77 lpm (FCR 61) con RMSSD 40–55 y hundía la VFC (74,6 vs WHOOP 80,1). 19 noches dejando cada una fuera:
+    // 1,76 → 1,45 ms (máx 5,7 → 3,8); ajustando con 16–25/10 y probando 26/10–4/11: 2,08 → 1,67. Coeficientes reajustados con las 19.
+    fun stageHrv(readings: List<Pair<Long, List<Double>>>, staged: SleepStager.Result, bpm: List<Int>? = null): Double? {
         val st = staged.stages
         val deep = LinkedHashMap<Long, ArrayList<Double>>(); val light = LinkedHashMap<Long, ArrayList<Double>>()
-        for ((t, rr) in readings) {
+        val hrSum = HashMap<Long, Double>(); val hrN = HashMap<Long, Int>()
+        val useHr = bpm != null && bpm.size == readings.size && bpm.isNotEmpty()
+        val ref = if (useHr) bpm!!.sorted().let { s -> if (s.size % 2 == 0) (s[s.size / 2 - 1] + s[s.size / 2]) / 2.0 else s[s.size / 2].toDouble() } else 0.0
+        for ((n, r) in readings.withIndex()) {
+            val (t, rr) = r
             if (rr.isEmpty()) continue
             val i = (t / 60_000L - staged.startMinute).toInt()
             if (i !in st.indices) continue
-            val map = when (st[i]) { SleepStager.DEEP -> deep; SleepStager.LIGHT -> light; else -> continue }
-            map.getOrPut(t / WINDOW_MS) { ArrayList() }.addAll(rr.filter { it in 300.0..2000.0 })
+            val stage = st[i]
+            val map = when (stage) { SleepStager.DEEP -> deep; SleepStager.LIGHT -> light; else -> continue }
+            val w = t / WINDOW_MS
+            map.getOrPut(w) { ArrayList() }.addAll(rr.filter { it in 300.0..2000.0 })
+            if (useHr) { val k = w * 8 + stage; hrSum[k] = (hrSum[k] ?: 0.0) + bpm!![n]; hrN[k] = (hrN[k] ?: 0) + 1 }
         }
-        fun mean(m: Map<Long, List<Double>>): Double? {
-            val v = m.values.filter { it.size >= MIN_RR_PER_WINDOW }.mapNotNull { rmssd(it, STAGE_ARTIFACT) }
+        fun mean(m: Map<Long, List<Double>>, stage: Int): Double? {
+            val v = m.entries.filter { (w, rr) ->
+                if (rr.size < MIN_RR_PER_WINDOW) return@filter false
+                if (!useHr) return@filter true
+                val k = w * 8 + stage; val n = hrN[k] ?: return@filter true
+                hrSum.getValue(k) / n <= ref + STAGE_HIGH_HR
+            }.mapNotNull { rmssd(it.value, STAGE_ARTIFACT) }
             return if (v.size < STAGE_MIN_WINDOWS) null else v.average()
         }
-        val p = mean(deep) ?: return null
-        val l = mean(light) ?: return null
+        val p = mean(deep, SleepStager.DEEP) ?: return null
+        val l = mean(light, SleepStager.LIGHT) ?: return null
         return Math.exp(STAGE_C + STAGE_DEEP_EXP * Math.log(p) + STAGE_LIGHT_EXP * Math.log(l))
     }
 
     private const val STAGE_ARTIFACT = 0.30
     private const val STAGE_MIN_WINDOWS = 10
-    const val STAGE_C = 0.0819
-    const val STAGE_DEEP_EXP = 0.3808
-    const val STAGE_LIGHT_EXP = 0.6030
+    const val STAGE_HIGH_HR = 12.0
+    const val STAGE_C = 0.03828059
+    const val STAGE_DEEP_EXP = 0.38089473
+    const val STAGE_LIGHT_EXP = 0.61171261
 
     /** Método del 25/10 (media de profundo calibrado y toda la noche): solo si no hay fases suficientes. */
     fun hrvOld(readings: List<Pair<Long, List<Double>>>, staged: SleepStager.Result?): Double? {

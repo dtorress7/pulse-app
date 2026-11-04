@@ -22,7 +22,9 @@ enum AutoActivityScanner {
         // Una vez (25/10, igual que Android): se repasan 7 días con la detección nueva (fútbol del 24/10 cortado, paseos, siesta falsa)
         // 28/10 (2): repasa 10 días para añadir las actividades suaves (funcional 22/10, fútbol 26/10)
         let rescan = UserDefaults.standard.integer(forKey: "pulseapp_act_rescan") < 2
-        let windowMs: Int64 = rescan ? 10 * 86_400_000 : 36 * 3_600_000
+        // 4/11 (igual que Android): una vez, se miran 10 días SOLO para borrar las suaves pegadas a un entreno (no se añade nada viejo)
+        let softClean = UserDefaults.standard.integer(forKey: "pulseapp_act_soft_clean") < 1
+        let windowMs: Int64 = (rescan || softClean) ? 10 * 86_400_000 : 36 * 3_600_000
 
         let readings = hrLog.readings(from: now - windowMs, to: now)
         var per = [Int64: (Int, Int)]()
@@ -62,9 +64,20 @@ enum AutoActivityScanner {
                 }
             }
         }
+        // 4/11: una suave guardada antes de que apareciera el entreno de al lado se borra si sigue siendo automática y ya no sale
+        let strong = acts + walks
+        for old in existing where old.autoDetected && old.type != Formulas.napType && old.startMillis >= now - windowMs + 3 * 3_600_000 {
+            let s0 = old.startMillis / 60_000, e0 = old.endMillis / 60_000
+            if found.contains(where: { $0.0 <= e0 && $0.1 >= s0 }) { continue }
+            if Formulas.softNextToActivity(s0, e0, strong) {
+                store.deleteSession(id: old.id)
+                existing.removeAll { $0.id == old.id }
+            }
+        }
         for (m0, m1, type) in found {
             let start = m0 * 60_000, end = m1 * 60_000 + 59_999
             if now - end < 10 * 60_000 { continue }                       // aún puede seguir
+            if !rescan && end < now - 36 * 3_600_000 { continue }         // repaso de limpieza: no se añade nada viejo
             // Un hueco de datos no es el final: ≥ 5 min de pulso en los 10 min siguientes, o que haya pasado ≥ 1 h
             if now - end < 60 * 60_000 && ((m1 + 1)...(m1 + 10)).filter({ minuteSet.contains($0) }).count < 5 { continue }
             if let m = manual, m <= end { continue }                       // la manual manda
@@ -107,6 +120,7 @@ enum AutoActivityScanner {
             saved += 1
         }
         if rescan { UserDefaults.standard.set(2, forKey: "pulseapp_act_rescan") }
+        if softClean { UserDefaults.standard.set(1, forKey: "pulseapp_act_soft_clean") }
         // 29/10 (una vez): las automáticas "Sin clasificar" de los últimos 30 días reciben deporte si se parecen claramente a las tuyas
         if UserDefaults.standard.integer(forKey: "pulseapp_act_classify") < 1 {
             let all = store.allSessions()

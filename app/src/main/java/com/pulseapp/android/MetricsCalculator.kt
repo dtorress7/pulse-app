@@ -84,7 +84,7 @@ class MetricsCalculator(ageYears: Int, private val male: Boolean = true) {
         // Sin noche registrada no hay FC en reposo real (de día sale ~15 lpm más alta y hunde el esfuerzo): se deja vacía
         val restingHr = if (sleepReadings.isNotEmpty()) findRestingHr(sleepReadings) else null
         // VFC: con fases, la de los tramos de sueño profundo (como WHOOP); ver NightMetrics
-        val avgHrv = if (sleepReadings.isNotEmpty()) NightMetrics.hrv(sleepReadings.map { it.timeMillis to it.rr }, staged) else null
+        val avgHrv = if (sleepReadings.isNotEmpty()) NightMetrics.hrv(sleepReadings.map { it.timeMillis to it.rr }, staged, sleepReadings.map { it.bpm }) else null
         val vo2Max = restingHr?.let { 15.3 * (hrMax / it) }
         val strain = computeStrain(cycleReadings, restingHr, window)
 

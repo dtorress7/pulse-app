@@ -228,28 +228,43 @@ enum NightMetrics {
 
     /// 1/11 (igual que Android): VFC = e^0,0819 · P^0,3808 · L^0,6030, P y L = media del RMSSD de los tramos de 2 min dentro del
     /// profundo y del ligero (filtro de artefactos 30 %). 16 noches de WHOOP dejando cada una fuera: 1,9 → 1,42 ms (máx 5,3 → 3,4).
-    static let stageC = 0.0819
-    static let stageDeepExp = 0.3808
-    static let stageLightExp = 0.6030
+    /// 4/11 (igual que Android): fuera los tramos de 2 min con el pulso medio > FC en reposo de la noche (mediana) + 12 (tras el fútbol
+    /// el primer profundo iba a 72–77 lpm y hundía la VFC: 74,6 vs WHOOP 80,1). 19 noches dejando cada una fuera 1,76 → 1,45 ms.
+    static let stageHighHr = 12.0
+    static let stageC = 0.03828059
+    static let stageDeepExp = 0.38089473
+    static let stageLightExp = 0.61171261
     static func stageHrv(_ readings: [HrReading], staged r: SleepStager.Result) -> Double? {
         let st = r.stages
         var deep = [Int64: [Double]](), light = [Int64: [Double]]()
+        var hrSum = [Int64: Double](), hrN = [Int64: Int]()
+        let sortedBpm = readings.map { $0.bpm }.sorted()
+        guard !sortedBpm.isEmpty else { return nil }
+        let n = sortedBpm.count
+        let ref = n % 2 == 0 ? Double(sortedBpm[n / 2 - 1] + sortedBpm[n / 2]) / 2 : Double(sortedBpm[n / 2])
         for x in readings where !x.rr.isEmpty {
             let i = Int(x.timeMillis / 60_000 - r.startMinute)
             if i < 0 || i >= st.count { continue }
             let rr = x.rr.filter { $0 >= 300 && $0 <= 2000 }
-            if st[i] == SleepStager.deep { deep[x.timeMillis / windowMs, default: []].append(contentsOf: rr) }
-            else if st[i] == SleepStager.light { light[x.timeMillis / windowMs, default: []].append(contentsOf: rr) }
+            let w = x.timeMillis / windowMs
+            if st[i] == SleepStager.deep { deep[w, default: []].append(contentsOf: rr) }
+            else if st[i] == SleepStager.light { light[w, default: []].append(contentsOf: rr) }
+            else { continue }
+            let k = w * 8 + Int64(st[i])
+            hrSum[k, default: 0] += Double(x.bpm); hrN[k, default: 0] += 1
         }
-        func mean(_ m: [Int64: [Double]]) -> Double? {
+        func mean(_ m: [Int64: [Double]], _ stage: Int) -> Double? {
             var v = [Double]()
             for k in m.keys.sorted() {
-                guard let rr = m[k], rr.count >= minRrPerWindow, let x = MetricsCalculator.computeRMSSD(rr, maxJump: 0.30) else { continue }
+                guard let rr = m[k], rr.count >= minRrPerWindow else { continue }
+                let hk = k * 8 + Int64(stage)
+                if let c = hrN[hk], let s = hrSum[hk], s / Double(c) > ref + stageHighHr { continue }
+                guard let x = MetricsCalculator.computeRMSSD(rr, maxJump: 0.30) else { continue }
                 v.append(x)
             }
             return v.count < 10 ? nil : v.reduce(0, +) / Double(v.count)
         }
-        guard let p = mean(deep), let l = mean(light) else { return nil }
+        guard let p = mean(deep, SleepStager.deep), let l = mean(light, SleepStager.light) else { return nil }
         return exp(stageC + stageDeepExp * log(p) + stageLightExp * log(l))
     }
 

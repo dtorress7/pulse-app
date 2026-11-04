@@ -606,6 +606,29 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
     band_steps_jitter.csv). CONFIRMADO con el band_steps.csv real (31/10→3/11, check/steps30/K.kt, código antiguo y nuevo): ciclo 2/11 antiguo 43 564 (= lo que mostró la app) → nuevo 9013 (WHOOP 8999); 1/11 1842 (1839); 3/11 hasta 16:44 2324 (2315 a las 9:00). Solo 2 bajadas pequeñas (17251→17245, 17300→17297) y 2 reinicios de verdad (al empezar ciclo).
   - **Recuperación 3/11 (59 en la app, 52 un instante, WHOOP 53)**: el 52 era el cálculo con la noche hasta ~03:00 (Pt.kt), no más correcto. Desglose del +6 (Kotlin R4/R5.kt + Python rec30/m.py): fórmula con los valores de WHOOP 56 (+3, ruido propio: últimas 12 noches sesgo −1,2, MAE 3,7); falta la noche 30→31 (no grabada, VFC 103) en la línea base → +2; VFC 87,6/FCR 57 vs 85,7/56 → +1–2. Probado reajustar la fórmula cada día con más peso a lo reciente (vida media 30–180 d) o corregir el sesgo reciente (7–60 d): en línea 3,56–3,71 vs 3,52 fija, octubre 4,09–4,35 vs 4,06 → no se cambia. Reimportar un export de WHOOP reciente rellenaría la noche que falta.
 
+- **3/11→4/11 (19.ª referencia, fútbol 21:11–22:06 la víspera y cena, acostarse 22:45)**: WHOOP (API) 21:45:04Z–06:54:06Z (22:45–07:54),
+  29/361/91/69, 5 despertares, 95 %, VFC 80,05, FCR 62, resp 13,5, calificación 81 (100/66/95), recuperación 50. PulseApp iPhone (versión 3/11):
+  22:45–07:54, 37/340/81/91, VFC 74,6, FCR 61, resp 13,2, calificación 84 (97/64/93), recuperación 40 a las 8:20 y 39 a las 8:58.
+  Código real (check/n04/N.kt con hr_log_33 + motion_minutes_21, que traen todo desde el 14/10) = app. Importación de WHOOP comprobada (medias 92/58).
+  - **VFC (4/11, Android + iOS `NightMetrics.stageHrv`)**: el primer profundo (23:13–00:10) iba a 72–77 lpm (FCR 61) con RMSSD 40–55 → P 50,8
+    (P/L 0,55, la más baja de las 19 noches). Nuestro profundo cae donde el de WHOOP (capturas en check/hyp/n04, hyp_all_04.json) y con sus
+    fases exactas también sale 76,4 → no son las fases. Ahora fuera los tramos de 2 min con pulso medio > FCR de la noche (mediana) + 12 y
+    coeficientes reajustados (e^0,03828 · P^0,38089 · L^0,61171). 19 noches dejando cada una fuera 1,76 → 1,45 (máx 5,7 → 3,8); ajuste con
+    16–25/10 y prueba 26/10–4/11 2,08 → 1,67 (umbral 10–20 todos mejor). Código real 19 noches MAE 1,35 → 1,23; 4/11 74,6 → 77,7 (W 80,1);
+    empeora 20/10 77,5 → 81,3 (W 78). Probado y peor: quitar los primeros 15–60 min, más peso al profundo del final, mediana, solo ligero,
+    toda la noche. Con la FC sacada de los RR (sin el lpm) sale peor (1,54) → NightMetrics.hrv recibe el pulso (`bpm`). Kotlin = Python 19/19.
+    CI de iOS: paso "Comprobar la VFC de la noche" (ios/Tests/vfc, 2 noches reales; de momento continue-on-error). `night_recalc_v12` / iOS 12.
+    Recuperación de hoy: 39 → 43 (WHOOP 50); con la VFC/FCR exactas de WHOOP la fórmula da 45 → −5 de la fórmula.
+  - **40 → 39 por la mañana**: la VFC estaba justo en el borde (75,0 da 40, 74,9 da 39). Con los datos hasta las 08:20 la noche no cambia
+    (07:56–08:20 iguales, check/n04/T8.kt); el cambio de las 8:58 viene de datos que llegaron después (no está en el archivo) → no comprobado.
+  - **Actividades 3/11**: fútbol PulseApp 20:59–22:21 14,7 (WHOOP 21:11–22:06 14,4); "suaves" falsas 20:25–20:50 (llegar/calentar, sin
+    movimiento grabado, 95–115 lpm) y 22:30–22:44 (cenando tras el fútbol, 96–110). También 31/10 20:00–20:58 (29 min tras el partido).
+    **Arreglo (Android + iOS `Formulas.softNextToActivity`)**: una suave que empieza ≤ 45 min tras otra actividad o acaba ≤ 30 min antes no cuenta;
+    el escáner borra las automáticas sin editar que quedan pegadas (la de antes del partido se guarda a las 21:00, antes de que exista el fútbol).
+    15/10→3/11 (check/act25/D4.kt): quedan solo las suaves de verdad (funcional 22/10, fútbol 26/10). Una vez al instalar (`act_soft_clean` 1 /
+    iOS `pulseapp_act_soft_clean`) se miran 10 días SOLO para borrar. El esfuerzo del día casi no cambia (15,2 → 15,19; WHOOP 14,8: la base
+    por minuto es pequeña) y la recuperación NO usa el esfuerzo.
+
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
 esfuerzo 11,5, 271 kcal, FC media 127 (la media aritmética de esos segundos es 133: WHOOP no usa la media simple), máx 170,
