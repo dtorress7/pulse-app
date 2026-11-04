@@ -617,7 +617,7 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
     16–25/10 y prueba 26/10–4/11 2,08 → 1,67 (umbral 10–20 todos mejor). Código real 19 noches MAE 1,35 → 1,23; 4/11 74,6 → 77,7 (W 80,1);
     empeora 20/10 77,5 → 81,3 (W 78). Probado y peor: quitar los primeros 15–60 min, más peso al profundo del final, mediana, solo ligero,
     toda la noche. Con la FC sacada de los RR (sin el lpm) sale peor (1,54) → NightMetrics.hrv recibe el pulso (`bpm`). Kotlin = Python 19/19.
-    CI de iOS: paso "Comprobar la VFC de la noche" (ios/Tests/vfc, 2 noches reales; de momento continue-on-error). `night_recalc_v12` / iOS 12.
+    CI de iOS: paso "Comprobar la VFC de la noche" (ios/Tests/vfc, 2 noches reales: Swift = Kotlin 81,3074 y 77,7421). `night_recalc_v12` / iOS 12.
     Recuperación de hoy: 39 → 43 (WHOOP 50); con la VFC/FCR exactas de WHOOP la fórmula da 45 → −5 de la fórmula.
   - **40 → 39 por la mañana**: la VFC estaba justo en el borde (75,0 da 40, 74,9 da 39). Con los datos hasta las 08:20 la noche no cambia
     (07:56–08:20 iguales, check/n04/T8.kt); el cambio de las 8:58 viene de datos que llegaron después (no está en el archivo) → no comprobado.

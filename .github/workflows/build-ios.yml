@@ -40,9 +40,8 @@ jobs:
           ./bandcheck
 
       - name: Comprobar la VFC de la noche (Swift = Android)
-        continue-on-error: true
         run: |
-          swiftc $(ls PulseApp/Core/*.swift | grep -v -e HomeData.swift -e AndroidImport.swift -e Community.swift) Tests/vfc/main.swift -o vfccheck 2>&1 | grep -E "error" | head -20 | sed 's/^/::error::/'
+          swiftc $(ls PulseApp/Core/*.swift | grep -v -e HomeData.swift -e AndroidImport.swift -e Community.swift) Tests/vfc/main.swift -o vfccheck
           ./vfccheck Tests/vfc/nights.csv
 
       - name: Compilar (sin firmar)
