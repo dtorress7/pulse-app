@@ -640,6 +640,16 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   - **Inicio/fin de entrenos vs WHOOP (4/11)**: inicios casi siempre exactos; fallan 21/10 (−23), 31/10 (−14), 3/11 (−12: calentamiento 21:00–21:10
     a 98–114 lpm; WHOOP empieza 21:11, primer minuto que se queda ≥ zona 1 = 111). Finales: muchas veces +13–15 (andar después: 26, 27 func,
     28, 30/10, 3/11) y otras −17/−21 (27 pádel, 22/10). Reglas probadas antes empeoran dejando uno fuera → pregunta para la IA de WHOOP.
+  - **Respuesta de la IA de WHOOP (4/11)**: actividades = pulso elevado + movimiento + carga; sin regla publicada de inicio/fin ni "bloqueo"
+    alrededor de un entreno (nuestra regla de 45/30 min es un sustituto que da el mismo resultado que WHOOP en 15/10→3/11). VFC = media
+    ponderada durante el sueño con más peso al PROFUNDO y a los periodos MÁS TARDÍOS; no quita la primera hora por pulso alto.
+    Probado (scratchpad tw.py, 19 noches, nuestras fases): media ponderada de todo el sueño con más peso a profundo (a) y al final (b·progreso^pw):
+    mejor LOO 1,48 pero prueba por tiempo 2,16–2,86; añadir peso al final a la estructura actual empeora (b 0,5 → LOO 1,52, prueba 1,93).
+    La actual (profundo+ligero sin pulso alto) sigue mejor: LOO 1,45 / prueba 1,67 → no se cambia.
+  - **Ajustes de FC de WHOOP (captura 4/11)**: muestra FCR 57 y FCmáx 195, zonas manuales DESACTIVADAS, pero los rangos siguen
+    112/141/155/168/182 = calculados con FCR 59 (con 57 serían 111/140/154/168/182). Fútbol 3/11 con la ventana de WHOOP (check/n04): con FCR 59
+    las zonas salen a 4 s en total de la API; con 57 102 s, con 58 139 s → WHOOP no rehace las zonas cada día. Recomendado poner 59 en
+    "FC en reposo para zonas" (Sobre mí); también era lo mejor para el esfuerzo del día (2/11, Z6.kt).
 
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
