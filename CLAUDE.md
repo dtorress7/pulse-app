@@ -15,6 +15,9 @@ El usuario habla español: responde siempre en español, claro y paso a paso.
   mirar el dato crudo, buscar el caso que lo contradiga). Si las dos no coinciden, no se afirma: se investiga. Comparar SIEMPRE
   con WHOOP y decir claramente si cuadra o no (no esperar a que el usuario lo note). Ya pasó varias veces que el usuario tuvo
   que señalar el fallo y al revisarlo salió mejor: posición de la pulsera (25/10), VFC de la noche 23→24, fases de la 25→26.
+- **La IA de WHOOP (4/11)**: el usuario puede preguntar a la IA de la app de WHOOP. SIEMPRE que algo dependa de cómo calcula WHOOP
+  (reglas internas, ventanas, qué datos usa) y no se pueda deducir de los datos, proponerle preguntas CONCRETAS para que se las haga
+  (y luego comprobar su respuesta con los datos: no fiarse sin verificar, ver 23/10 y 26/10).
 - **Nunca perder datos al actualizar**: cualquier cambio en Room = nueva versión + `Migration`.
 - La app debe funcionar **siempre en segundo plano** (servicios en primer plano `connectedDevice`).
 - Zona horaria: Europe/Madrid. Los CSV usan hora unix (UTC).
@@ -628,6 +631,15 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
     15/10→3/11 (check/act25/D4.kt): quedan solo las suaves de verdad (funcional 22/10, fútbol 26/10). Una vez al instalar (`act_soft_clean` 1 /
     iOS `pulseapp_act_soft_clean`) se miran 10 días SOLO para borrar. El esfuerzo del día casi no cambia (15,2 → 15,19; WHOOP 14,8: la base
     por minuto es pequeña) y la recuperación NO usa el esfuerzo.
+  - **Todas las versiones de la VFC comparadas (4/11, check/n04/V5.kt + R8.kt, scratchpad ver.py)** con las 19 noches y el código real:
+    (VFC: con sus números de la app / reajustada dejando cada noche fuera / ajuste 16–25/10 y prueba 26/10–4/11 — recuperación de las 12 noches
+    medidas por PulseApp 23/10–4/11, historial WHOOP hasta 22/10)
+    23/10 toda la noche 4,21 / 2,54 / 3,28 — 3,67 · 24/10 profundo 4,41 / 4,97 / 7,11 — 9,83 · 25/10 media 2,15 / 2,84 / 2,72 — 5,33 ·
+    1/11 profundo+ligero 1,35 / 1,76 / 2,09 — 4,17 · **4/11 sin pulso alto 1,23 / 1,46 / 1,67 — 3,50** · con la VFC/FCR EXACTAS de WHOOP — 3,58.
+    La actual es la mejor en todo y la recuperación ya falla lo mismo que con los valores de WHOOP: lo que queda es la fórmula de recuperación.
+  - **Inicio/fin de entrenos vs WHOOP (4/11)**: inicios casi siempre exactos; fallan 21/10 (−23), 31/10 (−14), 3/11 (−12: calentamiento 21:00–21:10
+    a 98–114 lpm; WHOOP empieza 21:11, primer minuto que se queda ≥ zona 1 = 111). Finales: muchas veces +13–15 (andar después: 26, 27 func,
+    28, 30/10, 3/11) y otras −17/−21 (27 pádel, 22/10). Reglas probadas antes empeoran dejando uno fuera → pregunta para la IA de WHOOP.
 
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
