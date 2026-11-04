@@ -159,3 +159,13 @@ enum TimeUtil {
         return localToMillis(y, m, d, 0, 0, 0)
     }
 }
+
+/// (Movido de HomeData.swift el 4/11 para que el núcleo compile sin la interfaz.) Días como "yyyy-MM-dd" (hora local).
+enum Day {
+    static func start(_ key: String) -> Int64 { return TimeUtil.parseDayKey(key) ?? 0 }
+    static func add(_ key: String, _ days: Int) -> String { return TimeUtil.dayKey(TimeUtil.addDays(start(key) + 12 * 3_600_000, days)) }
+    static func today() -> String { return TimeUtil.dayKey(TimeUtil.nowMillis()) }
+    static func weekdayIndex(_ key: String) -> Int { return TimeUtil.parts(start(key) + 12 * 3_600_000).weekday - 1 }   // 0 = lunes
+    static func dayOfMonth(_ key: String) -> Int { return TimeUtil.parts(start(key) + 12 * 3_600_000).day }
+    static func month(_ key: String) -> Int { return TimeUtil.parts(start(key) + 12 * 3_600_000).month }
+}
