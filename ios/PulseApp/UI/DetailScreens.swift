@@ -350,7 +350,7 @@ struct StressDetailView: View {
         func dayFor(_ d: String, _ samples: [HrReading]) -> StressBreakdown.DayMins? {
             let s = Day.start(d)
             let series = StressCalculator.seriesBetween(samples, from: s, to: s + elapsed, baseline: baseline)
-            if series.isEmpty || series.count * 5 < todayDay.total.total / 2 { return nil }
+            if series.isEmpty || series.count < todayDay.total.total / 2 { return nil }
             return StressBreakdown.of(series, sleep: sleepOf(d).map { [$0] } ?? [], activities: sessions)
         }
         let weekDays = (1...4).map { Day.add(day, -7 * $0) }

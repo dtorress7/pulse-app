@@ -34,9 +34,15 @@ class StressCalculator {
     private data class Reading(val timeMillis: Long, val bpm: Int, val rr: List<Double>)
 
     companion object {
-        const val FLOOR = 0.3
-        const val K_HR = 3.4
-        const val K_HRV = 0.2
+        // 5/11: la IA de WHOOP dice que el estrés se calcula CADA MINUTO frente a tu línea base de ~14 días. Comparado con el reparto
+        // bajo/medio/alto de 14 días de WHOOP (21/10→4/11, capturas de "Vista de tendencias"): ventanas de 5 min → 1 min con la fórmula
+        // de antes 6,5 → 5,4 puntos de % (las dos semanas mejoran); con línea base de 14 días y la curva reajustada 4,2 (dejando un día
+        // fuera 4,7; ajustando con una semana y probando la otra 6,0 → 4,7 y 5,5 → 5,4). Antes: 0,3 / 3,4 / 0,2 / exponente 1.
+        const val FLOOR = 0.117
+        const val K_HR = 4.029
+        const val K_HRV = 0.307
+        const val EXP = 1.217
+        const val WINDOW_MS = 60_000L
     }
 
     fun analyze(file: File, restingHr: Int?, baseline: PersonalBaseline? = null): StressSummary {
@@ -47,7 +53,7 @@ class StressCalculator {
         val baselineRhr = baseline?.avgRestingHr ?: Formulas.FALLBACK_RHR
         val baselineHrv = baseline?.avgHrv ?: Formulas.FALLBACK_HRV
 
-        val windowMillis = 5 * 60 * 1000L
+        val windowMillis = WINDOW_MS
         val series = readings.groupBy { it.timeMillis / windowMillis }.entries.sortedBy { it.key }
             .filter { it.value.size >= 30 }   // ventanas con al menos ~30 s de datos
             .map { (windowKey, w) ->
@@ -101,11 +107,11 @@ class StressCalculator {
         return loadSamples(file, ranges.minOf { it.first }) { t -> ranges.any { t in it } }
     }
 
-    /** Serie de estrés (un punto cada 5 min) entre [from] y [to] con la misma fórmula que [analyze]. */
+    /** Serie de estrés (un punto cada minuto) entre [from] y [to] con la misma fórmula que [analyze]. */
     fun seriesBetween(samples: List<Sample>, from: Long, to: Long, restingHr: Int?, baseline: PersonalBaseline?): List<StressPoint> {
         val baselineRhr = baseline?.avgRestingHr ?: Formulas.FALLBACK_RHR
         val baselineHrv = baseline?.avgHrv ?: Formulas.FALLBACK_HRV
-        val windowMillis = 5 * 60 * 1000L
+        val windowMillis = WINDOW_MS
         return samples.filter { it.timeMillis in from until to }
             .groupBy { it.timeMillis / windowMillis }.entries.sortedBy { it.key }
             .filter { it.value.size >= 30 }
@@ -121,7 +127,7 @@ class StressCalculator {
         val reserve = (Formulas.hrMaxOrDefault() - baselineRhr).coerceAtLeast(60.0)
         var z = K_HR * (avgHr - baselineRhr) / reserve
         if (windowHrv != null && windowHrv > 0) z += K_HRV * ln(baselineHrv / windowHrv)
-        return (FLOOR + (3.0 - FLOOR) * (1.0 - exp(-z.coerceAtLeast(0.0)))).toFloat().coerceIn(0f, 3f)
+        return (FLOOR + (3.0 - FLOOR) * (1.0 - exp(-Math.pow(z.coerceAtLeast(0.0), EXP)))).toFloat().coerceIn(0f, 3f)
     }
 
     /** RMSSD descartando saltos > 20 % (artefactos), mínimo 10 diferencias válidas. */

@@ -7,7 +7,7 @@ import SwiftUI
 /// stress_days.csv (mismo formato que Android); hoy se calcula siempre.
 enum StressDays {
     private static let file = "stress_days.csv"
-    private static let header = "#pulseapp_stress_days v1"
+    private static let header = "#pulseapp_stress_days v2"
 
     private static func readCache() -> [String: StressBreakdown.DayMins?] {
         var out = [String: StressBreakdown.DayMins?]()
@@ -67,7 +67,7 @@ enum StressDays {
                 let r = ranges[k]
                 let series = StressCalculator.seriesBetween(samples, from: r.lowerBound, to: r.upperBound, baseline: baseline)
                 var day: StressBreakdown.DayMins? = nil
-                if series.count >= 12 {
+                if series.count >= 60 {
                     var sleep = [ClosedRange<Int64>]()
                     if let s = sleepOf(stored[d], r.lowerBound) { sleep.append(s) }
                     if let s = sleepOf(stored[Day.add(d, 1)], Day.start(Day.add(d, 1))) { sleep.append(s) }

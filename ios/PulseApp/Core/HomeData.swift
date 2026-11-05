@@ -661,11 +661,11 @@ enum StressBreakdown {
     static func of(_ points: [StressPoint], sleep: [ClosedRange<Int64>], activities: [ClosedRange<Int64>]) -> DayMins {
         var t = [0, 0, 0], n = [0, 0, 0], s = [0, 0, 0]
         for p in points {
-            let center = p.timeMillis + 5 * 30_000
+            let center = p.timeMillis + 30_000   // 5/11: un punto por minuto
             let level = p.score < 1 ? 0 : (p.score < 2 ? 1 : 2)
-            t[level] += 5
-            if sleep.contains(where: { $0.contains(center) }) { s[level] += 5 }
-            else if !activities.contains(where: { $0.contains(center) }) { n[level] += 5 }
+            t[level] += 1
+            if sleep.contains(where: { $0.contains(center) }) { s[level] += 1 }
+            else if !activities.contains(where: { $0.contains(center) }) { n[level] += 1 }
         }
         return DayMins(total: Mins(low: t[0], mid: t[1], high: t[2]), noActivity: Mins(low: n[0], mid: n[1], high: n[2]),
                        sleep: Mins(low: s[0], mid: s[1], high: s[2]))

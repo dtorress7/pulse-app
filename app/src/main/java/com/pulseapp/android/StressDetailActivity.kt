@@ -106,7 +106,7 @@ class StressDetailActivity : AppCompatActivity() {
             fun dayFor(d: LocalDate): StressBreakdown.Day? {
                 val s = d.atStartOfDay(zone).toInstant().toEpochMilli()
                 val series = calc.seriesBetween(samples, s, s + elapsed, null, baseline)
-                if (series.size * 5 < todayDay.total.total / 2 || series.isEmpty()) return null
+                if (series.size < todayDay.total.total / 2 || series.isEmpty()) return null
                 return StressBreakdown.of(series, listOfNotNull(sleepOf(d)), sessions)
             }
             val sameWeekday = withContext(Dispatchers.Default) { (1..4).mapNotNull { dayFor(day.minusWeeks(it.toLong())) } }

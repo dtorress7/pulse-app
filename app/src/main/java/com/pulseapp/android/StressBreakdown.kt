@@ -12,7 +12,7 @@ object StressBreakdown {
 
     data class Day(val total: Mins, val noActivity: Mins, val sleep: Mins)
 
-    private const val POINT_MIN = 5
+    private const val POINT_MIN = 1   // 5/11: un punto de estrés por minuto (antes cada 5)
 
     fun of(points: List<StressPoint>, sleep: List<LongRange>, activities: List<LongRange>): Day {
         val t = IntArray(3); val n = IntArray(3); val s = IntArray(3)

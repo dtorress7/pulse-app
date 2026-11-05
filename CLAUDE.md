@@ -94,7 +94,12 @@ Peso/altura/edad/sexo → calorías (Mifflin + Keytel). Sexo → TRIMP. Recupera
   revisar el −7 en la ronda grande.
 - Calorías (30/10) = ritmo fuera de entrenos de WHOOP (1706/24 h, de tus días importados; si no, Mifflin) × (min transcurridos − min de actividades)/1440 + kcal de actividades (por zonas).
 - VO2máx = 15,3 × FCmáx / FC reposo, se recalcula sólo los martes.
-- Estrés (23/10): ventanas de 5 min, z = 3,4·(FC−FCRbase)/(FCmáx−FCRbase) + 0,2·ln(VFCbase/VFC); estrés = 0,3 + 2,7·(1−e^(−max(z,0))).
+- **Estrés (5/11)**: un punto CADA MINUTO (IA de WHOOP), z = 4,029·(FC−FCRbase)/(FCmáx−FCRbase) + 0,307·ln(VFCbase/VFC) (base = la de
+  BaselineProvider, EWMA ~14 días como dice WHOOP); estrés = 0,117 + 2,883·(1−e^(−max(z,0)^1,217)). Ajustado con el reparto diario de WHOOP
+  (14 días, 21/10→4/11): error medio 6,5 → 4,2 puntos de % (sin actividad 11/15/4 → 7/6/3, sesgo del medio +15 → +2); dejando un día fuera 4,7;
+  una semana → la otra 6,0 → 4,7 y 5,5 → 5,4. Código real (check/st05/SD2.kt, línea base de 14 días de WHOOP) = Python. Solo 1 min con 5 min
+  y la curva de antes ya daba 5,4. StressBreakdown cuenta 1 min por punto; stress_days.csv v2.
+- Estrés (23/10, SUSTITUIDO el 5/11): ventanas de 5 min, z = 3,4·(FC−FCRbase)/(FCmáx−FCRbase) + 0,2·ln(VFCbase/VFC); estrés = 0,3 + 2,7·(1−e^(−max(z,0))).
   Ajustado con la curva de WHOOP digitalizada de la captura (22/10 21:38 → 23/10 09:32, 135 ventanas): MAE 0,34 → 0,15. Estrés del sueño
   (alto/medio): 18/10 0/25 (WHOOP 0/25), 19/10 0/10 (0/10), 20/10 0/115 (25/104), 15/10 0/190 (~24/~200), 23/10 0/40 (alto 0 %).
   Gráfica: eje = últimas 24 h, se corta en huecos >15 min.

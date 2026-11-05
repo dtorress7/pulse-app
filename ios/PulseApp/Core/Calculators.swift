@@ -325,9 +325,11 @@ enum NightMetrics {
 /// ajustado con la curva de WHOOP del 22→23/10 y el estrés del sueño de 4 noches):
 ///   z = 3,4 · (FC − FCR base) / (FCmáx − FCR base) + 0,2 · ln(VFC base / VFC);  estrés = 0,3 + 2,7 · (1 − e^(−z))
 enum StressCalculator {
-    static let minScore = 0.3
-    static let kHr = 3.4
-    static let kHrv = 0.2
+    static let minScore = 0.117
+    // 5/11 (igual que Android): un punto por MINUTO y curva reajustada con 14 días de WHOOP (antes 0,3 / 3,4 / 0,2 / 1, cada 5 min)
+    static let kHr = 4.029
+    static let kHrv = 0.307
+    static let stressExp = 1.217
 
     static func analyze(hrLog: HrLog, restingHr: Int?, baseline: PersonalBaseline?) -> StressSummary {
         let now = TimeUtil.nowMillis()
@@ -337,7 +339,7 @@ enum StressCalculator {
         let baselineRhr = baseline?.avgRestingHr ?? Formulas.fallbackRhr
         let baselineHrv = baseline?.avgHrv ?? Formulas.fallbackHrv
 
-        let windowMillis: Int64 = 5 * 60 * 1000
+        let windowMillis: Int64 = 60 * 1000
         var groups = [Int64: [HrReading]]()
         for r in readings { groups[r.timeMillis / windowMillis, default: []].append(r) }
         var series = [StressPoint]()
@@ -362,7 +364,7 @@ enum StressCalculator {
     static func seriesBetween(_ readings: [HrReading], from: Int64, to: Int64, baseline: PersonalBaseline?) -> [StressPoint] {
         let baselineRhr = baseline?.avgRestingHr ?? Formulas.fallbackRhr
         let baselineHrv = baseline?.avgHrv ?? Formulas.fallbackHrv
-        let windowMillis: Int64 = 5 * 60 * 1000
+        let windowMillis: Int64 = 60 * 1000
         var groups = [Int64: [HrReading]]()
         for r in readings where r.timeMillis >= from && r.timeMillis < to {
             groups[r.timeMillis / windowMillis, default: []].append(r)
@@ -386,7 +388,7 @@ enum StressCalculator {
         let reserve = max(hrMax - baselineRhr, 60.0)
         var z = kHr * (avgHr - baselineRhr) / reserve
         if let h = windowHrv, h > 0 { z += kHrv * log(baselineHrv / h) }
-        let s = minScore + (3.0 - minScore) * (1.0 - exp(-max(z, 0.0)))
+        let s = minScore + (3.0 - minScore) * (1.0 - exp(-pow(max(z, 0.0), stressExp)))
         return Float(min(max(s, 0.0), 3.0))
     }
 
