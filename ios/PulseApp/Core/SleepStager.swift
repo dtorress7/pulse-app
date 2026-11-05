@@ -359,6 +359,13 @@ enum SleepStager {
         if var ms = SleepModel.classify(secs, mot) {
             for k in 0..<n { ms[k] = aw[k] ? awake : (ms[k] == awake ? light : ms[k]) }
             let (a0, b0) = trimBounds(ms)
+            // 5/11 (igual que Android): segunda pasada SOLO sobre la noche recortada. El "progreso" de la noche del modelo depende de la
+            // ventana, que crecía por la mañana: 5/11 a las 8:00 VFC 94,0 / recuperación 69 y a las 8:15 93,1 / 67.
+            if b0 - a0 >= minWindow, a0 < b0, var ms2 = SleepModel.classify(Array(secs[a0..<b0]), Array(mot[a0..<b0])) {
+                for k in 0..<ms2.count { ms2[k] = aw[a0 + k] ? awake : (ms2[k] == awake ? light : ms2[k]) }
+                let (a1, b1) = trimBounds(ms2)
+                if b1 > a1 { return Result(startMinute: m0 + Int64(a0 + a1), stages: Array(ms2[a1..<b1])) }
+            }
             return Result(startMinute: m0 + Int64(a0), stages: Array(ms[a0..<b0]))
         }
         var st = [Int](repeating: light, count: n)

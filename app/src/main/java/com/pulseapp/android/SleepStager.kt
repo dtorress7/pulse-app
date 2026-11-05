@@ -359,6 +359,15 @@ object SleepStager {
         modelStages(m0, n, readings, motion)?.let { ms ->
             for (k in 0 until n) ms[k] = if (aw[k]) AWAKE else if (ms[k] == AWAKE) LIGHT else ms[k]
             val (a0, b0) = trimBounds(ms)
+            // 5/11: segunda pasada SOLO sobre la noche ya recortada. El modelo se entrenó con el "progreso" de la noche medido sobre el
+            // tiempo en cama de WHOOP; con la ventana sin recortar, ese progreso dependía de cuánto rato llevabas levantado (la ventana del
+            // pulso crece por la mañana) y las fases de TODA la noche cambiaban: 5/11 a las 8:00 VFC 94,0 / recuperación 69 y a las
+            // 8:15 93,1 / 67 (12 minutos de fase distintos a las 23:08, 00:43, 02:50 y 07:06).
+            if (b0 - a0 >= minWindow) modelStages(m0 + a0, b0 - a0, readings, motion)?.let { ms2 ->
+                for (k in ms2.indices) ms2[k] = if (aw[a0 + k]) AWAKE else if (ms2[k] == AWAKE) LIGHT else ms2[k]
+                val (a1, b1) = trimBounds(ms2)
+                if (b1 > a1) return Result(m0 + a0 + a1, ms2.copyOfRange(a1, b1))
+            }
             return Result(m0 + a0, ms.copyOfRange(a0, b0))
         }
         val st = IntArray(n) { if (aw[it]) AWAKE else LIGHT }

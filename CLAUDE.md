@@ -664,6 +664,16 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
     guardada se recorta (no si la editaste); `act_soft_clean` 2 / iOS 2 repasa 10 días solo para recortar/borrar.
     Las suaves falsas también se ven en los pasos: 20:25–20:50 0,1/min, 22:30–22:44 3,1/min, 31/10 20:00–20:58 4,6/min (fútbol 77/min, pesas 2/11 ~37/min).
     Fútbol 3/11 (F3.kt): FCmáx 195 + 21:11–22:21 → 14,9 (WHOOP 14,4; con su ventana 14,8). El final sigue +15 min (andando 22:15–22:21).
+- **4/11→5/11 (20.ª referencia, pesas 18:17–19:08 la víspera, acostarse 21:50)**: WHOOP (API) 20:50:02Z–06:36:21Z (21:50–07:36), dormido 9:15,
+  31/408/73/75, 10 despertares, 96 %, VFC 96,4, FCR 56, resp 13,3, calificación 85 (100/68/96), recuperación 73. PulseApp iPhone (versión 4/11 mañana):
+  21:50–07:35, 9:00, 45/350/82/108, 92 %, VFC 93, FCR 57, resp 12,6, calificación 88 (100/76/92), recuperación 70 al despertar y 68 a las 9:00.
+  - **70 → 68 por la mañana (5/11, Android + iOS `SleepStager.stage`)**: el modelo de fases usa el "progreso" de la noche = minuto / largo de la ventana,
+    y la ventana del pulso crece mientras sigues en la cama o en casa (detector 21:34–07:59 a las 8:00, –08:14 a las 8:15) → cambiaban 12 minutos de
+    fases en TODA la noche (23:08, 00:43, 02:50, 07:06) → VFC 94,0 → 93,1 y recuperación 69 → 67 (check/n05/T8.kt, Cmp.kt). El modelo se entrenó con el
+    progreso sobre el tiempo en cama de WHOOP (feat2.py: prog = i/n de la ventana de WHOOP) → ahora segunda pasada del modelo SOLO sobre la noche ya
+    recortada. 20 noches (código real, N.kt): MAE D/L/P/R 8,7/21,4/10,8/15,8 → 8,7/22,0/10,9/15,8, VFC 1,34 → 1,32 (igual). Estable a cualquier hora:
+    5/11 07:40–09:00 VFC 94,0 → 94,0 (69 siempre); 2/11, 3/11 y 4/11 iguales de 07:00 a 10:00 (T9.kt). `night_recalc_v13` / iOS 13.
+    Recuperación 5/11 con la versión nueva 69 (WHOOP 73); con la VFC de WHOOP 72.
 
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
