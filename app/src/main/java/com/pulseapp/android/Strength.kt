@@ -304,17 +304,23 @@ object Strength {
     }
 
     // ---------- Récords (medallas) ----------
-    /** 1RM estimado (Epley); en ejercicios sin peso, las repeticiones. */
-    fun setScore(s: SetEntry): Double = if (s.kg > 0) s.kg * (1 + s.reps / 30.0) else s.reps.toDouble()
+    // IA de WHOOP (5/11): récord = con peso, el MAYOR PESO levantado en ese ejercicio; sin peso, el MAYOR NÚMERO de repeticiones
+    // (y por tiempo la mayor duración, que aquí no se registra). El volumen no da medalla.
+    /** Para ordenar "mejor serie": con peso, el peso (a igualdad, más repeticiones); sin peso, las repeticiones. */
+    fun setScore(s: SetEntry): Double = if (s.kg > 0) s.kg * 1000 + s.reps else s.reps.toDouble()
 
-    /** Para cada serie de [w]: true si supera tu mejor marca anterior en ese ejercicio (solo si ya lo habías hecho antes). */
+    /** Para cada serie de [w]: true si bate tu récord anterior en ese ejercicio (solo si ya lo habías hecho antes). */
     fun records(w: Workout): List<List<Boolean>> {
         val earlier = logs().filter { it.startMs < w.startMs && it.id != w.id }
         return w.exercises.map { e ->
             val prev = earlier.flatMap { o -> o.exercises.filter { it.exId == e.exId }.flatMap { it.sets } }
             if (prev.isEmpty()) return@map e.sets.map { false }
-            var best = prev.maxOf { setScore(it) }
-            e.sets.map { s -> val sc = setScore(s); if (sc > best + 1e-9) { best = sc; true } else false }
+            var bestKg = prev.maxOf { it.kg }
+            var bestReps = prev.filter { it.kg <= 0 }.maxOfOrNull { it.reps } ?: 0
+            e.sets.map { s ->
+                if (s.kg > 0) { if (s.kg > bestKg + 1e-9) { bestKg = s.kg; true } else false }
+                else if (bestKg <= 0 && s.reps > bestReps) { bestReps = s.reps; true } else false
+            }
         }
     }
 

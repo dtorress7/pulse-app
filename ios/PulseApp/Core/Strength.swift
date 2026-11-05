@@ -274,16 +274,21 @@ enum Strength {
         return (c, 100 - c)
     }
 
-    // MARK: Récords
-    static func setScore(_ s: SetEntry) -> Double { return s.kg > 0 ? s.kg * (1 + Double(s.reps) / 30.0) : Double(s.reps) }
+    // MARK: Récords (IA de WHOOP 5/11: con peso, el mayor peso; sin peso, más repeticiones; el volumen no da medalla)
+    static func setScore(_ s: SetEntry) -> Double { return s.kg > 0 ? s.kg * 1000 + Double(s.reps) : Double(s.reps) }
 
     static func records(_ w: Workout) -> [[Bool]] {
         let earlier = logs().filter { $0.startMs < w.startMs && $0.id != w.id }
         return w.exercises.map { e in
             let prev = earlier.flatMap { o in o.exercises.filter { $0.exId == e.exId }.flatMap { $0.sets } }
             if prev.isEmpty { return e.sets.map { _ in false } }
-            var best = prev.map { setScore($0) }.max()!
-            return e.sets.map { s in let sc = setScore(s); if sc > best + 1e-9 { best = sc; return true }; return false }
+            var bestKg = prev.map { $0.kg }.max() ?? 0
+            var bestReps = prev.filter { $0.kg <= 0 }.map { $0.reps }.max() ?? 0
+            return e.sets.map { s in
+                if s.kg > 0 { if s.kg > bestKg + 1e-9 { bestKg = s.kg; return true }; return false }
+                if bestKg <= 0 && s.reps > bestReps { bestReps = s.reps; return true }
+                return false
+            }
         }
     }
 

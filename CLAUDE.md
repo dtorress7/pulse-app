@@ -699,6 +699,22 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
     (Mi WHOOP): movimiento solo de 20:00 a 12:00 (`imuSaver`/`imuWanted`, se mira cada 5 min en Android y con cada dato en iOS). Por
     defecto apagado: sin movimiento de día no hay siestas ni paseos detectados. Falta el historial real para ver cuánto baja.
 
+  - **IA de WHOOP (5/11 tarde)**: VFC/FCR de la recuperación solo con el sueño (lo de después de despertar no cuenta) = lo que hace PulseApp
+    desde la 2.ª pasada de fases. Entrenador de fuerza: carga muscular = volumen (series, reps, carga + parte del peso corporal según el
+    ejercicio) + intensidad (velocidad de las repeticiones con acelerómetro/giroscopio e historial); Cardio/Muscular = proporciones del esfuerzo
+    de la actividad (no de tiempo ni kcal); medallas = récord de PESO (con peso), de REPETICIONES (sin peso) o de TIEMPO (isométricos), el
+    volumen no da medalla → `Strength.records` cambiado así (Android + iOS); calorías = metabolismo basal + pulso, la carga muscular NO suma kcal.
+  - **Estrés vs WHOOP con sus "Vista de tendencias" (5/11)**: barras del mes leídas de 3 capturas (check/n05/tr, dig_st.py → whoop_stress_pct.json,
+    7/10→5/11) y nuestro reparto con el código real y las ventanas de sueño/entreno de la API (check/st05: SD.kt, WD.kt, windows.csv,
+    scratchpad cmpst.py/fitst.py; línea base 92/58). 14 días con ≥ 16 h de pulso (21/10→4/11), error en puntos de % bajo/medio/alto:
+    total 6,6/6,5/2,8 · sin actividad 11,4/15,2/4,3 (sesgo: medio +15, bajo −11, alto −4) · sueño 5,9/4,8/1,0. Ajustar la curva (pendiente,
+    exponente, suelo): dejando un día fuera 6,5 → 4,5, PERO ajustando con 21–28/10 y probando 29/10–4/11 empeora (6,1 → 6,7–8,2): la 1.ª semana
+    sobra medio y la 2.ª falta alto → contradictorio, NO se cambia. Pedir más capturas mensuales (cada una trae 30 días) para la ronda.
+  - **Vista de tendencias como WHOOP (Android `StressTrendsActivity` + `ui/StressTrendChartView`, iOS `UI/StressTrends.swift`)**: apartado
+    desplegable, ESTRÉS ALTO PROM. con ▲/▼ % frente al periodo anterior, S/M/6M (6M = barras por semana), fechas con < >, frase, barras al 100 %,
+    "El promedio no incluye el día de hoy", "¿Qué es…?". `StressDays` guarda el reparto de cada día cerrado en stress_days.csv (mismo formato en
+    Android e iOS; de 7 en 7 días). Código real: 22 días iguales al arnés, 2.ª vez desde la caché 0,4 s (check/st05/SC.kt).
+
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
 esfuerzo 11,5, 271 kcal, FC media 127 (la media aritmética de esos segundos es 133: WHOOP no usa la media simple), máx 170,

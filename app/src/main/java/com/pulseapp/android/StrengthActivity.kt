@@ -249,7 +249,7 @@ class StrengthActivity : AppCompatActivity() {
                     layoutParams = SUi.mp().apply { topMargin = SUi.dp(ctx, 8f) }
                 })
             }
-            c.addView(W.body(ctx, "A la derecha, tu mejor serie (la de más 1RM estimado: peso × (1 + reps/30)).", 13f).apply { setPadding(0, SUi.dp(ctx, 10f), 0, 0) })
+            c.addView(W.body(ctx, "A la derecha, tu mejor serie: la de más peso (o más repeticiones si es sin peso).", 13f).apply { setPadding(0, SUi.dp(ctx, 10f), 0, 0) })
         }
     }
 }

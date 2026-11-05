@@ -82,7 +82,7 @@ class StrengthSummaryActivity : AppCompatActivity() {
             i = j
         }
         c.addView(W.body(ctx, "FC prom. = pulso medio de la serie entre \"Comenzar\" y \"Finalizar serie\" (\"--\" si no se cronometró). " +
-            "Medalla = récord personal en ese ejercicio (más 1RM estimado que cualquier serie anterior).", 13f).apply {
+            "Medalla = récord personal en ese ejercicio: más peso que nunca (o más repeticiones si es sin peso), como WHOOP.", 13f).apply {
             setPadding(0, SUi.dp(ctx, 18f), 0, 0)
         })
     }

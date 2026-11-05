@@ -345,7 +345,7 @@ struct StrengthSummaryView: View {
                         ExerciseTable(w: w, k: g[0], hr: hr, rec: rec)
                     }
                 }
-                WBody(text: "FC prom. = pulso medio de la serie entre \"Comenzar\" y \"Finalizar serie\" (\"--\" si no se cronometró). Medalla = récord personal en ese ejercicio (más 1RM estimado que cualquier serie anterior).", size: 13).padding(.top, 18)
+                WBody(text: "FC prom. = pulso medio de la serie entre \"Comenzar\" y \"Finalizar serie\" (\"--\" si no se cronometró). Medalla = récord personal en ese ejercicio: más peso que nunca (o más repeticiones si es sin peso), como WHOOP.", size: 13).padding(.top, 18)
             } else {
                 ProgressView().tint(Theme.textSecondary).frame(maxWidth: .infinity).padding(.top, 80)
             }
@@ -505,7 +505,7 @@ struct StrengthHomeView: View {
                     WBody(text: "Toneladas (kg × repeticiones) por semana, de lunes a domingo.", size: 13).padding(.top, 8)
                     WTitle(text: "Tus ejercicios", size: 15).padding(.top, 28).padding(.bottom, 4)
                     exerciseList(logs)
-                    WBody(text: "A la derecha, tu mejor serie (la de más 1RM estimado: peso × (1 + reps/30)).", size: 13).padding(.top, 10)
+                    WBody(text: "A la derecha, tu mejor serie: la de más peso (o más repeticiones si es sin peso).", size: 13).padding(.top, 10)
                 }
             } else {
                 ProgressView().tint(Theme.textSecondary).frame(maxWidth: .infinity).padding(.top, 60)
