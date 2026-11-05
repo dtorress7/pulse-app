@@ -51,9 +51,11 @@ enum BandBattery {
                 if tenths > s.tenths + 2 || mv > s.mv + 20 { s.charging = true }
                 else if tenths < s.tenths { s.charging = false }
             }
+            let isNew = unix > s.unix
             s.tenths = tenths; s.mv = mv; s.unix = max(unix, s.unix)
             save(s)
             checkLow(s)
+            if isNew { appendHistory(unix, tenths, mv) }
             return "🔋 Batería de la pulsera: \(String(format: "%.1f", Double(tenths) / 10)) % (\(mv) mV)\(s.charging ? " · cargando" : "")"
         case 5, 7, 21:
             s.charging = true; s.unix = max(s.unix, Int64(Date().timeIntervalSince1970)); save(s)
@@ -64,6 +66,21 @@ enum BandBattery {
             return "🔌 Evento \(id): la pulsera deja de cargar"
         default:
             return nil
+        }
+    }
+
+    /// 5/11: historial de batería (band_battery.csv: "unix,décimas de %,mV,movimiento") para ver cuánto baja por hora y si cambia
+    /// con el movimiento activado o en ahorro (igual que Android).
+    static let historyFile = "band_battery.csv"
+    private static func appendHistory(_ unix: Int64, _ tenths: Int, _ mv: Int) {
+        let url = AppPaths.file(historyFile)
+        let line = "\(unix),\(tenths),\(mv),\(WhoopSettings.imuWanted() ? 1 : 0)\n"
+        if !FileManager.default.fileExists(atPath: url.path) {
+            try? ("unix,tenths,mv,imu\n" + line).data(using: .utf8)?.write(to: url)
+            return
+        }
+        if let h = try? FileHandle(forWritingTo: url) {
+            h.seekToEndOfFile(); h.write(line.data(using: .utf8)!); try? h.close()
         }
     }
 

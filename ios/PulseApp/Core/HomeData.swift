@@ -160,6 +160,7 @@ enum HomeDataLoader {
         // Para las zonas (reserva de FC) y las calorías de las actividades: FC en reposo de tus noches y metabolismo basal
         if let p = profile {
             Formulas.setBmr(CalorieCalculator.basalMetabolicRate(ageYears: p.ageYears(), weightKg: p.weightKg, heightCm: p.heightCm, sex: p.sex))
+            Formulas.setBodyKg(p.weightKg)
         }
         if let b = BaselineProvider.compute(store: store) { Formulas.setZoneRestingHr(Int(b.avgRestingHr.rounded())) }
         let hrMax = Formulas.hrMax(ageYears: age)
@@ -279,7 +280,7 @@ enum HomeDataLoader {
             if let m = s.sleepMinutes { debtAfter = max(Int((Double(lastPlan.totalNeedMinutes - m) / 2).rounded()), 0) }
             // Día con fuerza/funcional: WHOOP suma carga muscular al esfuerzo del día (22/10)
             let todaySessions = allSessions.filter { $0.startMillis >= dayStart && $0.startMillis < dayEnd }
-            let strengthMin = todaySessions.reduce(0.0) { $0 + Formulas.muscleMinutes($1.type, Double($1.endMillis - $1.startMillis) / 60000.0) }
+            let strengthMin = todaySessions.reduce(0.0) { $0 + Formulas.sessionMuscleMinutes($1.type, $1.startMillis, $1.endMillis) }
             let activityMin = todaySessions.reduce(0.0) { $0 + Formulas.activityLoadMinutes($1.type, Double($1.endMillis - $1.startMillis) / 60000.0) }
             let dayStrain = Formulas.addStrength(s.strain, strengthMin, activityMin)
             let plan = SleepPlanner.computeTonightPlan(store: store, todayStrain: dayStrain, wakeHour: wake / 60, wakeMinute: wake % 60,

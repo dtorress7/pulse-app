@@ -50,4 +50,9 @@ enum Route: Hashable {
     case recovery(Int)
     case activity(Int64)
     case editActivity(Int64)
+    case stressDay(Int)
+    case stressTrends(Int, Int)
+    case strengthHome
+    case strengthSession(String, Int64)
+    case strengthSummary(Int64)
 }

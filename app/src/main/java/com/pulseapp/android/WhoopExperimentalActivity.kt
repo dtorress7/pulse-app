@@ -27,6 +27,7 @@ import java.io.File
  * de la app o bloquear el móvil y sigue conectada; al volver, el estado y el registro siguen ahí.
  */
 class WhoopExperimentalActivity : AppCompatActivity() {
+    private var saverButton: TextView? = null
 
     private lateinit var logText: TextView
     private lateinit var statusText: TextView
@@ -109,6 +110,36 @@ class WhoopExperimentalActivity : AppCompatActivity() {
                 WhoopBackgroundService.start(this, WhoopBackgroundService.ACTION_IMU_OFF); refresh()
             }
         }
+        // 5/11: ahorro de batería de la pulsera (movimiento solo de noche)
+        (imuButton.parent as? android.view.ViewGroup)?.let { parent ->
+            val idx = parent.indexOfChild(imuButton)
+            saverButton = TextView(this).apply {
+                background = imuButton.background?.constantState?.newDrawable()?.mutate()
+                setTextColor(imuButton.textColors); textSize = imuButton.textSize / resources.displayMetrics.scaledDensity
+                typeface = imuButton.typeface; gravity = imuButton.gravity
+                setPadding(imuButton.paddingLeft, imuButton.paddingTop, imuButton.paddingRight, imuButton.paddingBottom)
+                isClickable = true
+                setOnClickListener {
+                    val on = !WhoopBackgroundService.imuSaver(this@WhoopExperimentalActivity)
+                    if (on) androidx.appcompat.app.AlertDialog.Builder(this@WhoopExperimentalActivity)
+                        .setTitle("Ahorro de batería")
+                        .setMessage("El movimiento (acelerómetro a 100 veces por segundo) gasta 1,5–2× la batería de la pulsera. Con el ahorro solo " +
+                            "se graba de 20:00 a 12:00, lo que necesita el sueño.\n\nDe día: los pasos salen del contador de la pulsera (sin cambio), " +
+                            "pero NO se detectarán siestas ni paseos, y el final de los entrenos se calcula solo con el pulso. ¿Activarlo?")
+                        .setPositiveButton("Activar") { _, _ ->
+                            WhoopBackgroundService.setImuSaver(this@WhoopExperimentalActivity, true)
+                            WhoopBackgroundService.start(this@WhoopExperimentalActivity, WhoopBackgroundService.ACTION_IMU_ON); refresh()
+                        }.setNegativeButton("Cancelar", null).show()
+                    else {
+                        WhoopBackgroundService.setImuSaver(this@WhoopExperimentalActivity, false)
+                        if (WhoopBackgroundService.imuEnabled(this@WhoopExperimentalActivity))
+                            WhoopBackgroundService.start(this@WhoopExperimentalActivity, WhoopBackgroundService.ACTION_IMU_ON)
+                        refresh()
+                    }
+                }
+            }
+            parent.addView(saverButton, idx + 1, android.view.ViewGroup.MarginLayoutParams(imuButton.layoutParams as android.view.ViewGroup.MarginLayoutParams))
+        }
         findViewById<View>(R.id.batteryButton).setOnClickListener { askIgnoreBatteryOptimizations() }
         findViewById<View>(R.id.ackModeButton).setOnClickListener { AckModeDialog.show(this) { refresh() } }
         findViewById<View>(R.id.disconnectButton).setOnClickListener {
@@ -181,6 +212,7 @@ class WhoopExperimentalActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.historyCountText).text = Ui.thousands(WhoopBackgroundService.historyCount.toLong())
         findViewById<TextView>(R.id.ackModeButton).text = AckModeDialog.label(WhoopBackgroundService.ackMode(this))
         imuButton.text = if (WhoopBackgroundService.imuEnabled(this)) "Movimiento y pasos: desactivar" else "Movimiento y pasos: activar"
+        saverButton?.text = if (WhoopBackgroundService.imuSaver(this)) "Ahorro de batería: ACTIVADO (movimiento 20:00–12:00)" else "Ahorro de batería: desactivado"
         val lines = synchronized(WhoopBackgroundService.serviceLogLines) { WhoopBackgroundService.serviceLogLines.take(150) }
         logText.text = if (lines.isEmpty()) "Sin actividad todavía." else lines.joinToString("\n")
     }

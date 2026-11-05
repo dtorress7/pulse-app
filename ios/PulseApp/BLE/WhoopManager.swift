@@ -177,7 +177,7 @@ final class WhoopManager: NSObject, ObservableObject, CBCentralManagerDelegate, 
     func setImu(_ on: Bool) {
         WhoopSettings.imuEnabled = on
         if on {
-            if ready { startImu() } else { start() }
+            if ready { if WhoopSettings.imuWanted() { startImu() } else { ServiceLog.shared.log("🔋 Ahorro de batería: el movimiento empezará a las 20:00") } } else { start() }
         } else {
             if ready { stopImu() } else { ServiceLog.shared.log("🚶 Movimiento desactivado: se aplicará al conectar") }
             handler.motion.flush()
@@ -430,7 +430,8 @@ final class WhoopManager: NSObject, ObservableObject, CBCentralManagerDelegate, 
             self.lastRxAt = Date()
             self.offloadedThisConnection = false
             self.setState("Conectada · esperando pulso")
-            if WhoopSettings.imuEnabled { self.startImu() }
+            self.imuOn = false
+            if WhoopSettings.imuWanted() { self.startImu() }
             self.lastOffloadRequest = Date.distantPast
             // Si en 15 s no llega ningún dato, también se reconecta
             DispatchQueue.main.asyncAfter(deadline: .now() + WhoopManager.setupTimeout) { [weak self] in
@@ -509,7 +510,20 @@ final class WhoopManager: NSObject, ObservableObject, CBCentralManagerDelegate, 
 
     /// Pide el historial cada 15 min (o al conectar). En "WHOOP conserva" la pulsera siempre manda el mismo primer
     /// bloque: basta con pedirlo una vez por conexión.
+    /// 5/11: ahorro de batería: enciende o apaga el movimiento según el ajuste y la hora (se mira como mucho cada minuto).
+    private var imuOn = false
+    private var lastImuCheck = Date.distantPast
+    func applyImuSchedule(force: Bool = false) {
+        guard ready else { return }
+        if !force && Date().timeIntervalSince(lastImuCheck) < 60 { return }
+        lastImuCheck = Date()
+        let want = WhoopSettings.imuWanted()
+        if want && !imuOn { ServiceLog.shared.log("🚶 Movimiento: empieza el horario de grabación"); startImu() }
+        else if !want && imuOn { ServiceLog.shared.log("🔋 Ahorro de batería: movimiento en pausa hasta las 20:00"); stopImu() }
+    }
+
     private func tickOffload() {
+        applyImuSchedule()
         guard ready, !handler.offloading else { return }
         if Date().timeIntervalSince(lastOffloadRequest) < WhoopManager.offloadEvery { return }
         if WhoopSettings.ackMode != 1 && offloadedThisConnection { return }
@@ -534,12 +548,14 @@ final class WhoopManager: NSObject, ObservableObject, CBCentralManagerDelegate, 
     }
 
     private func startImu() {
+        imuOn = true
         command(WhoopProtocol.cmdStartRawData, [0], "Movimiento: START_RAW_DATA (81)")
         enqueue(.delay(0.5))
         command(WhoopProtocol.cmdToggleImuMode, [1, 1], "Movimiento: TOGGLE_IMU_MODE (106)")
     }
 
     private func stopImu() {
+        imuOn = false
         command(WhoopProtocol.cmdToggleImuMode, [0, 0], "Movimiento OFF (orden 106 [0,0])")
         ServiceLog.shared.log("🚶 Movimiento desactivado")
     }

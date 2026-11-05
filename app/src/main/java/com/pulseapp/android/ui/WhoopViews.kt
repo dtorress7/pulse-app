@@ -66,6 +66,17 @@ class StressDayChartView @JvmOverloads constructor(context: Context, attrs: Attr
         invalidate()
     }
 
+    // 5/11: Monitor de estrés como WHOOP: ventana de 24 h, línea azul → verde → ámbar, actividades marcadas arriba,
+    // varios ratos de sueño (noche y siestas), horas cada 8 h y la hora de inicio también abajo.
+    var whoopStyle = false
+    private var activities: List<Pair<Long, Long>> = emptyList()
+    private var sleeps: List<Pair<Long, Long>> = emptyList()
+    fun setMarks(activities: List<Pair<Long, Long>>, sleeps: List<Pair<Long, Long>>) {
+        this.activities = activities; this.sleeps = sleeps; invalidate()
+    }
+    private val actLine = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = col(R.color.strain_blue); strokeWidth = dp(2.5f) }
+    private val actIcon = ContextCompat.getDrawable(context, R.drawable.ic_dumbbell)?.mutate()
+
     override fun onDraw(canvas: Canvas) {
         val w = width.toFloat(); val h = height.toFloat()
         if (w <= 0f || h <= 0f) return
@@ -76,7 +87,28 @@ class StressDayChartView @JvmOverloads constructor(context: Context, attrs: Attr
 
         // Sueño: franja + línea arriba + luna
         val sf = sleepFrom; val st = sleepTo
-        if (sf != null && st != null && st > from && sf < to) {
+        for ((a, b) in sleeps) if (b > from && a < to) {
+            val x1 = x(max(a, from)); val x2 = x(min(b, to))
+            canvas.drawRect(x1, y(3f), x2, bottom, sleepFill)
+            canvas.drawLine(x1, y(3f), x2, y(3f), sleepLine)
+            moon?.let {
+                val s = dp(18f).toInt(); val cx = ((x1 + x2) / 2).toInt()
+                it.setTint(col(R.color.text_primary))
+                it.setBounds(cx - s / 2, (y(3f) - dp(26f)).toInt(), cx + s / 2, (y(3f) - dp(26f)).toInt() + s)
+                it.draw(canvas)
+            }
+        }
+        for ((a, b) in activities) if (b > from && a < to) {
+            val x1 = x(max(a, from)); val x2 = max(x(min(b, to)), x1 + dp(3f))
+            canvas.drawLine(x1, y(3f), x2, y(3f), actLine)
+            actIcon?.let {
+                val s = dp(20f).toInt(); val cx = ((x1 + x2) / 2).toInt()
+                it.setTint(col(R.color.text_primary))
+                it.setBounds(cx - s / 2, (y(3f) - dp(27f)).toInt(), cx + s / 2, (y(3f) - dp(27f)).toInt() + s)
+                it.draw(canvas)
+            }
+        }
+        if (sleeps.isEmpty() && sf != null && st != null && st > from && sf < to) {
             val x1 = x(max(sf, from)); val x2 = x(min(st, to))
             canvas.drawRect(x1, y(3f), x2, bottom, sleepFill)
             canvas.drawLine(x1, y(3f), x2, y(3f), sleepLine)
@@ -100,7 +132,7 @@ class StressDayChartView @JvmOverloads constructor(context: Context, attrs: Attr
         while (true) {
             c.add(Calendar.HOUR_OF_DAY, 1)
             if (c.timeInMillis >= to) break
-            if (c.get(Calendar.HOUR_OF_DAY) % 4 != 0) continue
+            if (c.get(Calendar.HOUR_OF_DAY) % (if (whoopStyle) 8 else 4) != 2 * (if (whoopStyle) 1 else 0)) continue
             val xx = x(c.timeInMillis)
             if (xx - left < dp(40f) || right - xx < dp(46f)) continue
             canvas.drawLine(xx, top, xx, bottom, grid)
@@ -108,7 +140,10 @@ class StressDayChartView @JvmOverloads constructor(context: Context, attrs: Attr
             canvas.drawText(t, xx - label.measureText(t) / 2, h - dp(6f), label)
         }
         // Línea: degradado vertical según el nivel (turquesa → verde)
-        line.shader = LinearGradient(0f, y(0f), 0f, y(3f),
+        line.shader = if (whoopStyle) LinearGradient(0f, y(0f), 0f, y(3f),
+            intArrayOf(col(R.color.w_low_blue), col(R.color.w_low_blue), col(R.color.w_mint), col(R.color.alert_amber)),
+            floatArrayOf(0f, 0.2f, 0.5f, 0.9f), Shader.TileMode.CLAMP)
+        else LinearGradient(0f, y(0f), 0f, y(3f),
             intArrayOf(col(R.color.w_stress_line_low), col(R.color.w_stress_line_low), col(R.color.w_stress_line_high)),
             floatArrayOf(0f, 0.25f, 0.75f), Shader.TileMode.CLAMP)
         val pts = points.filter { it.timeMillis in from..to }.sortedBy { it.timeMillis }
@@ -314,6 +349,44 @@ class ActivityHrChartView @JvmOverloads constructor(context: Context, attrs: Att
         pts = points; start = startMillis; end = endMillis; invalidate()
     }
 
+    /** 5/11: al deslizar el dedo por la gráfica, (hora, lpm) del punto; (null, null) al soltar. */
+    var onScrub: ((Long?, Int?) -> Unit)? = null
+    private var scrubX = -1f
+    private var downX = 0f; private var downY = 0f; private var scrubbing = false
+
+    @android.annotation.SuppressLint("ClickableViewAccessibility")
+    override fun onTouchEvent(e: android.view.MotionEvent): Boolean {
+        if (onScrub == null || pts.size < 2) return super.onTouchEvent(e)
+        when (e.actionMasked) {
+            android.view.MotionEvent.ACTION_DOWN -> { downX = e.x; downY = e.y; scrubbing = false; return true }
+            android.view.MotionEvent.ACTION_MOVE -> {
+                if (!scrubbing && kotlin.math.abs(e.x - downX) > dp(6f) && kotlin.math.abs(e.x - downX) > kotlin.math.abs(e.y - downY)) {
+                    scrubbing = true; parent?.requestDisallowInterceptTouchEvent(true)
+                } else if (!scrubbing && kotlin.math.abs(e.y - downY) > dp(10f)) return false
+                if (scrubbing) scrubAt(e.x)
+                return true
+            }
+            android.view.MotionEvent.ACTION_UP -> { if (!scrubbing) scrubAt(e.x) else endScrub(); return true }
+            android.view.MotionEvent.ACTION_CANCEL -> { endScrub(); return true }
+        }
+        return super.onTouchEvent(e)
+    }
+
+    private fun scrubAt(x: Float) {
+        val t0 = pts.first().first; val t1 = pts.last().first
+        val t = t0 + ((x / width.coerceAtLeast(1)) * (t1 - t0)).toLong()
+        val p = pts.minByOrNull { kotlin.math.abs(it.first - t) } ?: return
+        scrubX = x.coerceIn(0f, width.toFloat())
+        onScrub?.invoke(p.first, p.second)
+        invalidate()
+    }
+
+    private fun endScrub() {
+        scrubbing = false; scrubX = -1f
+        parent?.requestDisallowInterceptTouchEvent(false)
+        onScrub?.invoke(null, null); invalidate()
+    }
+
     override fun onDraw(canvas: Canvas) {
         val w = width.toFloat(); val h = height.toFloat()
         if (w <= 0f || pts.size < 2) return
@@ -352,6 +425,17 @@ class ActivityHrChartView @JvmOverloads constructor(context: Context, attrs: Att
                 canvas.save(); canvas.clipRect(x1, 0f, max(x2, x1 + dp(1.5f)), h)
                 canvas.drawPath(p, hiLine)
                 canvas.restore()
+            }
+        }
+        if (scrubX >= 0f) {
+            val t0s = pts.first().first; val t1s = pts.last().first
+            val t = t0s + ((scrubX / w) * (t1s - t0s)).toLong()
+            val p0 = pts.minByOrNull { kotlin.math.abs(it.first - t) }
+            if (p0 != null) {
+                val xx = x(p0.first); val yy = y(p0.second.toDouble())
+                canvas.drawPath(Path().apply { moveTo(xx, top - dp(6f)); lineTo(xx, bottom) }, dash)
+                canvas.drawCircle(xx, yy, dp(5f), Paint(Paint.ANTI_ALIAS_FLAG).apply { color = col(R.color.strain_blue) })
+                canvas.drawCircle(xx, yy, dp(5f), Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE; style = Paint.Style.STROKE; strokeWidth = dp(1.5f) })
             }
         }
         val fmt = SimpleDateFormat("HH:mm", Locale("es", "ES"))

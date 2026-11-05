@@ -111,6 +111,16 @@ class WhoopBackgroundService : Service() {
         fun imuEnabled(ctx: Context): Boolean =
             ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_IMU, false)
 
+        // 5/11: ahorro de batería. El acelerómetro a 100 Hz gasta 1,5–2,3× la batería de la pulsera; con el ahorro solo se
+        // graba de 20:00 a 12:00 (lo que hace falta para el sueño). De día los pasos salen del contador de la propia pulsera.
+        private const val KEY_IMU_SAVER = "imu_saver"
+        fun imuSaver(ctx: Context): Boolean = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_IMU_SAVER, false)
+        fun setImuSaver(ctx: Context, on: Boolean) =
+            ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_IMU_SAVER, on).apply()
+        fun imuNightHour(hour: Int) = hour >= 20 || hour < 12
+        fun imuWanted(ctx: Context): Boolean =
+            imuEnabled(ctx) && (!imuSaver(ctx) || imuNightHour(java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)))
+
         fun start(ctx: Context, action: String = ACTION_CONNECT) {
             val i = Intent(ctx, WhoopBackgroundService::class.java).setAction(action)
             try { androidx.core.content.ContextCompat.startForegroundService(ctx, i) } catch (e: Exception) {
@@ -154,8 +164,20 @@ class WhoopBackgroundService : Service() {
                 offloadedThisConnection = true
                 requestHistory()
             }
+            applyImuSchedule()
             handler.postDelayed(this, OFFLOAD_EVERY_MS)
         }
+    }
+    @Volatile private var imuOn = false
+    private val imuScheduleTimer = object : Runnable {
+        override fun run() { applyImuSchedule(); handler.postDelayed(this, 5 * 60_000L) }
+    }
+    /** Enciende o apaga el movimiento según el ajuste y la hora (ahorro de batería). */
+    private fun applyImuSchedule() {
+        if (!isReady()) return
+        val want = imuWanted(this)
+        if (want && !imuOn) { log("🚶 Movimiento: empieza el horario de grabación"); startImu() }
+        else if (!want && imuOn) { log("🔋 Ahorro de batería: movimiento en pausa hasta las 20:00"); stopImu(quiet = true) }
     }
     private val offloadIdle = Runnable {
         if (offloading) { offloading = false; log("📚 La pulsera dejó de enviar historial (sin COMPLETE). Recibidos $offloadRecords registros; se reintenta en 15 min.") }
@@ -254,7 +276,7 @@ class WhoopBackgroundService : Service() {
             ACTION_HISTORY -> if (isReady()) { offloading = false; requestHistory() } else { log("⚠️ Aún no está conectada, lo pediré al conectar"); connect() }
             ACTION_IMU_ON -> {
                 getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(KEY_IMU, true).apply()
-                if (isReady()) startImu() else connect()
+                if (isReady()) { if (imuWanted(this)) startImu() else log("🔋 Ahorro de batería: el movimiento empezará a las 20:00") } else connect()
             }
             ACTION_IMU_OFF -> {
                 getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(KEY_IMU, false).apply()
@@ -350,7 +372,10 @@ class WhoopBackgroundService : Service() {
                 offloadedThisConnection = false
                 assemblers.clear()
                 setState("Conectada · esperando pulso")
-                if (imuEnabled(this@WhoopBackgroundService)) startImu()
+                imuOn = false
+                if (imuWanted(this@WhoopBackgroundService)) startImu()
+                handler.removeCallbacks(imuScheduleTimer)
+                handler.postDelayed(imuScheduleTimer, 5 * 60_000L)
                 handler.removeCallbacks(offloadTimer)
                 handler.postDelayed(offloadTimer, 1500)   // primera descarga y luego cada 15 min
             }, 2500)
@@ -569,6 +594,7 @@ class WhoopBackgroundService : Service() {
     }
 
     private fun stopImu(quiet: Boolean = false) {
+        imuOn = false
         // La orden 63 de noop la rechaza la 5.0 (probado 14/10: "fallo"). Probamos el modo IMU con [0,0];
         // la respuesta (OK / fallo) queda en el registro para saber si funciona.
         command(WhoopProtocol.CMD_TOGGLE_IMU_MODE, byteArrayOf(0, 0), "Movimiento OFF (orden 106 [0,0])")
@@ -576,6 +602,7 @@ class WhoopBackgroundService : Service() {
     }
 
     private fun startImu() {
+        imuOn = true
         command(WhoopProtocol.CMD_START_RAW_DATA, byteArrayOf(0), "Movimiento: START_RAW_DATA (81)")
         enqueue(Op.Delay(500))
         command(WhoopProtocol.CMD_TOGGLE_IMU_MODE, byteArrayOf(1, 1), "Movimiento: TOGGLE_IMU_MODE (106)")

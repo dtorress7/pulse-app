@@ -59,6 +59,7 @@ object BandBattery {
                 }
                 val s = State(tenths, mv, maxOf(unix, prev?.unix ?: 0), charging)
                 save(ctx, s); checkLow(ctx, s)
+                appendHistory(ctx, unix, tenths, mv)
                 return "🔋 Batería de la pulsera: ${"%.1f".format(java.util.Locale.US, tenths / 10.0)} % ($mv mV)" + if (charging) " · cargando" else ""
             }
             5, 7, 21 -> {
@@ -72,6 +73,21 @@ object BandBattery {
             }
         }
         return null
+    }
+
+    /**
+     * 5/11: historial de batería (band_battery.csv: "unix,décimas de %,mV") para ver cuánto baja por hora y si cambia con el
+     * movimiento activado o no. Un evento llega cada ~14 min; se guarda uno por evento nuevo.
+     */
+    private fun appendHistory(ctx: Context, unix: Long, tenths: Int, mv: Int) {
+        val sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        if (unix <= sp.getLong("hist_last_unix", 0L)) return
+        sp.edit().putLong("hist_last_unix", unix).apply()
+        runCatching {
+            val f = java.io.File(ctx.getExternalFilesDir(null), "band_battery.csv")
+            if (!f.exists()) f.writeText("unix,tenths,mv,imu\n")
+            f.appendText("$unix,$tenths,$mv,${if (WhoopBackgroundService.imuWanted(ctx)) 1 else 0}\n")
+        }
     }
 
     /** Aviso de batería baja: una vez al bajar del 20 % (se rearma al cargar o al pasar del 25 %). */

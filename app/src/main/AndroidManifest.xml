@@ -23,6 +23,11 @@
         android:theme="@style/Theme.PulseApp">
 
         <activity android:name=".CommunityActivity" android:exported="false" />
+        <activity android:name=".StrengthActivity" android:exported="false" />
+        <activity android:name=".StrengthSessionActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".ExercisePickerActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".StrengthSummaryActivity" android:exported="false" />
+        <activity android:name=".StressTrendsActivity" android:exported="false" />
         <activity android:name=".TeamActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
         <activity
             android:name=".MainActivity"

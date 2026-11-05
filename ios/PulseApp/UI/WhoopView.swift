@@ -5,6 +5,7 @@ import SwiftUI
 struct WhoopView: View {
     @StateObject private var mgr = WhoopManager.shared
     @State private var imu = WhoopSettings.imuEnabled
+    @State private var imuSaver = WhoopSettings.imuSaver
     @State private var ack = WhoopSettings.ackMode
     @State private var logLines = ServiceLog.shared.snapshot(150)
     @State private var showClear = false
@@ -62,6 +63,13 @@ struct WhoopView: View {
                 }
                 Text("Activa el acelerómetro (más batería de la pulsera). Necesario para las fases del sueño y los pasos.")
                     .font(Theme.text(11)).foregroundColor(Theme.textSecondary)
+                Toggle(isOn: Binding(get: { imuSaver }, set: { v in
+                    imuSaver = v; WhoopSettings.imuSaver = v; mgr.applyImuSchedule(force: true)
+                })) {
+                    Text("Ahorro de batería (movimiento solo de 20:00 a 12:00)").font(Theme.text(15)).foregroundColor(Theme.textPrimary)
+                }
+                Text("El movimiento gasta 1,5–2× la batería de la pulsera. Con el ahorro solo se graba lo que necesita el sueño; de día los pasos salen del contador de la pulsera, pero no se detectan siestas ni paseos. Cuánto baja la batería se guarda en band_battery.csv.")
+                    .font(Theme.text(11)).foregroundColor(Theme.textSecondary)
                 Hairline()
                 let recording = ImuTestRecorder.isRecording && testTick >= 0
                 Button(action: {
@@ -113,7 +121,8 @@ struct WhoopView: View {
     }
 
     private var exportCard: some View {
-        let names = [AppPaths.hrLog, AppPaths.motion, ImuTestRecorder.fileName, AppPaths.historyRaw, AppPaths.bioLog, AppPaths.serviceLog, BandSteps.fileName]
+        let names = [AppPaths.hrLog, AppPaths.motion, ImuTestRecorder.fileName, AppPaths.historyRaw, AppPaths.bioLog, AppPaths.serviceLog, BandSteps.fileName, BandBattery.historyFile,
+                     "strength_logs.tsv", "strength_templates.tsv"]
         let existing = names.filter { FileManager.default.fileExists(atPath: AppPaths.file($0).path) }
         return Card {
             VStack(alignment: .leading, spacing: 10) {

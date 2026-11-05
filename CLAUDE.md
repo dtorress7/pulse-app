@@ -675,6 +675,30 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
     5/11 07:40–09:00 VFC 94,0 → 94,0 (69 siempre); 2/11, 3/11 y 4/11 iguales de 07:00 a 10:00 (T9.kt). `night_recalc_v13` / iOS 13.
     Recuperación 5/11 con la versión nueva 69 (WHOOP 73); con la VFC de WHOOP 72.
 
+- **5/11 (2.ª parte)**:
+  - **FCR ±1**: 20 noches, mediana de toda la noche MAE 0,55 (10 exactas); probadas 12 alternativas (solo dormido, por minuto, media,
+    percentil 40–48, profundo, último profundo, mitades, mínimo 10 min): ninguna mejora. Es redondeo (pulso entero vs decimales de WHOOP).
+    Ya pasaba antes (17, 18, 19, 21, 27/10 +1). Arnés check/fcr (FD.kt + scratchpad fcr.py). No se toca.
+  - **Entrenador de fuerza (Android + iOS)**: `Strength.kt` / `Core/Strength.swift` (biblioteca de 134 ejercicios genéricos con fracción de
+    peso corporal, series, plantillas, ejercicios personalizados, entrenamiento en curso, récords, hitos, texto → entrenamiento con
+    `parse`/`bestMatch`). Archivos TSV en la carpeta de la app (strength_logs/templates/custom/live.tsv), NO Room. Pantallas Android:
+    StrengthActivity (Progreso/Mis entrenamientos/Entrenamientos), StrengthSessionActivity (live/template/log: comenzar/finalizar serie
+    guarda la hora → FC de cada serie), ExercisePickerActivity (buscar, filtro, personalizado, superserie), StrengthSummaryActivity
+    ("Resumen del ejercicio"); iOS UI/StrengthScreens.swift (rutas strengthHome/strengthSession/strengthSummary). Detalle de actividad
+    con series: CARDIO/MUSCULAR, pestañas EJERCICIOS/ZONAS DE FC, tarjetas deslizables (las series del ejercicio se pintan en verde en la
+    gráfica), "Ver todo", hito. Gráfica de pulso con el dedo: lpm y hora (Android `ActivityHrChartView.onScrub`, iOS `ActivityHrChart.onScrub`).
+    **Esfuerzo**: `Formulas.sessionMuscleMinutes` = carga muscular de las series si las hay (`Strength.muscleLoad` = 0,04225 ×
+    Σ reps·(kg + fracción·peso corporal)), si no lo de antes por tipo. Calibrado con UNA sesión (4/11 18:17–19:08, 3900 kg, 199 reps,
+    24 series, WHOOP 8,1): código real (check/str/R.kt) sin series 7,48 (= app 7,5), con series 8,18 (FCR 58) / 8,14 (FCR 59).
+    CI de iOS "Comprobar el entrenador de fuerza" (ios/Tests/strength: input.txt → expected.txt de Kotlin, 150 líneas).
+    Pendiente: más sesiones registradas para ajustar; WHOOP muestra cardio 26 / muscular 74 y nosotros 36/64 con esa carga; kcal WHOOP 123 vs 163.
+  - **Monitor de estrés como WHOOP**: "< HOY >", medidor 0–3 (`StressGaugeView` / `StressGauge`), gráfica de 24 h hasta ahora con sueño
+    (noche + siestas) y actividades marcadas (`whoopStyle`, horas 18:00/02:00), tarjetas con "Ver tendencias" (StressTrendsActivity /
+    StressTrendsView: 7 días apilados). Inicio abre el día elegido.
+  - **Batería**: `band_battery.csv` (unix, décimas de %, mV, movimiento 1/0) en Android e iOS, en Exportar. Ahorro de batería opcional
+    (Mi WHOOP): movimiento solo de 20:00 a 12:00 (`imuSaver`/`imuWanted`, se mira cada 5 min en Android y con cada dato en iOS). Por
+    defecto apagado: sin movimiento de día no hay siestas ni paseos detectados. Falta el historial real para ver cuánto baja.
+
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
 esfuerzo 11,5, 271 kcal, FC media 127 (la media aritmética de esos segundos es 133: WHOOP no usa la media simple), máx 170,

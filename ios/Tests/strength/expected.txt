@@ -1,0 +1,150 @@
+LIB|abdominales|Abdominales|Core|Peso corporal|0.3
+LIB|abdominales_en_bicicleta|Abdominales en bicicleta|Core|Peso corporal|0.3
+LIB|abdominales_en_la_maquina_ghd|Abdominales en la máquina GHD|Core|Máquina|0.5
+LIB|abductores_maquina|Abductores - Máquina|Piernas|Máquina|0.0
+LIB|aductores_maquina|Aductores - Máquina|Piernas|Máquina|0.0
+LIB|alrededor_del_mundo_mancuernas|Alrededor del mundo - Mancuernas|Hombros|Mancuernas|0.0
+LIB|aperturas_inclinado_mancuernas|Aperturas - Inclinado - Mancuernas|Pecho|Mancuernas|0.0
+LIB|aperturas_mancuernas|Aperturas - Mancuernas|Pecho|Mancuernas|0.0
+LIB|aperturas_inversas_maquina|Aperturas inversas - Máquina|Hombros|Máquina|0.0
+LIB|arnold_press_sentado_mancuerna|Arnold Press - Sentado - Mancuerna|Hombros|Mancuernas|0.0
+LIB|arrancada_barra|Arrancada - Barra|Cuerpo completo|Barra|0.0
+LIB|arrancada_con_un_solo_brazo_d_pesa_rusa|Arrancada con un solo brazo - D - Pesa rusa|Cuerpo completo|Pesa rusa|0.0
+LIB|arrancada_con_un_solo_brazo_i_pesa_rusa|Arrancada con un solo brazo - I - Pesa rusa|Cuerpo completo|Pesa rusa|0.0
+LIB|battle_ropes|Battle ropes|Cuerpo completo|Otro|0.0
+LIB|bicicleta_de_asalto|Bicicleta de asalto|Cardio|Máquina|0.0
+LIB|box_jump|Box jump|Piernas|Peso corporal|0.7
+LIB|buenos_dias_barra|Buenos días - Barra|Espalda|Barra|0.0
+LIB|burpees|Burpees|Cuerpo completo|Peso corporal|0.6
+LIB|cargada_de_potencia_barra|Cargada de potencia - Barra|Cuerpo completo|Barra|0.0
+LIB|clean_pesa_rusa|Clean - Pesa rusa|Cuerpo completo|Pesa rusa|0.0
+LIB|contractora_de_pecho_maquina|Contractora de pecho - Máquina|Pecho|Máquina|0.0
+LIB|copenhague|Copenhague|Core|Peso corporal|0.3
+LIB|cruce_de_poleas|Cruce de poleas|Pecho|Polea|0.0
+LIB|crunch_polea|Crunch - Polea|Core|Polea|0.0
+LIB|curl_con_barra_z|Curl con barra Z|Bíceps|Barra|0.0
+LIB|curl_concentrado_mancuerna|Curl concentrado - Mancuerna|Bíceps|Mancuernas|0.0
+LIB|curl_de_biceps_barra|Curl de bíceps - Barra|Bíceps|Barra|0.0
+LIB|curl_de_biceps_mancuernas|Curl de bíceps - Mancuernas|Bíceps|Mancuernas|0.0
+LIB|curl_de_biceps_polea|Curl de bíceps - Polea|Bíceps|Polea|0.0
+LIB|curl_en_banco_scott|Curl en banco Scott|Bíceps|Barra|0.0
+LIB|curl_femoral_sentado_maquina|Curl femoral sentado - Máquina|Piernas|Máquina|0.0
+LIB|curl_femoral_tumbado_maquina|Curl femoral tumbado - Máquina|Piernas|Máquina|0.0
+LIB|curl_inclinado_mancuernas|Curl inclinado - Mancuernas|Bíceps|Mancuernas|0.0
+LIB|curl_martillo_mancuernas|Curl martillo - Mancuernas|Bíceps|Mancuernas|0.0
+LIB|curl_nordico|Curl nórdico|Piernas|Peso corporal|0.5
+LIB|dead_bug|Dead bug|Core|Peso corporal|0.2
+LIB|dominada|Dominada|Espalda|Peso corporal|0.95
+LIB|dominada_asistida_maquina|Dominada asistida - Máquina|Espalda|Máquina|0.95
+LIB|dominada_supina|Dominada supina|Espalda|Peso corporal|0.95
+LIB|dos_tiempos_barra|Dos tiempos - Barra|Cuerpo completo|Barra|0.0
+LIB|elevacion_de_gemelos_de_pie|Elevación de gemelos de pie|Piernas|Máquina|0.0
+LIB|elevacion_de_gemelos_sentado|Elevación de gemelos sentado|Piernas|Máquina|0.0
+LIB|elevacion_de_piernas_colgado|Elevación de piernas colgado|Core|Peso corporal|0.35
+LIB|elevacion_de_piernas_tumbado|Elevación de piernas tumbado|Core|Peso corporal|0.25
+LIB|elevaciones_frontales_mancuernas|Elevaciones frontales - Mancuernas|Hombros|Mancuernas|0.0
+LIB|elevaciones_laterales_mancuernas|Elevaciones laterales - Mancuernas|Hombros|Mancuernas|0.0
+LIB|elevaciones_laterales_polea|Elevaciones laterales - Polea|Hombros|Polea|0.0
+LIB|encogimientos_barra|Encogimientos - Barra|Espalda|Barra|0.0
+LIB|encogimientos_mancuernas|Encogimientos - Mancuernas|Espalda|Mancuernas|0.0
+LIB|extension_de_cuadriceps_maquina|Extensión de cuádriceps - Máquina|Piernas|Máquina|0.0
+LIB|extension_de_triceps_polea|Extensión de tríceps - Polea|Tríceps|Polea|0.0
+LIB|extension_de_triceps_con_cuerda_polea|Extensión de tríceps con cuerda - Polea|Tríceps|Polea|0.0
+LIB|extension_de_triceps_sobre_la_cabeza_mancuerna|Extensión de tríceps sobre la cabeza - Mancuerna|Tríceps|Mancuernas|0.0
+LIB|face_pull_polea|Face pull - Polea|Hombros|Polea|0.0
+LIB|flexiones|Flexiones|Pecho|Peso corporal|0.64
+LIB|flexiones_declinadas|Flexiones - Declinadas|Pecho|Peso corporal|0.74
+LIB|flexiones_inclinadas|Flexiones - Inclinadas|Pecho|Peso corporal|0.45
+LIB|flexiones_diamante|Flexiones diamante|Tríceps|Peso corporal|0.64
+LIB|flexiones_en_pica|Flexiones en pica|Hombros|Peso corporal|0.5
+LIB|fondos_de_triceps_en_banco|Fondos de tríceps en banco|Tríceps|Peso corporal|0.6
+LIB|fondos_de_triceps_en_el_suelo|Fondos de tríceps en el suelo|Tríceps|Peso corporal|0.5
+LIB|fondos_en_paralelas|Fondos en paralelas|Pecho|Peso corporal|0.9
+LIB|hip_thrust_barra|Hip thrust - Barra|Glúteos|Barra|0.0
+LIB|hip_thrust_maquina|Hip thrust - Máquina|Glúteos|Máquina|0.0
+LIB|hiperextensiones|Hiperextensiones|Espalda|Peso corporal|0.5
+LIB|hollow_hold|Hollow hold|Core|Peso corporal|0.3
+LIB|jalon_al_pecho_agarre_estrecho_polea|Jalón al pecho - Agarre estrecho - Polea|Espalda|Polea|0.0
+LIB|jalon_al_pecho_polea|Jalón al pecho - Polea|Espalda|Polea|0.0
+LIB|lenador_polea|Leñador - Polea|Core|Polea|0.0
+LIB|mountain_climbers|Mountain climbers|Core|Peso corporal|0.3
+LIB|pajaros_mancuernas|Pájaros - Mancuernas|Hombros|Mancuernas|0.0
+LIB|pallof_press_polea|Pallof press - Polea|Core|Polea|0.0
+LIB|paseo_del_granjero_mancuernas|Paseo del granjero - Mancuernas|Cuerpo completo|Mancuernas|0.0
+LIB|patada_de_gluteo_polea|Patada de glúteo - Polea|Glúteos|Polea|0.0
+LIB|patada_de_triceps_mancuerna|Patada de tríceps - Mancuerna|Tríceps|Mancuernas|0.0
+LIB|peso_muerto_barra|Peso muerto - Barra|Espalda|Barra|0.0
+LIB|peso_muerto_a_una_pierna_mancuerna|Peso muerto a una pierna - Mancuerna|Glúteos|Mancuernas|0.3
+LIB|peso_muerto_rumano_barra|Peso muerto rumano - Barra|Piernas|Barra|0.0
+LIB|peso_muerto_rumano_mancuernas|Peso muerto rumano - Mancuernas|Piernas|Mancuernas|0.0
+LIB|peso_muerto_sumo|Peso muerto sumo|Piernas|Barra|0.0
+LIB|pistol_squat|Pistol squat|Piernas|Peso corporal|0.8
+LIB|plancha|Plancha|Core|Peso corporal|0.5
+LIB|plancha_lateral|Plancha lateral|Core|Peso corporal|0.4
+LIB|prensa_de_piernas|Prensa de piernas|Piernas|Máquina|0.0
+LIB|press_de_banca_barra|Press de banca - Barra|Pecho|Barra|0.0
+LIB|press_de_banca_declinado_barra|Press de banca - Declinado - Barra|Pecho|Barra|0.0
+LIB|press_de_banca_declinado_mancuerna|Press de banca - Declinado - Mancuerna|Pecho|Mancuernas|0.0
+LIB|press_de_banca_inclinado_barra|Press de banca - Inclinado - Barra|Pecho|Barra|0.0
+LIB|press_de_banca_inclinado_mancuerna|Press de banca - Inclinado - Mancuerna|Pecho|Mancuernas|0.0
+LIB|press_de_banca_mancuerna|Press de banca - Mancuerna|Pecho|Mancuernas|0.0
+LIB|press_de_banca_multipower|Press de banca - Multipower|Pecho|Máquina|0.0
+LIB|press_de_banca_agarre_estrecho|Press de banca agarre estrecho|Tríceps|Barra|0.0
+LIB|press_de_hombros_de_pie_mancuernas|Press de hombros - De pie - Mancuernas|Hombros|Mancuernas|0.0
+LIB|press_de_hombros_maquina|Press de hombros - Máquina|Hombros|Máquina|0.0
+LIB|press_de_hombros_sentado_mancuernas|Press de hombros - Sentado - Mancuernas|Hombros|Mancuernas|0.0
+LIB|press_de_pecho_maquina|Press de pecho - Máquina|Pecho|Máquina|0.0
+LIB|press_frances_barra|Press francés - Barra|Tríceps|Barra|0.0
+LIB|press_militar_barra|Press militar - Barra|Hombros|Barra|0.0
+LIB|puente_de_gluteo|Puente de glúteo|Glúteos|Peso corporal|0.4
+LIB|pulldown_con_brazos_rectos_polea|Pulldown con brazos rectos - Polea|Espalda|Polea|0.0
+LIB|pullover_mancuerna|Pullover - Mancuerna|Pecho|Mancuernas|0.0
+LIB|remo_ergometro|Remo - Ergómetro|Cardio|Máquina|0.0
+LIB|remo_agachado_de_un_solo_brazo_d_cable|Remo agachado de un solo brazo - D - Cable|Espalda|Polea|0.0
+LIB|remo_agachado_de_un_solo_brazo_i_cable|Remo agachado de un solo brazo - I - Cable|Espalda|Polea|0.0
+LIB|remo_al_menton_barra|Remo al mentón - Barra|Hombros|Barra|0.0
+LIB|remo_con_barra|Remo con barra|Espalda|Barra|0.0
+LIB|remo_con_mancuerna_un_brazo|Remo con mancuerna - Un brazo|Espalda|Mancuernas|0.0
+LIB|remo_en_maquina|Remo en máquina|Espalda|Máquina|0.0
+LIB|remo_en_t|Remo en T|Espalda|Barra|0.0
+LIB|remo_inclinado_con_un_solo_brazo_d_cable|Remo inclinado con un solo brazo - D - Cable|Espalda|Polea|0.0
+LIB|remo_inclinado_con_un_solo_brazo_i_cable|Remo inclinado con un solo brazo - I - Cable|Espalda|Polea|0.0
+LIB|remo_invertido|Remo invertido|Espalda|Peso corporal|0.6
+LIB|remo_pendlay|Remo Pendlay|Espalda|Barra|0.0
+LIB|remo_sentado_polea|Remo sentado - Polea|Espalda|Polea|0.0
+LIB|rueda_abdominal|Rueda abdominal|Core|Otro|0.4
+LIB|russian_twist|Russian twist|Core|Peso corporal|0.25
+LIB|saltos_a_la_comba|Saltos a la comba|Cardio|Otro|0.1
+LIB|sentadilla_barra|Sentadilla - Barra|Piernas|Barra|0.0
+LIB|sentadilla_multipower|Sentadilla - Multipower|Piernas|Máquina|0.0
+LIB|sentadilla_peso_corporal|Sentadilla - Peso corporal|Piernas|Peso corporal|0.7
+LIB|sentadilla_bulgara_mancuernas|Sentadilla búlgara - Mancuernas|Piernas|Mancuernas|0.4
+LIB|sentadilla_con_salto|Sentadilla con salto|Piernas|Peso corporal|0.8
+LIB|sentadilla_frontal_barra|Sentadilla frontal - Barra|Piernas|Barra|0.0
+LIB|sentadilla_goblet_mancuerna|Sentadilla goblet - Mancuerna|Piernas|Mancuernas|0.0
+LIB|sentadilla_hack_maquina|Sentadilla hack - Máquina|Piernas|Máquina|0.0
+LIB|subida_al_banco_mancuernas|Subida al banco - Mancuernas|Piernas|Mancuernas|0.5
+LIB|swing_pesa_rusa|Swing - Pesa rusa|Cuerpo completo|Pesa rusa|0.0
+LIB|thruster_barra|Thruster - Barra|Cuerpo completo|Barra|0.2
+LIB|thruster_mancuernas|Thruster - Mancuernas|Cuerpo completo|Mancuernas|0.2
+LIB|turkish_get_up_pesa_rusa|Turkish get-up - Pesa rusa|Cuerpo completo|Pesa rusa|0.2
+LIB|wall_ball|Wall ball|Cuerpo completo|Otro|0.5
+LIB|zancadas_barra|Zancadas - Barra|Piernas|Barra|0.4
+LIB|zancadas_mancuernas|Zancadas - Mancuernas|Piernas|Mancuernas|0.4
+LIB|zancadas_caminando|Zancadas caminando|Piernas|Peso corporal|0.6
+PARSE|press_de_banca_mancuerna|Press de banca - Mancuerna|0|4|8|40.00
+PARSE|press_de_banca_inclinado_mancuerna|Press de banca - Inclinado - Mancuerna|0|3|8|15.00
+PARSE|dominada|Dominada|0|4|8|0.00
+PARSE|remo_agachado_de_un_solo_brazo_i_cable|Remo agachado de un solo brazo - I - Cable|1|3|10|35.00
+PARSE|remo_inclinado_con_un_solo_brazo_d_cable|Remo inclinado con un solo brazo - D - Cable|1|3|10|35.00
+PARSE|press_de_hombros_sentado_mancuernas|Press de hombros - Sentado - Mancuernas|0|3|8|15.00
+PARSE|fondos_de_triceps_en_el_suelo|Fondos de tríceps en el suelo|0|3|8|0.00
+PARSE|copenhague|Copenhague|0|1|3|0.00
+PARSE|sentadilla_barra|Sentadilla - Barra|0|5|5|100.00
+PARSE|peso_muerto_barra|Peso muerto - Barra|0|3|5|120.00
+PARSE|curl_martillo_mancuernas|Curl martillo - Mancuernas|0|3|12|0.00
+PARSE|flexiones|Flexiones|0|3|15|0.00
+PARSE|hip_thrust_barra|Hip thrust - Barra|0|4|10|80.50
+PARSE|custom_algo_que_no_existe|Algo que no existe|0|2|5|0.00
+EFF|16522.8000|698.0883
+ROUNDTRIP|true

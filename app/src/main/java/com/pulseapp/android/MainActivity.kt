@@ -167,7 +167,9 @@ class MainActivity : AppCompatActivity() {
         }
         val openProfile = View.OnClickListener { startActivity(Intent(this, ProfileActivity::class.java)) }
         val openWhoop = View.OnClickListener { startActivity(Intent(this, WhoopExperimentalActivity::class.java)) }
-        val openStress = View.OnClickListener { startActivity(Intent(this, StressDetailActivity::class.java)) }
+        val openStress = View.OnClickListener {
+            startActivity(Intent(this, StressDetailActivity::class.java).putExtra(StressDetailActivity.EXTRA_DAY_OFFSET, dayOffset))
+        }
 
         findViewById<View>(R.id.sleepRingBox).setOnClickListener(openSleep)
         findViewById<View>(R.id.recoveryRingBox).setOnClickListener(openRecovery)
@@ -606,6 +608,9 @@ class MainActivity : AppCompatActivity() {
         if (dayOffset == 0) {
             item(R.drawable.ic_stopwatch, if (activityStartMillis == null) "Iniciar actividad" else "Detener actividad") { toggleActivityRecording() }
         }
+        item(R.drawable.ic_dumbbell, if (Strength.live() != null) "Entrenamiento de fuerza en curso" else "Entrenador de fuerza") {
+            startActivity(Intent(ctx, StrengthActivity::class.java))
+        }
         item(R.drawable.ic_band, "Mi WHOOP") { startActivity(Intent(ctx, WhoopExperimentalActivity::class.java)) }
         popup.setBackgroundDrawable(ColorDrawable(android.graphics.Color.TRANSPARENT))
         popup.elevation = Ui.dp(ctx, 12f).toFloat()
@@ -829,6 +834,9 @@ class MainActivity : AppCompatActivity() {
         val out = ArrayList<java.io.File>()
         java.io.File(dir, "hr_log.csv").takeIf { it.exists() && it.length() > 0 }?.let { out.add(it) }
         java.io.File(dir, MotionTracker.FILE_NAME).takeIf { it.exists() && it.length() > 0 }?.let { out.add(it) }
+        // 5/11: batería de la pulsera, pasos de la pulsera y entrenador de fuerza
+        for (name in listOf("band_battery.csv", "band_steps.csv", "strength_logs.tsv", "strength_templates.tsv", "whoop_service_log.txt"))
+            java.io.File(dir, name).takeIf { it.exists() && it.length() > 0 }?.let { out.add(it) }
         fun n(v: Any?): String = when (v) {
             null -> ""
             is Double -> String.format(Locale.US, "%.4f", v)

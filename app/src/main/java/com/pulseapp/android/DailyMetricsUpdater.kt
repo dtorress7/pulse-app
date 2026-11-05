@@ -57,6 +57,18 @@ class DailyMetricsUpdater {
         runCatching { flag.writeText("1") }
     }
 
+    /**
+     * 5/11: rehace UN día ya guardado (p. ej. al registrar las series de un entreno de ese día). Los días importados de WHOOP
+     * y hoy no se tocan (hoy se calcula en directo).
+     */
+    suspend fun recalcDay(db: AppDatabase, csvFile: File, date: String, ageYears: Int, weightKg: Float, sex: String) {
+        if (date >= dayFormat.format(Date())) return
+        val importUntil = Formulas.whoopImportUntil()
+        if (importUntil.isNotEmpty() && date <= importUntil) return
+        if (db.dailyMetricsDao().getByDate(date) == null || !csvFile.exists()) return
+        computeDay(db, parseCsv(csvFile), csvFile, date, ageYears, weightKg, sex)?.let { db.dailyMetricsDao().save(it) }
+    }
+
     private suspend fun computeDay(
         db: AppDatabase, allReadings: List<Reading>, csvFile: File, yesterdayKey: String, ageYears: Int, weightKg: Float, sex: String
     ): DailyMetrics? {
@@ -97,7 +109,7 @@ class DailyMetricsUpdater {
         // Día con fuerza/funcional: + carga muscular, como WHOOP (22/10)
         val daySessions = db.activitySessionDao().getAll()
             .filter { dayFormat.format(Date(it.startMillis)) == yesterdayKey }
-        val strengthMin = daySessions.sumOf { Formulas.muscleMinutes(it.type, (it.endMillis - it.startMillis) / 60000.0) }
+        val strengthMin = daySessions.sumOf { Formulas.sessionMuscleMinutes(it.type, it.startMillis, it.endMillis) }
         // 27/10: la base por minuto solo en las actividades (el pulso del día va sin ella)
         val activityMin = daySessions.sumOf { Formulas.activityLoadMinutes(it.type, (it.endMillis - it.startMillis) / 60000.0) }
         val strain = Formulas.addStrength(strainHr, strengthMin, activityMin)

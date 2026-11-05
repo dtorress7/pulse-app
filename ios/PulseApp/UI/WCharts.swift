@@ -16,6 +16,10 @@ struct StressDayChart: View {
     var sleepFrom: Int64? = nil
     var sleepTo: Int64? = nil
     var showNow: Bool = true
+    /// 5/11: Monitor de estrés como WHOOP: línea azul → verde → ámbar, horas cada 8 h, actividades y varios ratos de sueño.
+    var whoopStyle: Bool = false
+    var activities: [(Int64, Int64)] = []
+    var sleeps: [(Int64, Int64)] = []
 
     var body: some View {
         Canvas { ctx, size in
@@ -26,7 +30,24 @@ struct StressDayChart: View {
             func y(_ v: Double) -> Double { return bottom - (bottom - top) * (min(max(v, 0), 3) / 3) }
             let lf = Theme.label(13)
 
-            if let sf = sleepFrom, let st = sleepTo, st > from, sf < to {
+            for (a, b) in sleeps where b > from && a < to {
+                let x1 = x(max(a, from)), x2 = x(min(b, to))
+                ctx.fill(Path(CGRect(x: x1, y: y(3), width: x2 - x1, height: bottom - y(3))), with: .color(.white.opacity(0.06)))
+                var l = Path(); l.move(to: CGPoint(x: x1, y: y(3))); l.addLine(to: CGPoint(x: x2, y: y(3)))
+                ctx.stroke(l, with: .color(Theme.wRingSleep), lineWidth: 2.5)
+                var moon = ctx.resolve(Image(systemName: "moon.fill"))
+                moon.shading = .color(Theme.textPrimary)
+                ctx.draw(moon, in: CGRect(x: (x1 + x2) / 2 - 8, y: y(3) - 24, width: 16, height: 16))
+            }
+            for (a, b) in activities where b > from && a < to {
+                let x1 = x(max(a, from)), x2 = max(x(min(b, to)), x1 + 3)
+                var l = Path(); l.move(to: CGPoint(x: x1, y: y(3))); l.addLine(to: CGPoint(x: x2, y: y(3)))
+                ctx.stroke(l, with: .color(Theme.strainBlue), lineWidth: 2.5)
+                var ic = ctx.resolve(Image(systemName: "dumbbell.fill"))
+                ic.shading = .color(Theme.textPrimary)
+                ctx.draw(ic, in: CGRect(x: (x1 + x2) / 2 - 9, y: y(3) - 25, width: 18, height: 16))
+            }
+            if sleeps.isEmpty, let sf = sleepFrom, let st = sleepTo, st > from, sf < to {
                 let x1 = x(max(sf, from)), x2 = x(min(st, to))
                 ctx.fill(Path(CGRect(x: x1, y: y(3), width: x2 - x1, height: bottom - y(3))), with: .color(.white.opacity(0.06)))
                 var l = Path(); l.move(to: CGPoint(x: x1, y: y(3))); l.addLine(to: CGPoint(x: x2, y: y(3)))
@@ -47,7 +68,7 @@ struct StressDayChart: View {
             while true {
                 t += 3_600_000
                 if t >= to { break }
-                if TimeUtil.parts(t).hour % 4 != 0 { continue }
+                if whoopStyle ? (TimeUtil.parts(t).hour % 8 != 2) : (TimeUtil.parts(t).hour % 4 != 0) { continue }
                 let xx = x(t)
                 if xx - left < 40 || right - xx < 46 { continue }
                 var g = Path(); g.move(to: CGPoint(x: xx, y: top)); g.addLine(to: CGPoint(x: xx, y: bottom))
@@ -55,9 +76,12 @@ struct StressDayChart: View {
                 label(ctx, Fmt.clock(t), lf, Theme.textSecondary, CGPoint(x: xx, y: h - 10), .center)
             }
             // Línea con degradado vertical según el nivel
-            let shading = GraphicsContext.Shading.linearGradient(
-                Gradient(stops: [.init(color: Theme.wStressLineLow, location: 0), .init(color: Theme.wStressLineLow, location: 0.25),
-                                 .init(color: Theme.wStressLineHigh, location: 0.75)]),
+            let stops: [Gradient.Stop] = whoopStyle
+                ? [.init(color: Theme.wLowBlue, location: 0), .init(color: Theme.wLowBlue, location: 0.2), .init(color: Theme.wMint, location: 0.5),
+                   .init(color: Theme.alertAmber, location: 0.9)]
+                : [.init(color: Theme.wStressLineLow, location: 0), .init(color: Theme.wStressLineLow, location: 0.25),
+                   .init(color: Theme.wStressLineHigh, location: 0.75)]
+            let shading = GraphicsContext.Shading.linearGradient(Gradient(stops: stops),
                 startPoint: CGPoint(x: 0, y: y(0)), endPoint: CGPoint(x: 0, y: y(3)))
             let pts = points.filter { $0.timeMillis >= from && $0.timeMillis <= to }.sorted { $0.timeMillis < $1.timeMillis }
             var path = Path()
@@ -214,8 +238,29 @@ struct ActivityHrChart: View {
     /// Tramos [desde, hasta) en ms que se resaltan con [highlightColor] (fase del sueño elegida, como WHOOP).
     var highlights: [(Int64, Int64)] = []
     var highlightColor: Color = .clear
+    /// 5/11: deslizar el dedo muestra el pulso de ese momento (como WHOOP): (hora, lpm) o (nil, nil) al soltar.
+    var onScrub: ((Int64?, Int?) -> Void)? = nil
+    @State private var scrubX: Double? = nil
 
     var body: some View {
+        GeometryReader { geo in
+            canvas
+                .contentShape(Rectangle())
+                .simultaneousGesture(DragGesture(minimumDistance: 6)
+                    .onChanged { v in
+                        guard onScrub != nil, points.count >= 2 else { return }
+                        if scrubX == nil && abs(v.translation.width) < abs(v.translation.height) { return }
+                        let xx = min(max(Double(v.location.x), 0), Double(geo.size.width))
+                        scrubX = xx
+                        let t0 = points.first!.0, t1 = points.last!.0
+                        let t = t0 + Int64(xx / max(1, Double(geo.size.width)) * Double(t1 - t0))
+                        if let p = points.min(by: { abs($0.0 - t) < abs($1.0 - t) }) { onScrub?(p.0, p.1) }
+                    }
+                    .onEnded { _ in scrubX = nil; onScrub?(nil, nil) })
+        }
+    }
+
+    private var canvas: some View {
         Canvas { ctx, size in
             let w = size.width, h = size.height
             if points.count < 2 { return }
@@ -268,6 +313,16 @@ struct ActivityHrChart: View {
                 ctx.fill(Path(ellipseIn: CGRect(x: xx - 3.5, y: bottom - 3.5, width: 7, height: 7)), with: .color(.white))
                 label(ctx, Fmt.clock(t), Theme.number(14), Theme.textPrimary,
                       CGPoint(x: alignLeft ? xx + 4 : xx - 4, y: h - 12), alignLeft ? .leading : .trailing)
+            }
+            if let sx = scrubX {
+                let t = t0 + Int64(sx / max(1, w) * Double(t1 - t0))
+                if let p = points.min(by: { abs($0.0 - t) < abs($1.0 - t) }) {
+                    let xx = x(p.0), yy = y(Double(p.1))
+                    var d = Path(); d.move(to: CGPoint(x: xx, y: top - 6)); d.addLine(to: CGPoint(x: xx, y: bottom))
+                    ctx.stroke(d, with: .color(.white.opacity(0.85)), style: StrokeStyle(lineWidth: 1.2, dash: [4, 4]))
+                    ctx.fill(Path(ellipseIn: CGRect(x: xx - 5, y: yy - 5, width: 10, height: 10)), with: .color(Theme.strainBlue))
+                    ctx.stroke(Path(ellipseIn: CGRect(x: xx - 5, y: yy - 5, width: 10, height: 10)), with: .color(.white), lineWidth: 1.5)
+                }
             }
         }
     }

@@ -401,7 +401,7 @@ struct HomeView: View {
     private var monitors: some View {
         HStack(alignment: .top, spacing: 12) {
             Button(action: { path.append(.health) }) { healthCard }.buttonStyle(.plain)
-            Button(action: { path.append(.stress) }) { stressCard }.buttonStyle(.plain)
+            Button(action: { path.append(.stressDay(dayOffset)) }) { stressCard }.buttonStyle(.plain)
         }
         .fixedSize(horizontal: false, vertical: true)
     }
@@ -482,6 +482,9 @@ struct HomeView: View {
                         Button(action: { toggleRecording() }) {
                             Label(manualStart == nil ? "Iniciar actividad" : "Detener actividad", systemImage: "stopwatch")
                         }
+                    }
+                    Button(action: { path.append(.strengthHome) }) {
+                        Label(Strength.live() != nil ? "Entrenamiento de fuerza en curso" : "Entrenador de fuerza", systemImage: "dumbbell")
                     }
                     Button(action: { showWhoop = true }) { Label("Mi WHOOP", systemImage: "applewatch.side.right") }
                 } label: {
@@ -662,7 +665,7 @@ struct HomeView: View {
         let d = data
         let level = d?.stressLevel ?? "BAJO"
         let time = d?.stressMinute.map { Fmt.clock(minuteOfDay: $0) } ?? ""
-        return Button(action: { path.append(.stress) }) {
+        return Button(action: { path.append(.stressDay(dayOffset)) }) {
             WCard {
                 HStack {
                     WTitle(text: "Monitor de estrés")
@@ -881,10 +884,15 @@ struct RouteView: View {
         case .sleep(let o): SleepDetailView(dayOffset: o, showBack: true)
         case .strain(let o): StrainDetailView(dayOffset: o, showBack: true, path: $path)
         case .health: HealthMonitorView(showBack: true, path: $path)
-        case .stress: StressDetailView()
+        case .stress: StressDetailView(initialOffset: 0, path: $path)
         case .recovery(let o): RecoveryDetailView(dayOffset: o)
         case .activity(let id): ActivityDetailView(sessionId: id, path: $path)
         case .editActivity(let id): EditSessionView(sessionId: id).toolbar(.visible, for: .navigationBar)
+        case .stressDay(let o): StressDetailView(initialOffset: o, path: $path)
+        case .stressTrends(let c, let o): StressTrendsView(category: c, dayOffset: o)
+        case .strengthHome: StrengthHomeView(path: $path)
+        case .strengthSession(let m, let id): StrengthSessionView(mode: m, refId: id, path: $path)
+        case .strengthSummary(let id): StrengthSummaryView(sessionId: id, path: $path)
         }
     }
 }

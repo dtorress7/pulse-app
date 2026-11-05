@@ -38,6 +38,8 @@ class ActivityDetailActivity : AppCompatActivity() {
 
     private val esLocale = Locale("es", "ES")
     private var sessionId = -1L
+    private var strengthTab = 0
+    private var strengthPage = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -55,10 +57,14 @@ class ActivityDetailActivity : AppCompatActivity() {
     }
 
     private fun showMenu() {
+        val hasLog = Strength.logFor(sessionId) != null
         androidx.appcompat.app.AlertDialog.Builder(this)
-            .setItems(arrayOf("Editar actividad", "Eliminar actividad")) { _, which ->
+            .setItems(arrayOf("Editar actividad", if (hasLog) "Editar ejercicios (entrenador de fuerza)" else "Registrar ejercicios (entrenador de fuerza)",
+                "Eliminar actividad")) { _, which ->
                 if (which == 0) {
                     startActivity(Intent(this, EditSessionActivity::class.java).putExtra(EditSessionActivity.EXTRA_SESSION_ID, sessionId))
+                } else if (which == 1) {
+                    openStrengthLog()
                 } else {
                     androidx.appcompat.app.AlertDialog.Builder(this)
                         .setTitle("¿Eliminar esta actividad?")
@@ -67,6 +73,7 @@ class ActivityDetailActivity : AppCompatActivity() {
                             lifecycleScope.launch {
                                 val db = AppDatabase.getInstance(this@ActivityDetailActivity)
                                 db.activitySessionDao().getById(sessionId)?.let { db.activitySessionDao().delete(it) }
+                                Strength.deleteLog(sessionId)
                                 Toast.makeText(this@ActivityDetailActivity, "Actividad eliminada", Toast.LENGTH_SHORT).show()
                                 finish()
                             }
@@ -78,6 +85,12 @@ class ActivityDetailActivity : AppCompatActivity() {
             .show()
     }
 
+    private fun openStrengthLog() {
+        startActivity(Intent(this, StrengthSessionActivity::class.java)
+            .putExtra(StrengthSessionActivity.EXTRA_MODE, StrengthSessionActivity.MODE_LOG)
+            .putExtra(StrengthSessionActivity.EXTRA_SESSION_ID, sessionId))
+    }
+
     private class Stats(val strain: Double, val steps: Int?, val kcal: Double, val avgHr: Int, val maxHr: Int, val seconds: Long)
 
     private fun load() {
@@ -85,6 +98,8 @@ class ActivityDetailActivity : AppCompatActivity() {
             val ctx = this@ActivityDetailActivity
             val db = AppDatabase.getInstance(ctx)
             val s = db.activitySessionDao().getById(sessionId) ?: run { finish(); return@launch }
+            Formulas.init(ctx)
+            val log = Strength.logFor(s.id)?.takeIf { it.setCount > 0 }
             val all = db.activitySessionDao().getAll()
             val profile = db.userProfileDao().getOnce()
             val hrMax = Formulas.hrMax(profile?.ageYears() ?: 30)
@@ -136,6 +151,18 @@ class ActivityDetailActivity : AppCompatActivity() {
                 addView(bigStat(Ui.comma(me.strain), R.color.strain_blue, avgStrain?.let { trendOf(me.strain, it) }, avgStrain?.let { Ui.comma(it) },
                     "Esfuerzo\nde actividad").apply { layoutParams = W.weight(0.85f) })
                 val avgSteps = avg.mapNotNull { it.steps }.takeIf { it.isNotEmpty() }?.average()
+                if (log != null) {
+                    // 5/11: entrenador de fuerza → reparto CARDIO (pulso) / MUSCULAR (series), como WHOOP
+                    val inSess = samples.filter { it.timeMillis in s.startMillis..s.endMillis }.distinctBy { it.timeMillis / 1000 }
+                    var cardio = 0.0
+                    for (i in 1 until inSess.size) {
+                        val dt = (inSess[i].timeMillis - inSess[i - 1].timeMillis) / 60000.0
+                        if (dt <= 0 || dt > 8) continue
+                        cardio += Formulas.trimp(dt, inSess[i].bpm, Formulas.zoneRestingHr(), hrMax)
+                    }
+                    val (cp, mp) = Strength.cardioMuscleSplit(cardio, Strength.muscleLoad(log, Formulas.bodyKg()))
+                    addView(cardioMuscle(cp, mp).apply { layoutParams = W.weight(1.15f) })
+                } else
                 addView(bigStat(me.steps?.let { Ui.thousands(it.toLong()) } ?: "--", R.color.text_primary,
                     if (me.steps != null && avgSteps != null) trendOf(me.steps.toDouble(), avgSteps) else null,
                     avgSteps?.let { Ui.thousands(Math.round(it)) }, "Pasos de la actividad").apply { layoutParams = W.weight(1.15f) })
@@ -145,10 +172,17 @@ class ActivityDetailActivity : AppCompatActivity() {
             val chartPts = samples.groupBy { it.timeMillis / 10_000 }.entries.sortedBy { it.key }
                 .map { (k, v) -> k * 10_000 to Math.round(v.map { it.bpm }.average()).toInt() }
             var hrChart: ActivityHrChartView? = null
+            // 5/11: deslizar el dedo por la gráfica muestra el pulso de ese momento (como WHOOP)
+            val scrubLabel = scrubLabel(ctx)
+            if (log != null) {
+                content.addView(SUi.segmented(ctx, listOf("Ejercicios", "Zonas de FC"), strengthTab) { strengthTab = it; load() })
+            }
             if (chartPts.size >= 2) {
+                content.addView(scrubLabel)
                 content.addView(ActivityHrChartView(ctx).apply {
                     hrChart = this
                     setData(chartPts, s.startMillis, s.endMillis)
+                    onScrub = { t, b -> showScrub(scrubLabel, t, b) }
                     layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, Ui.dp(ctx, 360f)).apply {
                         topMargin = Ui.dp(ctx, 22f)
                     }
@@ -157,9 +191,14 @@ class ActivityDetailActivity : AppCompatActivity() {
                 content.addView(W.body(ctx, "No hay pulso guardado de esta actividad.", 14f).apply { setPadding(0, Ui.dp(ctx, 22f), 0, 0) })
             }
 
+            // Ejercicios del entrenador de fuerza (pestaña EJERCICIOS) o zonas (ZONAS DE FC)
+            val zoneParent = if (log != null && strengthTab == 0) LinearLayout(ctx) else content
+            if (log != null && strengthTab == 0) {
+                exercisePager(content, log) { ranges -> hrChart?.setHighlights(ranges, android.graphics.Color.parseColor("#2BD4A0")) }
+            }
             // Rango típico + duración
             val durSec = (s.endMillis - s.startMillis) / 1000
-            content.addView(LinearLayout(ctx).apply {
+            zoneParent.addView(LinearLayout(ctx).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
                 layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
@@ -214,7 +253,7 @@ class ActivityDetailActivity : AppCompatActivity() {
                 for (k in 0 until nBuckets) if (cnt[k] > 0) bucketZone[k] = Formulas.zoneOf(Math.round(sum[k].toDouble() / cnt[k]).toInt(), bounds)
             }
             val zoneBox = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
-            content.addView(zoneBox)
+            zoneParent.addView(zoneBox)
             var selectedZone: Int? = null
             fun renderZones() {
                 zoneBox.removeAllViews()
@@ -235,11 +274,12 @@ class ActivityDetailActivity : AppCompatActivity() {
                     zoneBox.addView(row)
                 }
                 val sel = selectedZone
+                if (zoneParent !== content) return
                 if (sel != null) hrChart?.setHighlights(zoneRuns[sel], Ui.color(ctx, zoneColors[sel]))
                 else hrChart?.setHighlights(emptyList(), 0)
             }
             renderZones()
-            content.addView(W.body(ctx, "Las zonas salen de tu reserva de FC, como en WHOOP: entre tu FC en reposo (${Formulas.zoneRestingHr()} lpm) y tu FC máxima (${Math.round(hrMax)} lpm), que puedes cambiar en Sobre mí.", 14.5f).apply {
+            zoneParent.addView(W.body(ctx, "Las zonas salen de tu reserva de FC, como en WHOOP: entre tu FC en reposo (${Formulas.zoneRestingHr()} lpm) y tu FC máxima (${Math.round(hrMax)} lpm), que puedes cambiar en Sobre mí.", 14.5f).apply {
                 setPadding(0, Ui.dp(ctx, 12f), 0, 0)
             })
 
@@ -275,6 +315,21 @@ class ActivityDetailActivity : AppCompatActivity() {
                 }
                 addView(strip)
             })
+            if (log != null) {
+                val count = withContext(Dispatchers.IO) {
+                    val ids = all.map { it.id }.toSet()
+                    Strength.logs().count { it.id in ids && it.setCount > 0 && it.startMs <= log.startMs }
+                }
+                content.addView(milestoneCard(ctx, count).apply { layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = Ui.dp(ctx, 26f) } })
+            } else if (Formulas.isStrength(s.type)) {
+                content.addView(W.card(ctx, 26f).apply {
+                    addView(W.title(ctx, "Entrenador de fuerza", 15f))
+                    addView(W.body(ctx, "Registra los ejercicios, series y pesos de este entreno: la carga muscular entra en el esfuerzo y verás el resumen como en WHOOP.", 14.5f).apply {
+                        setPadding(0, Ui.dp(ctx, 8f), 0, Ui.dp(ctx, 14f))
+                    })
+                    addView(SUi.button(ctx, "Registrar ejercicios") { openStrengthLog() })
+                })
+            }
             if (s.autoDetected) {
                 content.addView(W.body(ctx, "Actividad detectada automáticamente. Puedes cambiar el deporte o la hora desde ···", 14f).apply {
                     setPadding(0, Ui.dp(ctx, 18f), 0, 0)
@@ -393,6 +448,170 @@ class ActivityDetailActivity : AppCompatActivity() {
         content.addView(W.body(ctx, "Fases calculadas con tu pulso y movimiento (el mismo método que la noche). Las siestas restan su tiempo dormido de lo que necesitas dormir esa noche, como en WHOOP.", 14f).apply {
             setPadding(0, Ui.dp(ctx, 18f), 0, 0)
         })
+    }
+
+    private fun scrubLabel(ctx: android.content.Context): LinearLayout = LinearLayout(ctx).apply {
+        orientation = LinearLayout.HORIZONTAL; gravity = Gravity.BOTTOM
+        visibility = View.INVISIBLE
+        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = Ui.dp(ctx, 16f) }
+        addView(W.number(ctx, "--", 34f, R.color.strain_blue).apply { tag = "bpm" })
+        addView(W.number(ctx, " lpm", 16f, R.color.strain_blue).apply { setPadding(0, 0, 0, Ui.dp(ctx, 4f)) })
+        addView(W.number(ctx, "", 16f, R.color.text_secondary).apply { tag = "time"; setPadding(Ui.dp(ctx, 14f), 0, 0, Ui.dp(ctx, 4f)) })
+    }
+
+    private fun showScrub(label: LinearLayout, t: Long?, bpm: Int?) {
+        if (t == null || bpm == null) { label.visibility = View.INVISIBLE; return }
+        label.visibility = View.VISIBLE
+        label.findViewWithTag<TextView>("bpm").text = bpm.toString()
+        label.findViewWithTag<TextView>("time").text = SimpleDateFormat("HH:mm:ss", esLocale).format(Date(t))
+    }
+
+    /** Barra CARDIO / MUSCULAR con sus porcentajes. */
+    private fun cardioMuscle(cardioPct: Int, musclePct: Int): LinearLayout {
+        val ctx = this
+        return LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(Ui.dp(ctx, 12f), Ui.dp(ctx, 6f), 0, 0)
+            addView(LinearLayout(ctx).apply {
+                orientation = LinearLayout.HORIZONTAL
+                addView(W.title(ctx, "Cardio", 13f), W.weight())
+                addView(W.title(ctx, "Muscular", 13f))
+            })
+            addView(android.widget.FrameLayout(ctx).apply {
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, Ui.dp(ctx, 16f)).apply { topMargin = Ui.dp(ctx, 8f) }
+                background = android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,
+                    intArrayOf(android.graphics.Color.parseColor("#0A7FD0"), Ui.color(ctx, R.color.strain_blue))).apply { cornerRadius = Ui.dp(ctx, 3f).toFloat() }
+                addView(View(ctx).apply {
+                    setBackgroundColor(android.graphics.Color.WHITE)
+                    layoutParams = android.widget.FrameLayout.LayoutParams(Ui.dp(ctx, 3f), Ui.dp(ctx, 22f)).apply { gravity = Gravity.CENTER_VERTICAL }
+                    post { translationX = ((parent as View).width * cardioPct / 100f) - Ui.dp(ctx, 1.5f) }
+                })
+            })
+            addView(LinearLayout(ctx).apply {
+                orientation = LinearLayout.HORIZONTAL
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = Ui.dp(ctx, 8f) }
+                addView(W.number(ctx, "$cardioPct %", 17f), W.weight())
+                addView(W.number(ctx, "$musclePct %", 17f))
+            })
+        }
+    }
+
+    /**
+     * Tarjetas que se deslizan (como WHOOP): la 1.ª con el total (ejercicios, series, volumen, repeticiones) y una por ejercicio.
+     * Al pasar a un ejercicio, sus series se marcan en verde en la gráfica de pulso. "Ver todo" abre el resumen.
+     */
+    private fun exercisePager(content: LinearLayout, log: Strength.Workout,
+                              highlight: (List<Pair<Long, Long>>) -> Unit) {
+        val ctx = this
+        val pages = log.exercises.size + 1
+        if (strengthPage >= pages) strengthPage = 0
+        val box = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = Ui.dp(ctx, 18f) }
+        }
+        val dots = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        fun stat(v: String, u: String, l: String) = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(LinearLayout(ctx).apply {
+                orientation = LinearLayout.HORIZONTAL; gravity = Gravity.BOTTOM
+                addView(W.number(ctx, v, 30f)); if (u.isNotEmpty()) addView(W.number(ctx, " $u", 16f).apply { setPadding(0, 0, 0, Ui.dp(ctx, 3f)) })
+            })
+            addView(W.title(ctx, l, 12f, R.color.text_secondary).apply { setPadding(0, Ui.dp(ctx, 6f), 0, 0); maxLines = 1 })
+        }
+        fun render() {
+            box.removeAllViews()
+            val p = strengthPage
+            val card = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL; setBackgroundResource(R.drawable.bg_card_w) }
+            val head = LinearLayout(ctx).apply {
+                orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+                background = SUi.rounded(ctx, android.graphics.Color.parseColor("#262D32"), 14f)
+                setPadding(Ui.dp(ctx, 4f), Ui.dp(ctx, 4f), Ui.dp(ctx, 12f), Ui.dp(ctx, 4f))
+            }
+            val vol: Double; val reps: Int
+            if (p == 0) {
+                head.addView(android.widget.FrameLayout(ctx).apply {
+                    background = SUi.rounded(ctx, android.graphics.Color.parseColor("#33393E"), 8f)
+                    layoutParams = LinearLayout.LayoutParams(Ui.dp(ctx, 64f), Ui.dp(ctx, 56f))
+                    addView(ImageView(ctx).apply { setImageResource(R.drawable.ic_dumbbell); setColorFilter(android.graphics.Color.WHITE)
+                        layoutParams = android.widget.FrameLayout.LayoutParams(Ui.dp(ctx, 28f), Ui.dp(ctx, 28f), Gravity.CENTER) })
+                })
+                head.addView(LinearLayout(ctx).apply {
+                    orientation = LinearLayout.VERTICAL
+                    addView(W.body(ctx, "${log.exercises.size} ejercicios", 15.5f, R.color.text_primary))
+                    addView(W.body(ctx, "${log.setCount} series", 13.5f, R.color.strain_blue))
+                }, W.weight().apply { marginStart = Ui.dp(ctx, 14f) })
+                vol = log.volume; reps = log.reps
+                highlight(emptyList())
+            } else {
+                val e = log.exercises[p - 1]
+                head.addView(SUi.thumb(ctx, Strength.exercise(e.exId)?.group, 50f))
+                head.addView(LinearLayout(ctx).apply {
+                    orientation = LinearLayout.VERTICAL
+                    addView(W.body(ctx, e.name, 15f, R.color.text_primary))
+                    addView(W.body(ctx, "${e.sets.size} series", 13.5f, R.color.w_mint))
+                }, W.weight().apply { marginStart = Ui.dp(ctx, 14f) })
+                head.addView(W.icon(ctx, R.drawable.ic_chevron_right, 18f, R.color.text_secondary))
+                vol = e.volume; reps = e.reps
+                highlight(e.sets.mapNotNull { st -> if (st.startMs != null && st.endMs != null) st.startMs!! to st.endMs!! else null })
+            }
+            card.addView(head)
+            card.addView(LinearLayout(ctx).apply {
+                orientation = LinearLayout.HORIZONTAL
+                setPadding(Ui.dp(ctx, 20f), Ui.dp(ctx, 18f), Ui.dp(ctx, 16f), Ui.dp(ctx, 20f))
+                addView(stat(SUi.kg(vol), "kg", "Volumen de carga"), W.weight())
+                addView(stat("$reps", "", "Repeticiones totales"), W.weight())
+            })
+            card.isClickable = true
+            card.setOnClickListener { if (p > 0) openSummary() }
+            // deslizar a izquierda / derecha
+            val gd = android.view.GestureDetector(ctx, object : android.view.GestureDetector.SimpleOnGestureListener() {
+                override fun onDown(e: android.view.MotionEvent): Boolean = true
+                override fun onFling(e1: android.view.MotionEvent?, e2: android.view.MotionEvent, vx: Float, vy: Float): Boolean {
+                    if (kotlin.math.abs(vx) < kotlin.math.abs(vy)) return false
+                    strengthPage = if (vx < 0) (p + 1).coerceAtMost(pages - 1) else (p - 1).coerceAtLeast(0)
+                    render(); return true
+                }
+                override fun onSingleTapUp(e: android.view.MotionEvent): Boolean { if (p > 0) openSummary(); return true }
+            })
+            var dx0 = 0f; var dy0 = 0f
+            card.setOnTouchListener { v, ev ->
+                when (ev.actionMasked) {
+                    android.view.MotionEvent.ACTION_DOWN -> { dx0 = ev.x; dy0 = ev.y }
+                    android.view.MotionEvent.ACTION_MOVE -> if (kotlin.math.abs(ev.x - dx0) > kotlin.math.abs(ev.y - dy0) && kotlin.math.abs(ev.x - dx0) > Ui.dp(ctx, 8f))
+                        v.parent.requestDisallowInterceptTouchEvent(true)
+                }
+                gd.onTouchEvent(ev)
+            }
+            box.addView(card)
+            dots.removeAllViews()
+            for (i in 0 until pages) dots.addView(View(ctx).apply {
+                background = SUi.rounded(ctx, if (i == p) android.graphics.Color.WHITE else android.graphics.Color.parseColor("#55FFFFFF"), 4f)
+                layoutParams = LinearLayout.LayoutParams(Ui.dp(ctx, 7f), Ui.dp(ctx, 7f)).apply { marginEnd = Ui.dp(ctx, 7f) }
+                isClickable = true
+                setOnClickListener { strengthPage = i; render() }
+            })
+            box.addView(LinearLayout(ctx).apply {
+                orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = Ui.dp(ctx, 14f) }
+                addView(View(ctx), W.weight())
+                addView(dots)
+                addView(LinearLayout(ctx).apply {
+                    orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+                    layoutParams = W.weight().apply { }
+                    gravity = Gravity.END or Gravity.CENTER_VERTICAL
+                    addView(W.title(ctx, "Ver todo", 14f))
+                    addView(W.icon(ctx, R.drawable.ic_arrow_right, 18f).apply { (layoutParams as LinearLayout.LayoutParams).marginStart = Ui.dp(ctx, 8f) })
+                    isClickable = true
+                    setOnClickListener { openSummary() }
+                })
+            })
+        }
+        render()
+        content.addView(box)
+    }
+
+    private fun openSummary() {
+        startActivity(Intent(this, StrengthSummaryActivity::class.java).putExtra(StrengthSummaryActivity.EXTRA_SESSION_ID, sessionId))
     }
 
     private fun trendOf(value: Double, avg: Double): Trend = when {

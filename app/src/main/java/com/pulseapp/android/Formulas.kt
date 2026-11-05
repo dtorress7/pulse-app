@@ -50,11 +50,13 @@ object Formulas {
 
     fun init(context: Context) {
         if (NapStages.dir == null) NapStages.dir = context.getExternalFilesDir(null)
+        if (Strength.dir == null) Strength.dir = context.getExternalFilesDir(null)
         val sp = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         cachedObserved = sp.getInt(KEY_HR_MAX, 0)
         cachedZoneRhr = sp.getInt(KEY_RHR_ZONE, DEFAULT_RESTING_HR)
         cachedZoneRhrManual = sp.getInt(KEY_RHR_ZONE_MANUAL, 0)
         cachedBmr = sp.getFloat(KEY_BMR, 0f).toDouble()
+        cachedBodyKg = sp.getFloat(KEY_BODY_KG, 70f).toDouble()
         cachedImportUntil = sp.getString(KEY_IMPORT_UNTIL, "") ?: ""
     }
 
@@ -118,6 +120,16 @@ object Formulas {
     val ZONE_KCAL_BMR = doubleArrayOf(1.09, 5.13, 10.14, 10.14, 14.56, 16.53)
 
     fun bmr(): Double = cachedBmr
+
+    // Peso corporal (5/11): lo usa la carga muscular de los ejercicios con tu propio peso (dominadas, fondos…)
+    private const val KEY_BODY_KG = "body_kg"
+    @Volatile private var cachedBodyKg = 70.0
+    fun bodyKg(): Double = cachedBodyKg
+    fun setBodyKg(context: Context, kg: Double) {
+        if (kg !in 30.0..250.0 || kotlin.math.abs(kg - cachedBodyKg) < 0.01) return
+        cachedBodyKg = kg
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putFloat(KEY_BODY_KG, kg.toFloat()).apply()
+    }
 
     /**
      * Ritmo de calorías fuera de los entrenos que usa WHOOP (kcal/24 h), sacado de tus días importados de WHOOP (30/10):
@@ -505,6 +517,16 @@ object Formulas {
         isStrength(type) -> minutes
         isWalk(type) -> minutes * WALK_LOAD_PER_MIN / STRENGTH_LOAD_PER_MIN
         else -> 0.0
+    }
+
+    /**
+     * 5/11: minutos "de fuerza equivalentes" de UNA actividad. Si tiene series registradas en el entrenador de fuerza, la carga
+     * muscular sale de ellas ([Strength.muscleLoad]); si no, de su tipo y duración ([muscleMinutes]).
+     */
+    fun sessionMuscleMinutes(type: String?, startMillis: Long, endMillis: Long): Double {
+        val log = Strength.logOverlapping(startMillis, endMillis)
+        if (log != null && log.setCount > 0) return Strength.muscleLoad(log, bodyKg()) / STRENGTH_LOAD_PER_MIN
+        return muscleMinutes(type, (endMillis - startMillis) / 60000.0)
     }
 
     @Suppress("UNUSED_PARAMETER")

@@ -27,6 +27,16 @@ enum DailyMetricsUpdater {
         UserDefaults.standard.set(13, forKey: recalcKey)
     }
 
+    /// 5/11: rehace UN día ya guardado (al registrar las series de un entreno de ese día). Hoy y los días de WHOOP no se tocan.
+    static func recalcDay(store: AppStore, hrLog: HrLog, motionFile: URL, key: String, ageYears: Int, weightKg: Double, sex: String) {
+        let today = TimeUtil.dayKey(TimeUtil.nowMillis())
+        let importUntil = WhoopImport.importedUntil()
+        if key >= today || (!importUntil.isEmpty && key <= importUntil) || store.getDay(key) == nil { return }
+        if let d = computeDay(store: store, hrLog: hrLog, motionFile: motionFile, key: key, ageYears: ageYears, weightKg: weightKg, sex: sex) {
+            store.saveDay(d)
+        }
+    }
+
     private static func computeDay(store: AppStore, hrLog: HrLog, motionFile: URL, key yesterdayKey: String,
                                    ageYears: Int, weightKg: Double, sex: String) -> DailyMetrics? {
         guard let dayStart = TimeUtil.parseDayKey(yesterdayKey) else { return nil }
@@ -60,7 +70,7 @@ enum DailyMetricsUpdater {
                                        hrMax: hrMax, male: sex != "F", sleepWindow: window)
         // Día con fuerza/funcional: + carga muscular, como WHOOP (22/10)
         let daySessions = store.allSessions().filter { $0.startMillis >= dayStart && $0.startMillis < dayEnd }
-        let strengthMin = daySessions.reduce(0.0) { $0 + Formulas.muscleMinutes($1.type, Double($1.endMillis - $1.startMillis) / 60000.0) }
+        let strengthMin = daySessions.reduce(0.0) { $0 + Formulas.sessionMuscleMinutes($1.type, $1.startMillis, $1.endMillis) }
         // 27/10: la base por minuto solo en las actividades (el pulso del día va sin ella)
         let activityMin = daySessions.reduce(0.0) { $0 + Formulas.activityLoadMinutes($1.type, Double($1.endMillis - $1.startMillis) / 60000.0) }
         strain = Formulas.addStrength(strain, strengthMin, activityMin)

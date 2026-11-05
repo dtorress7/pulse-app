@@ -44,6 +44,11 @@ jobs:
           swiftc $(ls PulseApp/Core/*.swift | grep -v -e HomeData.swift -e AndroidImport.swift -e Community.swift) Tests/vfc/main.swift -o vfccheck
           ./vfccheck Tests/vfc/nights.csv
 
+      - name: Comprobar el entrenador de fuerza (Swift = Android)
+        run: |
+          swiftc $(ls PulseApp/Core/*.swift | grep -v -e HomeData.swift -e AndroidImport.swift -e Community.swift) Tests/strength/main.swift -o strengthcheck
+          ./strengthcheck Tests/strength
+
       - name: Compilar (sin firmar)
         run: |
           set -o pipefail

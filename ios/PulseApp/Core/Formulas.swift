@@ -384,6 +384,20 @@ enum Formulas {
         return 0
     }
 
+    /// 5/11: minutos "de fuerza equivalentes" de UNA actividad: con series registradas en el entrenador de fuerza, de su carga
+    /// muscular; si no, de su tipo y duración (igual que Android).
+    static func sessionMuscleMinutes(_ type: String?, _ startMillis: Int64, _ endMillis: Int64) -> Double {
+        if let log = Strength.logOverlapping(startMillis, endMillis), log.setCount > 0 {
+            return Strength.muscleLoad(log, bodyKg: bodyKg()) / strengthLoadPerMin
+        }
+        return muscleMinutes(type, Double(endMillis - startMillis) / 60000.0)
+    }
+
+    // Peso corporal (5/11) para los ejercicios con tu propio peso
+    private static let keyBodyKg = "pulseapp_body_kg"
+    static func bodyKg() -> Double { let v = UserDefaults.standard.double(forKey: keyBodyKg); return v > 0 ? v : 70 }
+    static func setBodyKg(_ kg: Double) { if kg >= 30 && kg <= 250 { UserDefaults.standard.set(kg, forKey: keyBodyKg) } }
+
     static func trimp(minutes: Double, hr: Int, restingHr: Int, hrMax: Double, male: Bool = true, withBase: Bool = true,
                       floor: Double = 0) -> Double {
         if minutes <= 0 { return 0 }

@@ -21,6 +21,16 @@ enum WhoopSettings {
         get { return UserDefaults.standard.bool(forKey: kImu) }
         set { UserDefaults.standard.set(newValue, forKey: kImu) }
     }
+    /// 5/11: ahorro de batería: el movimiento solo se graba de 20:00 a 12:00 (lo que necesita el sueño).
+    private static let kImuSaver = "pulseapp_whoop_imu_saver"
+    static var imuSaver: Bool {
+        get { return UserDefaults.standard.bool(forKey: kImuSaver) }
+        set { UserDefaults.standard.set(newValue, forKey: kImuSaver) }
+    }
+    static func imuNightHour(_ hour: Int) -> Bool { return hour >= 20 || hour < 12 }
+    static func imuWanted() -> Bool {
+        return imuEnabled && (!imuSaver || imuNightHour(Calendar.current.component(.hour, from: Date())))
+    }
     /// -1 = aún no ha elegido · 0 = no confirmar (WHOOP conserva los datos) · 1 = confirmar (PulseApp descarga todo).
     static var ackMode: Int {
         get {
