@@ -186,8 +186,10 @@ object Formulas {
     // Regla (necesita movimiento grabado): tramo de minutos quietos (≥50 s quieto, giro < 2,5 °/s, 0 pasos; tolera 2 min sueltos) de
     // ≥ 20 min, que empiece entre las 10:00 y las 21:00, con el pulso mediano ≤ FC en reposo + 12. Sentado despierto (sofá, reunión)
     // el giro va de 3 a 10 aunque el pulso sea bajo; dormido está en su suelo (1,3–1,7).
+    // 6/11: mínimo 20 → 45 min. WHOOP no registró las de 21 min (5/11 19:58, tumbado en la cama) ni 33 min (31/10 14:56) y sí la de
+    // 1/11 (105 min). En el export, las siestas que WHOOP detecta solo duran 59–190 min en cama (las de 25 y 45 min son a mano, horas en punto).
     const val NAP_TYPE = "Siesta"
-    const val NAP_MIN_MINUTES = 20
+    const val NAP_MIN_MINUTES = 45
 
     fun detectNaps(minutes: List<Pair<Long, Double>>, motion: List<MotionMinute>, rhr: Int): List<Pair<Long, Long>> {
         val byMin = HashMap<Long, MotionMinute>(motion.size * 2)

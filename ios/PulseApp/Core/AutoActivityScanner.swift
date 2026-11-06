@@ -70,6 +70,14 @@ enum AutoActivityScanner {
                 }
             }
         }
+        // 6/11 (igual que Android, nap_clean 1): siestas automáticas (sin editar) de menos de 45 min guardadas con la regla de antes → fuera
+        if UserDefaults.standard.integer(forKey: "pulseapp_nap_clean") < 1 {
+            for old in existing where old.autoDetected && old.type == Formulas.napType && old.endMillis - old.startMillis < Formulas.napMinMinutes * 60_000 {
+                store.deleteSession(id: old.id)
+                existing.removeAll { $0.id == old.id }
+            }
+            UserDefaults.standard.set(1, forKey: "pulseapp_nap_clean")
+        }
         // 4/11: una suave guardada antes de que apareciera el entreno de al lado se borra si sigue siendo automática y ya no sale
         let strong = acts + walks
         for old in existing where old.autoDetected && old.type != Formulas.napType && old.startMillis >= now - windowMs + 3 * 3_600_000 {

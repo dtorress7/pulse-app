@@ -720,6 +720,21 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
     "El promedio no incluye el día de hoy", "¿Qué es…?". `StressDays` guarda el reparto de cada día cerrado en stress_days.csv (mismo formato en
     Android e iOS; de 7 en 7 días). Código real: 22 días iguales al arnés, 2.ª vez desde la caché 0,4 s (check/st05/SC.kt).
 
+- **5/11→6/11 (21.ª referencia, funcional 17:52–18:58 + pádel 20:35–22:03 la víspera, levantarse al baño 04:59–05:02)**: WHOOP (API)
+  22:11:04Z–06:29:02Z (23:11–07:29), dormido 7:50, 28/273/90/108, 13 despertares, 96 %, VFC 78,0, FCR 60, resp 13,3, calificación 90 (93/84/96),
+  recuperación 44. PulseApp iPhone (versión 5/11): 23:11–07:27, 7:39, 37/303/66/90, 92 %, VFC 76, FCR 62, resp 12,6, calificación 88 (94/82/92),
+  recuperación 42. Código real (check/n06/N.kt) = app; 21 noches MAE D/L/P/R 8,7/22,4/11,5/15,9, VFC 1,37, FCR 0,62.
+  - FCR +2: la 1.ª hora tras el pádel a 67 lpm. Repasadas las alternativas con 21 noches (check/fcr, scratchpad fcr.py): mediana solo dormido
+    0,57 vs 0,62 (esta noche +1, la 20/10 −3) → diferencia mínima, no se cambia.
+  - Profundo −24: capturas en check/hyp/n06 para la próxima ronda de fases. Huawei Watch Fit 3 esa noche: 23:14–07:30, 8:11, P 1:43 / L 4:55 / R 1:33
+    (sin despierto) → solo de curiosidad, se calibra con WHOOP.
+  - **Siesta mínima 20 → 45 min (6/11, Android + iOS `NAP_MIN_MINUTES` / `napMinMinutes`)**: "siesta" 5/11 19:58–20:19 (tumbado en la cama ~20 min,
+    giro 1,6–2, FC 59–65) que WHOOP NO registró; tampoco 31/10 14:56–15:29 (33 min). La del 1/11 (105 min) sí. Export: las 15 siestas automáticas
+    de WHOOP duran 59–190 min en cama (las de 25/45/120 min con hora en punto son a mano). Código real 14/10→5/11 (check/nap06/Np.kt): antes
+    3 siestas, ahora solo la del 1/11. La falsa restaba ~20 min a la necesidad de la noche 5→6 (horas vs necesidad 94 % vs WHOOP 93 %; sin ella
+    ≈ 90 %, con 11 min menos dormido que WHOOP). Una vez al instalar (`nap_clean` 1 / iOS `pulseapp_nap_clean`) se borran las siestas automáticas
+    sin editar de < 45 min. Pregunta pendiente para la IA de WHOOP: duración mínima de una siesta automática.
+
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
 esfuerzo 11,5, 271 kcal, FC media 127 (la media aritmética de esos segundos es 133: WHOOP no usa la media simple), máx 170,

@@ -102,6 +102,7 @@ enum Formulas {
     // Tramo de minutos quietos (≥50 s, giro < 2,5, 0 pasos; tolera 2 min sueltos) ≥ 20 min que empiece entre las 10:00 y las 21:00,
     // con el pulso mediano ≤ FC en reposo + 12. No cuenta en sueño ni recuperación; resta de la necesidad de sueño.
     static let napType = "Siesta"
+    static let napMinMinutes: Int64 = 45
 
     /// Ritmo de calorías fuera de los entrenos que usa WHOOP (kcal/24 h), de tus días importados (30/10, igual que Android):
     /// mediana de (energía del ciclo − entrenos) / (duración del ciclo − entrenos). Export: 1705; API 1706 ±17. nil con < 7 días.
@@ -199,7 +200,8 @@ enum Formulas {
             var walked = 0, covered = 0
             for q in (a - 180)..<a { guard let mm = byMin[q] else { continue }; covered += 1; if mm.steps >= 10 { walked += 1 } }
             let afterNight = covered >= 108 && walked < 5
-            if len >= 20 && h >= 10 && h <= 20 && !afterNight {
+            // 6/11 (igual que Android): mínimo 45 min (WHOOP no registra siestas de 21–33 min; las suyas automáticas duran ≥ 59)
+            if len >= napMinMinutes && h >= 10 && h <= 20 && !afterNight {
                 let hrs = (a...b).compactMap { hrByMin[$0] }.sorted()
                 if Double(hrs.count) >= Double(len) * 0.6 && hrs[hrs.count / 2] <= Double(rhr + 12) { out.append((a, b)) }
             }

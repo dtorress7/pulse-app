@@ -107,6 +107,13 @@ object AutoActivityScanner {
                 }
             }
         }
+        // 6/11 (nap_clean 1): siestas automáticas (sin editar) de menos de 45 min guardadas con la regla de antes → fuera
+        if (sp.getInt("nap_clean", 0) < 1) {
+            for (old in existing.filter { it.autoDetected && it.type == Formulas.NAP_TYPE && it.endMillis - it.startMillis < Formulas.NAP_MIN_MINUTES * 60_000L }) {
+                db.activitySessionDao().delete(old); existing.remove(old)
+            }
+            sp.edit().putInt("nap_clean", 1).apply()
+        }
         // 4/11: una suave guardada antes de que apareciera el entreno de al lado (llegar/calentar antes del partido, cenar después)
         // se borra si sigue siendo automática (no editada) y la detección de ahora ya no la da.
         val strong = acts + walks
