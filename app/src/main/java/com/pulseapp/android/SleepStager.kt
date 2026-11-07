@@ -366,7 +366,7 @@ object SleepStager {
             // 8:15 93,1 / 67 (12 minutos de fase distintos a las 23:08, 00:43, 02:50 y 07:06).
             if (b0 - a0 >= minWindow) modelStages(m0 + a0, b0 - a0, readings, motion)?.let { ms2 ->
                 for (k in ms2.indices) ms2[k] = if (aw[a0 + k]) AWAKE else if (ms2[k] == AWAKE) LIGHT else ms2[k]
-                val (a1, b1) = trimBounds(ms2, hrm, gyro, steps, a0)
+                val (a1, b1) = trimBounds(ms2, hrm, gyro, steps, a0, keepStart = true)
                 if (b1 > a1) return Result(m0 + a0 + a1, ms2.copyOfRange(a1, b1))
             }
             return Result(m0 + a0, ms.copyOfRange(a0, b0))
@@ -434,10 +434,13 @@ object SleepStager {
     }
 
     /** [inicio, fin) de la noche: del primer tramo de ≥[ONSET_RUN] min sin despertar al último minuto dormido. */
-    fun trimBounds(st: IntArray, hr: DoubleArray? = null, gyro: DoubleArray? = null, steps: IntArray? = null, off: Int = 0): Pair<Int, Int> {
+    fun trimBounds(st: IntArray, hr: DoubleArray? = null, gyro: DoubleArray? = null, steps: IntArray? = null, off: Int = 0,
+                   keepStart: Boolean = false): Pair<Int, Int> {
         val n = st.size
         var start = -1
         var i = 0
+        // 7/11: en la 2.ª pasada el inicio ya está decidido (la 1.ª): un despertar corto justo después (23:47–49) no lo retrasa
+        if (keepStart) { start = (0 until n).firstOrNull { st[it] != AWAKE } ?: -1; i = n }
         while (i < n) {
             if (st[i] == AWAKE) { i++; continue }
             var j = i
@@ -463,7 +466,7 @@ object SleepStager {
         // Si en los primeros ONSET_PRE_MAX min hay un despertar de ≥ ONSET_WAKE_MIN min y antes de él ≥ ONSET_FIDGET de los minutos
         // tienen giro ≥ FIDGET_GYRO, la noche empieza después de ese despertar. 7/11: 23:02 → 23:40 (WHOOP 23:39; antes 21 % de minutos
         // con giro). Las otras 21 noches (16/10→6/11) no cambian: su tramo previo tiene 0–10 % (26/10 y 5/11, despertar de 6 y 11 min, 0 y 3 %).
-        run {
+        if (!keepStart) run {
             var j = start
             while (j < end && st[j] != AWAKE) j++
             if (j < end && j - start < ONSET_PRE_MAX) {
@@ -484,7 +487,12 @@ object SleepStager {
                 val after = ((t + 1) until end).map { hr[off + it] }.filter { !it.isNaN() }
                 val before = ((t - END_BEFORE) until t).map { hr[off + it] }.filter { !it.isNaN() }
                 if (after.size < END_HR_MIN || before.size < 10) continue
-                if (median(after) >= median(before) + END_HR_RISE) { end = t + 1; break }
+                if (median(after) >= median(before) + END_HR_RISE) {
+                    // 7/11: los giros (≥ 3 °/s) de los 3 min siguientes (09:17, 09:19) son aún el despertar: acaba en el último (WHOOP 09:19)
+                    var t2 = t
+                    for (u in t + 1..minOf(t + END_CLUSTER, end - 1)) if (gyro[off + u] >= FIDGET_GYRO || steps[off + u] > 0) t2 = u
+                    end = t2 + 1; break
+                }
             }
         }
         return start to end
@@ -499,6 +507,7 @@ object SleepStager {
     private const val END_HR_MIN = 10
     private const val END_HR_RISE = 7.0
     private const val END_EVENT_GYRO = 6.0
+    private const val END_CLUSTER = 3
 
     private const val FINAL_WAKE_MIN = 5
     private const val FINAL_DOZE_MAX = 30

@@ -752,6 +752,11 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
     con más mañanas en la cama. MAE D/L/P/R 9,0/21,9/11,6/18,7 → 8,7/24,5/10,9/17,5, VFC 1,53 → 1,47. 7/11: 28/308/70/162, VFC 90,4, FCR 61 →
     recuperación 64 (WHOOP 63; con su VFC/FCR la fórmula da 60; antes 52). Con datos hasta las 09:20 el fin es 09:20; desde 10 min después, 09:17
     fijo. Sigue: REM +48 / ligero −71 en esta noche larga (capturas en check/hyp/n07). `night_recalc_v14` / iOS 14.
+    **Ajuste (7/11, tras el aviso del usuario: se durmió 23:39 y despertó 09:19)**: la 2.ª pasada del modelo ya no vuelve a exigir 10 min seguidos
+    dormido al principio (`keepStart`: el despertar corto 23:47–49 retrasaba el inicio a 23:50) y el fin acaba en el ÚLTIMO giro ≥ 3 °/s o paso de
+    los 3 min siguientes al giro que lo dispara (09:17 y 09:19 → 09:19). 7/11: 23:40–09:19 (WHOOP 23:39–09:19), 31/317/70/162, VFC 89,8, FCR 61 →
+    recuperación 63 (WHOOP 63). Las otras 21 noches salen idénticas. Con datos hasta 09:21/09:25/09:28 el fin va por 09:20/09:24/09:26 y desde las
+    09:30 (10 min de pulso alto) queda en 09:19 fijo.
     CI de iOS nuevo "Comprobar el recorte y las fases de la noche" (ios/Tests/stager: 7/11, 26/10 y 5/11 con SleepStager.stage completo, Swift = Kotlin).
 
 ## Actividades como WHOOP (20/10, Android + iOS)
