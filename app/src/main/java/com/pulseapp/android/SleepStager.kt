@@ -258,7 +258,7 @@ object SleepStager {
 
         // ---- Movimiento por minuto ----
         val moveSecs = IntArray(n); val steps = IntArray(n); val hasMotion = BooleanArray(n)
-        val gx = DoubleArray(n); val gy = DoubleArray(n); val gz = DoubleArray(n)
+        val gx = DoubleArray(n); val gy = DoubleArray(n); val gz = DoubleArray(n); val gyro = DoubleArray(n)
         for (mm in motion) {
             val i = (mm.minuteStartUnix / 60 - m0).toInt()
             if (i < 0 || i >= n) continue
@@ -266,6 +266,7 @@ object SleepStager {
             moveSecs[i] = (mm.seconds - mm.stillSecs).coerceAtLeast(0)
             steps[i] = mm.steps
             gx[i] = mm.gravX.toDouble(); gy[i] = mm.gravY.toDouble(); gz[i] = mm.gravZ.toDouble()
+            gyro[i] = mm.gyroDps.toDouble()
         }
         if (hasMotion.count { it } < n * MIN_MOTION_COVERAGE) return null
         val dg = DoubleArray(n)
@@ -358,14 +359,14 @@ object SleepStager {
         // en las capturas los despertares cortos son líneas de 1 px y el modelo aprendió menos minutos despierto de la cuenta.
         modelStages(m0, n, readings, motion)?.let { ms ->
             for (k in 0 until n) ms[k] = if (aw[k]) AWAKE else if (ms[k] == AWAKE) LIGHT else ms[k]
-            val (a0, b0) = trimBounds(ms)
+            val (a0, b0) = trimBounds(ms, hrm, gyro, steps, 0)
             // 5/11: segunda pasada SOLO sobre la noche ya recortada. El modelo se entrenó con el "progreso" de la noche medido sobre el
             // tiempo en cama de WHOOP; con la ventana sin recortar, ese progreso dependía de cuánto rato llevabas levantado (la ventana del
             // pulso crece por la mañana) y las fases de TODA la noche cambiaban: 5/11 a las 8:00 VFC 94,0 / recuperación 69 y a las
             // 8:15 93,1 / 67 (12 minutos de fase distintos a las 23:08, 00:43, 02:50 y 07:06).
             if (b0 - a0 >= minWindow) modelStages(m0 + a0, b0 - a0, readings, motion)?.let { ms2 ->
                 for (k in ms2.indices) ms2[k] = if (aw[a0 + k]) AWAKE else if (ms2[k] == AWAKE) LIGHT else ms2[k]
-                val (a1, b1) = trimBounds(ms2)
+                val (a1, b1) = trimBounds(ms2, hrm, gyro, steps, a0)
                 if (b1 > a1) return Result(m0 + a0 + a1, ms2.copyOfRange(a1, b1))
             }
             return Result(m0 + a0, ms.copyOfRange(a0, b0))
@@ -390,7 +391,7 @@ object SleepStager {
             i = j
         }
         // Recorte: fuera el rato en la cama antes de dormirse y después de despertarse
-        val (a, b) = trimBounds(st)
+        val (a, b) = trimBounds(st, hrm, gyro, steps, 0)
         return Result(m0 + a, st.copyOfRange(a, b))
     }
 
@@ -433,7 +434,7 @@ object SleepStager {
     }
 
     /** [inicio, fin) de la noche: del primer tramo de ≥[ONSET_RUN] min sin despertar al último minuto dormido. */
-    fun trimBounds(st: IntArray): Pair<Int, Int> {
+    fun trimBounds(st: IntArray, hr: DoubleArray? = null, gyro: DoubleArray? = null, steps: IntArray? = null, off: Int = 0): Pair<Int, Int> {
         val n = st.size
         var start = -1
         var i = 0
@@ -457,8 +458,47 @@ object SleepStager {
             while (a > start && st[a - 1] == AWAKE) a--
             if (a > start && end - s < FINAL_DOZE_MAX && s - a >= FINAL_WAKE_MIN) end = a else break
         }
+        if (hr == null || gyro == null || steps == null) return start to end
+        // 7/11: tumbado DESPIERTO en la cama antes de dormirse (con el móvil): quieto, pero la muñeca hace movimientos pequeños.
+        // Si en los primeros ONSET_PRE_MAX min hay un despertar de ≥ ONSET_WAKE_MIN min y antes de él ≥ ONSET_FIDGET de los minutos
+        // tienen giro ≥ FIDGET_GYRO, la noche empieza después de ese despertar. 7/11: 23:02 → 23:40 (WHOOP 23:39; antes 21 % de minutos
+        // con giro). Las otras 21 noches (16/10→6/11) no cambian: su tramo previo tiene 0–10 % (26/10 y 5/11, despertar de 6 y 11 min, 0 y 3 %).
+        run {
+            var j = start
+            while (j < end && st[j] != AWAKE) j++
+            if (j < end && j - start < ONSET_PRE_MAX) {
+                var k = j
+                while (k < end && st[k] == AWAKE) k++
+                val fid = (start until j).count { gyro[off + it] >= FIDGET_GYRO }
+                if (k - j >= ONSET_WAKE_MIN && k < end && fid >= ONSET_FIDGET * (j - start)) start = k
+            }
+        }
+        // 7/11: despierto en la cama al final, quieto con el móvil (09:19 → 09:48, WHOOP 09:19): el pulso se queda ≥ END_HR_RISE lpm por
+        // encima de la media hora de antes desde un giro/paso/despertar hasta el final (≥ END_HR_MIN min) → la noche acaba ahí.
+        // 22 noches: error del final 2,6 → 1,5 min (7/11 +31 → −1); cambia también el 26/10 (+7 → −13: WHOOP siguió contando 14 min con el
+        // pulso alto). Si la ventana sigue creciendo por la mañana, el final ya no se mueve.
+        run {
+            for (t in maxOf(start + END_BEFORE, end - END_LOOK)..(end - END_HR_MIN - 1)) {
+                val ev = gyro[off + t] >= END_EVENT_GYRO || steps[off + t] > 0 || st[t] == AWAKE
+                if (!ev) continue
+                val after = ((t + 1) until end).map { hr[off + it] }.filter { !it.isNaN() }
+                val before = ((t - END_BEFORE) until t).map { hr[off + it] }.filter { !it.isNaN() }
+                if (after.size < END_HR_MIN || before.size < 10) continue
+                if (median(after) >= median(before) + END_HR_RISE) { end = t + 1; break }
+            }
+        }
         return start to end
     }
+
+    private const val ONSET_PRE_MAX = 40
+    private const val ONSET_WAKE_MIN = 5
+    private const val ONSET_FIDGET = 0.15
+    private const val FIDGET_GYRO = 3.0
+    private const val END_BEFORE = 30
+    private const val END_LOOK = 120
+    private const val END_HR_MIN = 10
+    private const val END_HR_RISE = 7.0
+    private const val END_EVENT_GYRO = 6.0
 
     private const val FINAL_WAKE_MIN = 5
     private const val FINAL_DOZE_MAX = 30

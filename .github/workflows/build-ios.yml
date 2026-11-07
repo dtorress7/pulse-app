@@ -44,6 +44,11 @@ jobs:
           swiftc $(ls PulseApp/Core/*.swift | grep -v -e HomeData.swift -e AndroidImport.swift -e Community.swift) Tests/vfc/main.swift -o vfccheck
           ./vfccheck Tests/vfc/nights.csv
 
+      - name: Comprobar el recorte y las fases de la noche (Swift = Android)
+        run: |
+          swiftc -O $(ls PulseApp/Core/*.swift | grep -v -e HomeData.swift -e AndroidImport.swift -e Community.swift) Tests/stager/main.swift -o stagercheck
+          ./stagercheck Tests/stager/nights.csv PulseApp/Resources/sleep_model.json
+
       - name: Comprobar el entrenador de fuerza (Swift = Android)
         run: |
           swiftc $(ls PulseApp/Core/*.swift | grep -v -e HomeData.swift -e AndroidImport.swift -e Community.swift) Tests/strength/main.swift -o strengthcheck

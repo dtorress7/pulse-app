@@ -225,6 +225,7 @@ enum SleepStager {
         var steps = [Int](repeating: 0, count: n)
         var hasMotion = [Bool](repeating: false, count: n)
         var gx = [Double](repeating: 0, count: n), gy = [Double](repeating: 0, count: n), gz = [Double](repeating: 0, count: n)
+        var gyro = [Double](repeating: 0, count: n)
         for mm in motion {
             let i = Int(mm.minuteStartUnix / 60 - m0)
             if i < 0 || i >= n { continue }
@@ -232,6 +233,7 @@ enum SleepStager {
             moveSecs[i] = max(mm.seconds - mm.stillSecs, 0)
             steps[i] = mm.steps
             gx[i] = Double(mm.gravX); gy[i] = Double(mm.gravY); gz[i] = Double(mm.gravZ)
+            gyro[i] = Double("\(mm.gyroDps)") ?? Double(mm.gyroDps)
         }
         if Double(hasMotion.filter { $0 }.count) < Double(n) * minMotionCoverage { return nil }
         var dg = [Double](repeating: 0, count: n)
@@ -358,12 +360,12 @@ enum SleepStager {
         }
         if var ms = SleepModel.classify(secs, mot) {
             for k in 0..<n { ms[k] = aw[k] ? awake : (ms[k] == awake ? light : ms[k]) }
-            let (a0, b0) = trimBounds(ms)
+            let (a0, b0) = trimBounds(ms, hr: hrm, gyro: gyro, steps: steps, off: 0)
             // 5/11 (igual que Android): segunda pasada SOLO sobre la noche recortada. El "progreso" de la noche del modelo depende de la
             // ventana, que crecía por la mañana: 5/11 a las 8:00 VFC 94,0 / recuperación 69 y a las 8:15 93,1 / 67.
             if b0 - a0 >= minWindow, a0 < b0, var ms2 = SleepModel.classify(Array(secs[a0..<b0]), Array(mot[a0..<b0])) {
                 for k in 0..<ms2.count { ms2[k] = aw[a0 + k] ? awake : (ms2[k] == awake ? light : ms2[k]) }
-                let (a1, b1) = trimBounds(ms2)
+                let (a1, b1) = trimBounds(ms2, hr: hrm, gyro: gyro, steps: steps, off: a0)
                 if b1 > a1 { return Result(startMinute: m0 + Int64(a0 + a1), stages: Array(ms2[a1..<b1])) }
             }
             return Result(startMinute: m0 + Int64(a0), stages: Array(ms[a0..<b0]))
@@ -389,12 +391,12 @@ enum SleepStager {
             i = j
         }
         // Recorte: fuera el rato en la cama antes de dormirse y después de despertarse
-        let (a, b) = trimBounds(st)
+        let (a, b) = trimBounds(st, hr: hrm, gyro: gyro, steps: steps, off: 0)
         return Result(startMinute: m0 + Int64(a), stages: Array(st[a..<b]))
     }
 
     /// [inicio, fin) de la noche: del primer tramo de ≥ onsetRun min sin despertar al último minuto dormido.
-    static func trimBounds(_ st: [Int]) -> (Int, Int) {
+    static func trimBounds(_ st: [Int], hr: [Double]? = nil, gyro: [Double]? = nil, steps: [Int]? = nil, off: Int = 0) -> (Int, Int) {
         let n = st.count
         var start = -1
         var i = 0
@@ -418,8 +420,44 @@ enum SleepStager {
             while a > start && st[a - 1] == awake { a -= 1 }
             if a > start && end - s < finalDozeMax && s - a >= finalWakeMin { end = a } else { break }
         }
+        guard let hr = hr, let gyro = gyro, let steps = steps else { return (start, end) }
+        // 7/11 (igual que Android): tumbado despierto en la cama antes de dormirse (giros pequeños de muñeca ≥ 15 % de los minutos)
+        // seguido de un despertar ≥ 5 min en los primeros 40 min → la noche empieza después (23:02 → 23:40, WHOOP 23:39).
+        do {
+            var j = start
+            while j < end && st[j] != awake { j += 1 }
+            if j < end && j - start < onsetPreMax {
+                var k = j
+                while k < end && st[k] == awake { k += 1 }
+                let fid = (start..<j).filter { gyro[off + $0] >= fidgetGyro }.count
+                if k - j >= onsetWakeMin && k < end && Double(fid) >= onsetFidget * Double(j - start) { start = k }
+            }
+        }
+        // 7/11 (igual que Android): despierto y quieto en la cama al final (con el móvil): el pulso se queda ≥ 7 lpm por encima de la
+        // media hora de antes desde un giro/paso/despertar hasta el final (≥ 10 min) → la noche acaba ahí (09:48 → 09:17, WHOOP 09:19).
+        let lo = max(start + endBefore, end - endLook), hi = end - endHrMin - 1
+        if lo <= hi {
+            for t in lo...hi {
+                let ev = gyro[off + t] >= endEventGyro || steps[off + t] > 0 || st[t] == awake
+                if !ev { continue }
+                let after = ((t + 1)..<end).map { hr[off + $0] }.filter { !$0.isNaN }
+                let before = ((t - endBefore)..<t).map { hr[off + $0] }.filter { !$0.isNaN }
+                if after.count < endHrMin || before.count < 10 { continue }
+                if median(after) >= median(before) + endHrRise { end = t + 1; break }
+            }
+        }
         return (start, end)
     }
+
+    private static let onsetPreMax = 40
+    private static let onsetWakeMin = 5
+    private static let onsetFidget = 0.15
+    private static let fidgetGyro = 3.0
+    private static let endBefore = 30
+    private static let endLook = 120
+    private static let endHrMin = 10
+    private static let endHrRise = 7.0
+    private static let endEventGyro = 6.0
 
     private static let finalWakeMin = 5
     private static let finalDozeMax = 30

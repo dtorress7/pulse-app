@@ -735,6 +735,25 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
     ≈ 90 %, con 11 min menos dormido que WHOOP). Una vez al instalar (`nap_clean` 1 / iOS `pulseapp_nap_clean`) se borran las siestas automáticas
     sin editar de < 45 min. Pregunta pendiente para la IA de WHOOP: duración mínima de una siesta automática.
 
+- **6/11→7/11 (22.ª referencia, fútbol 20:56–22:08 la víspera; tumbado despierto con el móvil antes de dormirse y al despertar)**: WHOOP (API)
+  22:39:20Z–08:19:01Z (23:39–09:19), dormido 9:21, 19/379/69/114, 6 despertares, 97 %, VFC 86,8, FCR 60, resp 13,5, calificación 85 (100/69/97),
+  recuperación 63. PulseApp iPhone (versión 6/11): 23:02–09:48 (a las 9:20 marcaba 09:19 y siguió alargándose mientras estaba en la cama con el
+  móvil), 10:10, 36/367/54/189, VFC 82, FCR 62, calificación 87 (100/72/94), recuperación 52. Código real (check/n07/N.kt) = app.
+  - Causa: 23:02–23:34 y 09:20–09:48 la muñeca está TAN quieta como dormido (giro 1,4–1,5, 60 s quieto): el inicio por quietud y el modelo lo
+    daban por sueño (09:20–09:48 como REM, pulso 63–73 frente a 55–58 justo antes).
+  - **Inicio y fin despierto en la cama (7/11, Android + iOS `SleepStager.trimBounds(st, hr, gyro, steps, off)`)**:
+    inicio → si en los primeros 40 min hay un despertar ≥ 5 min y antes de él ≥ 15 % de los minutos tienen giro ≥ 3 °/s (muñeca inquieta),
+    la noche empieza tras ese despertar (7/11 21 % de minutos; el resto de noches 0–10 %: 26/10 y 5/11, con despertar de 6 y 11 min, 0 y 3 %).
+    fin → desde un giro ≥ 6 / paso / despertar (en las últimas 2 h) el pulso se queda ≥ 7 lpm sobre la media hora anterior hasta el final
+    (≥ 10 min) → la noche acaba ahí. Arnés check/edge07 (dump.csv + scratchpad edge.py, búsqueda de parámetros; la regla del inicio SIN el giro
+    rompía 26/10 y 5/11, y el pulso no separa: muchas noches empiezan con +7–31 lpm). Código real 22 noches: inicio solo cambia 7/11
+    (23:02 → 23:50, WHOOP 23:39: tras el recorte la 2.ª pasada marca 23:47–49 despierto); fin 2,6 → 1,5 min de error medio: 7/11 09:48 → 09:17
+    (WHOOP 09:19), PERO 26/10 07:24 → 07:03 (WHOOP 07:17: siguió contando 14 min con el pulso alto) → solo respaldado por una noche; revisar
+    con más mañanas en la cama. MAE D/L/P/R 9,0/21,9/11,6/18,7 → 8,7/24,5/10,9/17,5, VFC 1,53 → 1,47. 7/11: 28/308/70/162, VFC 90,4, FCR 61 →
+    recuperación 64 (WHOOP 63; con su VFC/FCR la fórmula da 60; antes 52). Con datos hasta las 09:20 el fin es 09:20; desde 10 min después, 09:17
+    fijo. Sigue: REM +48 / ligero −71 en esta noche larga (capturas en check/hyp/n07). `night_recalc_v14` / iOS 14.
+    CI de iOS nuevo "Comprobar el recorte y las fases de la noche" (ios/Tests/stager: 7/11, 26/10 y 5/11 con SleepStager.stage completo, Swift = Kotlin).
+
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
 esfuerzo 11,5, 271 kcal, FC media 127 (la media aritmética de esos segundos es 133: WHOOP no usa la media simple), máx 170,
