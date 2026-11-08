@@ -15,6 +15,9 @@ El usuario habla español: responde siempre en español, claro y paso a paso.
   mirar el dato crudo, buscar el caso que lo contradiga). Si las dos no coinciden, no se afirma: se investiga. Comparar SIEMPRE
   con WHOOP y decir claramente si cuadra o no (no esperar a que el usuario lo note). Ya pasó varias veces que el usuario tuvo
   que señalar el fallo y al revisarlo salió mejor: posición de la pulsera (25/10), VFC de la noche 23→24, fases de la 25→26.
+- **OBJETIVO DEL USUARIO (8/11)**: que TODO se parezca lo máximo a WHOOP, ±2–3 si es posible (recuperación, VFC, sueño, horas…). Las fases
+  son secundarias pero también quiere mejorarlas. Ojo: a veces edita a mano la noche en WHOOP para probar (8/11: alargó el final de 09:53 a 10:08)
+  → la referencia es la noche ORIGINAL (preguntar o usar sus capturas si la API tiene "updated_at" muy posterior a "created_at").
 - **La IA de WHOOP (4/11)**: el usuario puede preguntar a la IA de la app de WHOOP. SIEMPRE que algo dependa de cómo calcula WHOOP
   (reglas internas, ventanas, qué datos usa) y no se pueda deducir de los datos, proponerle preguntas CONCRETAS para que se las haga
   (y luego comprobar su respuesta con los datos: no fiarse sin verificar, ver 23/10 y 26/10).
@@ -758,6 +761,21 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
     recuperación 63 (WHOOP 63). Las otras 21 noches salen idénticas. Con datos hasta 09:21/09:25/09:28 el fin va por 09:20/09:24/09:26 y desde las
     09:30 (10 min de pulso alto) queda en 09:19 fijo.
     CI de iOS nuevo "Comprobar el recorte y las fases de la noche" (ios/Tests/stager: 7/11, 26/10 y 5/11 con SleepStager.stage completo, Swift = Kotlin).
+
+- **7/11→8/11 (23.ª referencia, fútbol 16:59–19:55 esfuerzo 19,0 + 2 paseos la víspera, acostarse 01:46)**: WHOOP ORIGINAL (capturas; el usuario
+  editó después el final a 10:08) 01:46–09:53, cama 8:07, dormido 7:49, 18/304/93/72, VFC 67,7, FCR 61, resp 13,3, calificación 79 (88/53/96),
+  recuperación 36. PulseApp iPhone (versión 7/11): 01:42–10:08, 8:18, 8/304/90/104, 2 despertares (WHOOP 8), VFC 73, FCR 62, calificación 80
+  (92/54/98), recuperación 40. Código real (check/n08/N.kt) = app; la versión del 5/11 (3550d1e, worktree /tmp/claude-0/old) da EXACTAMENTE lo
+  mismo en esta noche → no es un empeoramiento por cambios recientes. 23 noches con el código actual: 16/10–30/10 MAE D/L/P/R 7,5/18,1/10,9/13,7,
+  VFC 1,25; 1/11–8/11 13/32,9/10/26,9, VFC 2,31 → las noches viejas salen mejor porque se usaron para entrenar el modelo de fases y ajustar la VFC.
+  - Despierto 8 vs 18: tras 3 h de fútbol casi sin moverse (28 giros de 6–31 °/s con ≥ 42 s quieto, 1 minuto con pasos) → las reglas de despierto no saltan.
+  - Fin 10:08 vs 09:53: pulso 67–70 desde 09:44 con la muñeca quieta; la regla del fin (≥ +7 lpm) no salta (+2).
+  - **VFC +5,4 (73,1 vs 67,7)**: con las fases EXACTAS de WHOOP (captura digitalizada, check/hyp/dig08.py → n08/hyp08.json) sale 71,9 → NO son las
+    fases. Toda la noche sin fases 66,2. Probado con 23 noches (scratchpad v08b.py, v08c.py, v08d.py; dump check/n08/dump.csv): P+L actual LOO 1,98
+    (≤2: 12, ≤3: 16) · solo toda la noche 3,27 · + REM / + toda la noche / + % REM / peso al final 2,0–4,6 · recortar diferencias 1–5 %, filtro 15–25 %,
+    quitar tramos con latidos rechazados: 1,98–3,50; ninguna baja el 8/11 de 71 y ninguna mejora el conjunto. Ningún rasgo de la noche explica el
+    error (|r| ≤ 0,32: duración, cobertura de RR, FCR, pulso 1.ª hora, P/L, variabilidad, % REM). Código real: 23 noches MAE 1,62, ≤2 en 14, ≤3 en 20.
+    Con su VFC/FCR la fórmula de recuperación da 35 (WHOOP 36) → la recuperación +4 es solo la VFC. NO se cambia nada (no hay regla general).
 
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
