@@ -776,6 +776,12 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
     quitar tramos con latidos rechazados: 1,98–3,50; ninguna baja el 8/11 de 71 y ninguna mejora el conjunto. Ningún rasgo de la noche explica el
     error (|r| ≤ 0,32: duración, cobertura de RR, FCR, pulso 1.ª hora, P/L, variabilidad, % REM). Código real: 23 noches MAE 1,62, ≤2 en 14, ≤3 en 20.
     Con su VFC/FCR la fórmula de recuperación da 35 (WHOOP 36) → la recuperación +4 es solo la VFC. NO se cambia nada (no hay regla general).
+  - **IA de WHOOP (8/11 tarde)**: VFC = varios tramos del sueño combinados, más peso al profundo y SOBRE TODO a su último tramo; no sabe las horas
+    exactas ni si se reprocesa la señal en la nube. Probado otra vez con 23 noches (scratchpad v08e.py: peso creciente hacia el final y extra al último
+    bloque de profundo de NUESTRAS fases): el 8/11 baja 73 → 70, pero el conjunto empeora (LOO 1,99 → 2,0–2,8) → no se aplica. Con las fases EXACTAS de
+    WHOOP del 8/11 (v08f.py) su último bloque de profundo (05:05–05:22) da RMSSD 64,7 (WHOOP 67,7) y los primeros 60–89: cuadra con la IA en esta noche,
+    pero el 23/10 con 8 noches y las fases de WHOOP "último profundo" daba MAE 9,8 → no es regla general. Revisar en la ronda de fases (si el profundo
+    nuestro cae donde el de WHOOP, volver a probar el peso al último bloque).
 
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
