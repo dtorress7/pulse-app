@@ -12,7 +12,12 @@ struct SleepPlannerView: View {
     @ObservedObject private var mgr = WhoopManager.shared
     @Environment(\.dismiss) private var dismiss
     @State private var tick = 0
-    @State private var showGoal = false, showMode = false, showTime = false, showRec = false, showSchedule = false, showHelp = false
+    @State private var showGoal = false
+    @State private var showMode = false
+    @State private var showTime = false
+    @State private var showRec = false
+    @State private var showSchedule = false
+    @State private var showHelp = false
 
     private var plan: SleepAlarm.Plan? {
         _ = tick
