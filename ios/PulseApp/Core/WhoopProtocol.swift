@@ -18,17 +18,19 @@ enum WhoopProtocol {
     static let cmdSetConfig = 0x78
     static let cmdStartRawData = 81
     static let cmdToggleImuMode = 106
-    // 9/11 (de noop, que ya los usa con la 5.0): parar el chorro crudo, vibración y alarma de la propia pulsera
+    // 9/11: alarma de la WHOOP 5.0 (formato del proyecto goose, el que funciona con la 5.0; el de noop era de la 4.0 y la 79 da "fallo")
     static let cmdStopRawData = 82
-    static let cmdSendR10R11Realtime = 63
-    static let cmdRunHapticsPattern = 79
     static let cmdSetAlarmTime = 66
     static let cmdGetAlarmTime = 67
+    static let cmdRunAlarm = 68
     static let cmdDisableAlarm = 69
-    /// SET_ALARM_TIME: [1] + hora unix u32 LE + [0, 0]
+    static let alarmId: UInt8 = 1
+    /// SET_ALARM_TIME: [4, id] + unix u32 LE + subsegundos u16 LE (1/32768 s) + patrón de WHOOP (efectos 47,152 + 6 ceros,
+    /// control de bucle u16 = 0, repeticiones 7, duración 30 s).
     static func alarmPayload(_ unix: Int64) -> [UInt8] {
         let u = UInt32(truncatingIfNeeded: unix)
-        return [1, UInt8(u & 0xFF), UInt8((u >> 8) & 0xFF), UInt8((u >> 16) & 0xFF), UInt8((u >> 24) & 0xFF), 0, 0]
+        return [4, alarmId, UInt8(u & 0xFF), UInt8((u >> 8) & 0xFF), UInt8((u >> 16) & 0xFF), UInt8((u >> 24) & 0xFF), 0, 0,
+                47, 152, 0, 0, 0, 0, 0, 0, 0, 0, 7, 30]
     }
 
     /// Órdenes que pueden borrar datos, reiniciar o reflashear la pulsera: NUNCA se envían.

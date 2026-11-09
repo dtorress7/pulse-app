@@ -17,14 +17,14 @@ enum DailyMetricsUpdater {
     /// Una sola vez tras actualizar (23/10, VFC y recuperación nuevas): rehace con las fórmulas de ahora los días guardados
     /// que tengan pulso guardado, para que la línea base de VFC esté en la misma escala. Sin pulso, se dejan igual.
     static func recalcPastNightsOnce(store: AppStore, hrLog: HrLog, motionFile: URL, ageYears: Int, weightKg: Double, sex: String) {
-        if UserDefaults.standard.integer(forKey: recalcKey) >= 15 { return }   // 15 (9/11): fin antes del rato despierto tumbado e inquieto; 14 (7/11): inicio/fin de la noche despierto en la cama; 13 (5/11): fases con segunda pasada sobre la noche recortada; 12 (4/11): VFC sin los tramos de pulso alto; 11 (3/11): fin de la noche con 40 pasos y pesas con su carga; 10 (2/11): esfuerzo con la FCR de referencia; 9 (1/11): VFC por profundo + ligero; 8 (1/11): fin de la noche sin remolonear; 7 (30/10): esfuerzo sin el pulso bajo dormido; 6 (27/10): esfuerzo del día sin base fuera de actividades; 5: fases 11 noches
+        if UserDefaults.standard.integer(forKey: recalcKey) >= 16 { return }   // 16 (9/11 tarde): temperatura de la piel; 15 (9/11): fin antes del rato despierto tumbado e inquieto; 14 (7/11): inicio/fin de la noche despierto en la cama; 13 (5/11): fases con segunda pasada sobre la noche recortada; 12 (4/11): VFC sin los tramos de pulso alto; 11 (3/11): fin de la noche con 40 pasos y pesas con su carga; 10 (2/11): esfuerzo con la FCR de referencia; 9 (1/11): VFC por profundo + ligero; 8 (1/11): fin de la noche sin remolonear; 7 (30/10): esfuerzo sin el pulso bajo dormido; 6 (27/10): esfuerzo del día sin base fuera de actividades; 5: fases 11 noches
         let today = TimeUtil.dayKey(TimeUtil.nowMillis())
         let importUntil = WhoopImport.importedUntil()
         for row in store.lastDays(60) where row.date < today && (importUntil.isEmpty || row.date > importUntil) {
             if let d = computeDay(store: store, hrLog: hrLog, motionFile: motionFile, key: row.date,
                                   ageYears: ageYears, weightKg: weightKg, sex: sex) { store.saveDay(d) }
         }
-        UserDefaults.standard.set(15, forKey: recalcKey)
+        UserDefaults.standard.set(16, forKey: recalcKey)
     }
 
     /// 5/11: rehace UN día ya guardado (al registrar las series de un entreno de ese día). Hoy y los días de WHOOP no se tocan.
@@ -59,6 +59,7 @@ enum DailyMetricsUpdater {
             if let st = staged { SleepStagesStore.save(yesterdayKey, st) }   // para la gráfica de fases de días pasados
         }
         let window: (Int64, Int64)? = staged.map { ($0.startMillis, $0.endMillis - 1) } ?? sleep.map { ($0.startMillis, $0.endMillis) }
+        if let w = window { SkinTemp.ensure(yesterdayKey, fromMs: w.0, toMs: w.1) }   // 9/11: temperatura de la piel de esa noche
         var sleepWindowReadings = [HrReading]()
         if let w = window { sleepWindowReadings = nightReadings.filter { $0.timeMillis >= w.0 && $0.timeMillis <= w.1 } }
 

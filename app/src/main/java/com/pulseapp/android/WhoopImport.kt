@@ -112,7 +112,8 @@ object WhoopImport {
 
     // ---------- Importar ----------
 
-    class Parsed(val days: LinkedHashMap<String, DailyMetrics>, val sessions: List<ActivitySession>, val naps: Int)
+    class Parsed(val days: LinkedHashMap<String, DailyMetrics>, val sessions: List<ActivitySession>, val naps: Int,
+                 val skin: Map<String, Double> = emptyMap())
 
     /** Días (hasta ayer) y actividades del export, sin tocar la base de datos. */
     fun parse(files: Map<String, String>, today: String, now: Long): Parsed {
@@ -129,12 +130,14 @@ object WhoopImport {
 
         // ---------- Días ----------
         val newDays = LinkedHashMap<String, DailyMetrics>()
+        val skinDays = LinkedHashMap<String, Double>()   // 9/11: temperatura de la piel de WHOOP (línea base del Monitor de salud)
         for (c in cycles) {
             val wake = c.str("Inicio de la vigilia") ?: continue
             val start = c.str("Inicio del sueño") ?: continue
             val date = wake.take(10)
             if (date >= today) continue
             val s = sleepByStart[start] ?: c
+            c.num("Temp. cutánea (grados centígrados)", "Skin temp (celsius)")?.let { skinDays[date] = it }
             newDays[date] = DailyMetrics(
                 date = date,
                 restingHr = c.num("Frecuencia cardíaca en reposo (lpm)")?.toInt(),
@@ -189,7 +192,7 @@ object WhoopImport {
             naps++
         }
 
-        return Parsed(newDays, newSessions, naps)
+        return Parsed(newDays, newSessions, naps, skinDays)
     }
 
     suspend fun import(context: Context, files: Map<String, String>): Result {
@@ -231,6 +234,7 @@ object WhoopImport {
         for (s in replacedSessions) db.activitySessionDao().delete(s)
         for (s in newSessions) db.activitySessionDao().save(s)
 
+        SkinTemp.saveAll(context.getExternalFilesDir(null), p.skin)
         val until = newDays.keys.maxOrNull()
         if (until != null) Formulas.setWhoopImportUntil(context, until)
         return Result(newDays.size, newSessions.size - naps, naps, replacedDays.size, replacedSessions.size,

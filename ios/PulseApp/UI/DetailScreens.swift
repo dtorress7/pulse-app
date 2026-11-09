@@ -93,7 +93,8 @@ struct HealthMonitorView: View {
     private var vitals: some View {
         let temp = VitalStatus(key: "temp", label: "Temp. cutánea (dif. valor inicial)", icon: "thermometer", value: nil, unit: "°C",
                                decimals: 1, lo: nil, hi: nil, goodWhenHigh: true, ok: nil)
-        let tiles = (data?.vitals ?? []) + [temp]
+        let base = data?.vitals ?? []
+        let tiles = base.contains { $0.key == "temp" } ? base : base + [temp]
         return LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
             ForEach(0..<tiles.count, id: \.self) { i in tile(tiles[i]) }
         }
@@ -112,7 +113,7 @@ struct HealthMonitorView: View {
             }
             Spacer(minLength: 18)
             HStack(alignment: .lastTextBaseline, spacing: 6) {
-                WNumber(text: v.value.map { fmt($0, v.decimals) } ?? "--", size: 46)
+                WNumber(text: v.value.map { (v.key == "temp" && $0 > 0 ? "+" : "") + fmt($0, v.decimals) } ?? "--", size: 46)
                 Text(v.unit).font(Theme.text(18)).foregroundColor(Theme.textPrimary)
             }
             HStack(spacing: 6) {
@@ -133,6 +134,7 @@ struct HealthMonitorView: View {
         guard let value = v.value else { return (v.key == "temp" ? "sin datos de la pulsera" : "sin datos esta noche", nil) }
         guard let lo = v.lo, let hi = v.hi, v.ok != nil else { return ("calibrando", nil) }
         let loS = fmt(lo, v.decimals), hiS = fmt(hi, v.decimals)
+        if v.key == "temp" { return ("cerca de \(lo > 0 ? "+" : "")\(loS) a \(hi > 0 ? "+" : "")\(hiS)", v.ok) }
         if value > hi { return (v.key == "hrv" ? "elevado > \(hiS)" : "alta > \(hiS)", v.ok) }
         if value < lo { return (v.key == "hrv" ? "bajo < \(loS)" : "baja < \(loS)", v.ok) }
         return ("dentro de \(loS) - \(hiS)", true)

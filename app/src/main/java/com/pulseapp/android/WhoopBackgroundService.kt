@@ -299,8 +299,7 @@ class WhoopBackgroundService : Service() {
                 getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(KEY_IMU, true).apply()
                 if (isReady()) { if (imuWanted(this)) startImu() else log("🔋 Ahorro de batería: el movimiento empezará a las 20:00") } else connect()
             }
-            ACTION_BUZZ -> if (isReady()) command(WhoopProtocol.CMD_RUN_HAPTICS_PATTERN, byteArrayOf(2, 3, 0, 0, 0), "Vibración de prueba (orden 79)")
-                else log("⚠️ Vibración: la pulsera no está conectada")
+            ACTION_BUZZ -> if (isReady()) testBuzz() else log("⚠️ Vibración: la pulsera no está conectada")
             ACTION_ALARM -> if (isReady()) applyAlarm(force = true) else connect()
             ACTION_IMU_OFF -> {
                 getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(KEY_IMU, false).apply()
@@ -478,7 +477,11 @@ class WhoopBackgroundService : Service() {
             36, 38 -> {
               if (frame.size > 12 && (frame[10].toInt() and 0xFF) == WhoopProtocol.CMD_GET_BATTERY_LEVEL)
                 log("🔋 Respuesta a la orden 26 (batería): ${WhoopProtocol.bytesToHex(frame).replace(" ", "")}")
-              if (responsesLogged++ < 40) {
+              val cmdNo = frame[10].toInt() and 0xFF
+              // 9/11: las de la alarma y el movimiento siempre, con el cuerpo entero (goose: [13] = estado de la vibración/alarma)
+              if (cmdNo in listOf(66, 67, 68, 69, 106) && frame.size > 12)
+                log("⏰ Respuesta a la orden $cmdNo: ${WhoopProtocol.bytesToHex(frame.copyOfRange(12, minOf(frame.size, 32))).replace(" ", "")}")
+              else if (responsesLogged++ < 40) {
                 val res = when (frame[12].toInt() and 0xFF) { 1 -> "OK"; 2 -> "pendiente"; 3 -> "fallo"; 4 -> "no soportada"; else -> "código ${frame[12].toInt() and 0xFF}" }
                 log("↩️ Respuesta a la orden ${frame[10].toInt() and 0xFF}: $res")
               }
@@ -620,11 +623,8 @@ class WhoopBackgroundService : Service() {
 
     private fun stopImu(quiet: Boolean = false) {
         imuOn = false
-        // 9/11: el 7/11 y el 8/11 (iPhone) la orden 106 [0,0] respondió "código 0" pero el movimiento SIGUIÓ llegando toda la tarde.
-        // noop para el chorro crudo con la 63 [0] (la 82 es la pareja de la 81): se mandan las tres y se comprueba a los 2 min.
-        command(WhoopProtocol.CMD_TOGGLE_IMU_MODE, byteArrayOf(0, 0), "Movimiento OFF (orden 106 [0,0])")
-        command(WhoopProtocol.CMD_STOP_RAW_DATA, byteArrayOf(0), "Movimiento OFF: STOP_RAW_DATA (82)")
-        command(WhoopProtocol.CMD_SEND_R10_R11_REALTIME, byteArrayOf(0), "Movimiento OFF: chorro crudo (orden 63 [0])")
+        // 9/11: el apagado es [revisión 1, 0] (goose); con [0,0] respondía "código 0" (revisión no válida) y el movimiento seguía.
+        command(WhoopProtocol.CMD_TOGGLE_IMU_MODE, byteArrayOf(1, 0), "Movimiento OFF (orden 106 [1,0])")
         if (!quiet) log("🚶 Movimiento desactivado")
         val before = imuMessages
         handler.postDelayed({
@@ -635,7 +635,6 @@ class WhoopBackgroundService : Service() {
 
     private fun startImu(retry: Boolean = true) {
         imuOn = true
-        command(WhoopProtocol.CMD_SEND_R10_R11_REALTIME, byteArrayOf(1), "Movimiento: chorro crudo ON (orden 63 [1])")
         command(WhoopProtocol.CMD_START_RAW_DATA, byteArrayOf(0), "Movimiento: START_RAW_DATA (81)")
         enqueue(Op.Delay(500))
         command(WhoopProtocol.CMD_TOGGLE_IMU_MODE, byteArrayOf(1, 1), "Movimiento: TOGGLE_IMU_MODE (106)")
@@ -646,6 +645,19 @@ class WhoopBackgroundService : Service() {
                 else log("🚶 Movimiento llegando (${imuMessages - before} mensajes en 90 s)")
             }
         }, 90_000L)
+    }
+
+    /** 9/11: vibrar ahora = poner la alarma nº 1 con el patrón de WHOOP y lanzarla (RUN_ALARM 68). Si el despertador está apagado,
+     *  la alarma se quita a los 45 s (el patrón dura 30 s). */
+    private fun testBuzz() {
+        val on = alarmEnabled(this)
+        val whenS = if (on) nextAlarmUnix(this) else System.currentTimeMillis() / 1000 + 86400
+        command(WhoopProtocol.CMD_SET_ALARM_TIME, WhoopProtocol.alarmPayload(whenS), "Vibración de prueba: alarma nº 1 (orden 66)")
+        command(WhoopProtocol.CMD_RUN_ALARM, byteArrayOf(2, WhoopProtocol.ALARM_ID), "Vibración de prueba: ¡ahora! (orden 68)")
+        if (on) setAlarmArmedUnix(this, whenS) else handler.postDelayed({
+            if (isReady() && !alarmEnabled(this))
+                command(WhoopProtocol.CMD_DISABLE_ALARM, byteArrayOf(2, 0xFF.toByte()), "Vibración de prueba: alarma quitada (orden 69)")
+        }, 45_000L)
     }
 
     /** 9/11: pone (o quita) la alarma de la PULSERA; vibra a la hora aunque el móvil esté lejos. Se mira cada 5 min y al conectar. */
@@ -661,7 +673,7 @@ class WhoopBackgroundService : Service() {
             command(WhoopProtocol.CMD_SET_ALARM_TIME, WhoopProtocol.alarmPayload(want), "⏰ Alarma de la pulsera a las $hhmm (orden 66)")
             setAlarmArmedUnix(this, want)
         } else if (alarmArmedUnix(this) != 0L) {
-            command(WhoopProtocol.CMD_DISABLE_ALARM, byteArrayOf(1), "⏰ Alarma de la pulsera quitada (orden 69)")
+            command(WhoopProtocol.CMD_DISABLE_ALARM, byteArrayOf(2, 0xFF.toByte()), "⏰ Alarma de la pulsera quitada (orden 69)")
             setAlarmArmedUnix(this, 0L)
         }
     }

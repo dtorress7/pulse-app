@@ -325,7 +325,7 @@ class HomeDataLoader(private val ctx: Context) {
         // 1/11: 30 días como WHOOP ("Hoy vs. los últimos 30 días"). Con 14 días el rango de la VFC era 84–105 y la de WHOOP (78, media
         // 30 d 90) también habría salido fuera; WHOOP la daba dentro (5/5). Con 30 días: 75–107.
         val hist = records.values.filter { it.date < date && it.date >= date.minusDays(30) }
-        val vitals = listOf(
+        val vitals0 = listOf(
             vital("resp", "Frecuencia respiratoria", R.drawable.ic_lungs, day.resp, "rpm", 1,
                 hist.filter { BaselineProvider.sameScale(it.date.format(iso)) }.mapNotNull { it.resp }, goodWhenHigh = false),
             vital("rhr", "FCR", R.drawable.ic_rhr, day.rhr?.toDouble(), "lpm", 0,
@@ -333,6 +333,17 @@ class HomeDataLoader(private val ctx: Context) {
             vital("hrv", "VFC", R.drawable.ic_hrv, day.hrv, "ms", 0,
                 hist.filter { BaselineProvider.sameScale(it.date.format(iso)) }.mapNotNull { it.hrv }, goodWhenHigh = true)
         )
+        // 9/11: temperatura de la piel (diferencia con la media de las noches anteriores, como WHOOP). Cuenta como "dentro" salvo que
+        // se salga más de 0,5 °C del rango: WHOOP el 9/11 daba ✓ con +0,9 y rango −0,4…+0,5 (provisional).
+        val dateKey = date.format(iso)
+        val skinAll = SkinTemp.loadAll(dir)
+        val skinNight = if (sleepFrom != null && sleepTo != null) {
+            if (isToday) SkinTemp.todayValue(dir, dateKey, sleepFrom, sleepTo) else SkinTemp.ensure(dir, dateKey, sleepFrom, sleepTo)
+        } else skinAll[dateKey]
+        val skinDev = SkinTemp.deviation(skinAll, dateKey, skinNight)
+        val tempVital = VitalStatus("temp", "Temp. cutánea (dif. valor inicial)", R.drawable.ic_thermo, skinDev?.diff, "°C", 1,
+            skinDev?.lo, skinDev?.hi, false, skinDev?.let { it.diff >= it.lo - 0.5 && it.diff <= it.hi + 0.5 })
+        val vitals = vitals0 + tempVital
         val withRange = vitals.filter { it.ok != null }
         val healthOk = withRange.count { it.ok == true }
 

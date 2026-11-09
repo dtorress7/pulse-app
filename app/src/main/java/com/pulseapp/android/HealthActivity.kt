@@ -136,7 +136,7 @@ class HealthActivity : AppCompatActivity() {
         val grid = findViewById<LinearLayout>(R.id.vitalsGrid)
         grid.removeAllViews()
         val temp = VitalStatus("temp", "Temp. cutánea (dif. valor inicial)", R.drawable.ic_thermo, null, "°C", 1, null, null, true, null)
-        val tiles = d.vitals + temp
+        val tiles = if (d.vitals.any { it.key == "temp" }) d.vitals else d.vitals + temp
         tiles.chunked(2).forEachIndexed { rowIndex, pair ->
             val row = LinearLayout(ctx).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -183,7 +183,7 @@ class HealthActivity : AppCompatActivity() {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.BOTTOM
                 setPadding(0, Ui.dp(ctx, 18f), 0, 0)
-                addView(W.number(ctx, v.value?.let { fmt(it, v.decimals) } ?: "--", 46f))
+                addView(W.number(ctx, v.value?.let { (if (v.key == "temp" && it > 0) "+" else "") + fmt(it, v.decimals) } ?: "--", 46f))
                 addView(W.body(ctx, v.unit, 18f, R.color.text_primary).apply { setPadding(Ui.dp(ctx, 6f), 0, 0, Ui.dp(ctx, 4f)) })
             })
             val (text, ok) = chipText(v)
@@ -207,6 +207,7 @@ class HealthActivity : AppCompatActivity() {
         val lo = v.lo; val hi = v.hi
         if (lo == null || hi == null || v.ok == null) return "calibrando" to null
         val loS = fmt(lo, v.decimals); val hiS = fmt(hi, v.decimals)
+        if (v.key == "temp") return "cerca de ${if (lo > 0) "+" else ""}$loS a ${if (hi > 0) "+" else ""}$hiS" to v.ok
         return when {
             value > hi -> (if (v.key == "hrv") "elevado > $hiS" else "alta > $hiS") to v.ok
             value < lo -> (if (v.key == "hrv") "bajo < $loS" else "baja < $loS") to v.ok

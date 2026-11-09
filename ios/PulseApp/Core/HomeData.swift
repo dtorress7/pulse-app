@@ -389,7 +389,7 @@ enum HomeDataLoader {
         // 1/11: 30 días como WHOOP (con 14 la VFC de WHOOP del 1/11, 78, también habría salido fuera; WHOOP la daba dentro)
         let month = Day.add(date, -30)
         let hist = records.values.filter { $0.date < date && $0.date >= month }
-        let vitals = [
+        let vitals0 = [
             vital("resp", "Frecuencia respiratoria", "lungs.fill", day.resp, "rpm", 1,
                   hist.filter { BaselineProvider.sameScale($0.date) }.compactMap { $0.resp }, goodWhenHigh: false),
             vital("rhr", "FCR", "heart.fill", day.rhr.map { Double($0) }, "lpm", 0,
@@ -397,6 +397,18 @@ enum HomeDataLoader {
             vital("hrv", "VFC", "waveform.path.ecg", day.hrv, "ms", 0,
                   hist.filter { BaselineProvider.sameScale($0.date) }.compactMap { $0.hrv }, goodWhenHigh: true)
         ]
+        // 9/11: temperatura de la piel (diferencia con la media de las noches anteriores, como WHOOP). Cuenta como "dentro" salvo que se
+        // salga más de 0,5 °C del rango (WHOOP el 9/11 daba ✓ con +0,9 y rango −0,4…+0,5; provisional).
+        let skinAll = SkinTemp.loadAll()
+        var skinNight: Double? = skinAll[date]
+        if let f = sleepFrom, let t = sleepTo {
+            skinNight = isToday ? SkinTemp.todayValue(date, fromMs: f, toMs: t) : SkinTemp.ensure(date, fromMs: f, toMs: t)
+        }
+        let skinDev = SkinTemp.deviation(skinAll, date: date, today: skinNight)
+        let tempVital = VitalStatus(key: "temp", label: "Temp. cutánea (dif. valor inicial)", icon: "thermometer", value: skinDev?.diff,
+                                    unit: "°C", decimals: 1, lo: skinDev?.lo, hi: skinDev?.hi, goodWhenHigh: false,
+                                    ok: skinDev.map { $0.diff >= $0.lo - 0.5 && $0.diff <= $0.hi + 0.5 })
+        let vitals = vitals0 + [tempVital]
         let withRange = vitals.filter { $0.ok != nil }
         let healthOk = withRange.filter { $0.ok == true }.count
 

@@ -183,11 +183,13 @@ enum WhoopImport {
         for s in sleeps where s["Siesta"] != "true" { if let k = s["Inicio del sueño"] { sleepByStart[k] = s } }
 
         var newDays = [String: DailyMetrics]()
+        var skinDays = [String: Double]()   // 9/11: temperatura de la piel de WHOOP (línea base del Monitor de salud)
         for c in cycles {
             guard let wake = str(c, "Inicio de la vigilia"), let start = str(c, "Inicio del sueño") else { continue }
             let date = String(wake.prefix(10))
             if date >= today { continue }
             let s = sleepByStart[start] ?? c
+            if let t = num(c, "Temp. cutánea (grados centígrados)", "Skin temp (celsius)") { skinDays[date] = t }
             var d = DailyMetrics(date: date,
                                  restingHr: num(c, "Frecuencia cardíaca en reposo (lpm)").map { Int($0) },
                                  avgHrv: num(c, "Variabilidad de la frecuencia cardíaca (ms)"),
@@ -258,6 +260,7 @@ enum WhoopImport {
         for s in replacedSessions { store.deleteSession(id: s.id) }
         store.saveSessions(newSessions)
 
+        SkinTemp.saveAll(skinDays)
         if let until = newDays.keys.max() { UserDefaults.standard.set(until, forKey: keyUntil) }
 
         result.days = newDays.count

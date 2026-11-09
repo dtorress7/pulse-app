@@ -139,7 +139,11 @@ final class WhoopFrameHandler {
             if frame.count > 12 && Int(frame[10]) == WhoopProtocol.cmdGetBatteryLevel {
                 log("🔋 Respuesta a la orden 26 (batería): " + frame.map { String(format: "%02X", $0) }.joined())
             }
-            if responsesLogged < 40 {
+            // 9/11: las de la alarma y el movimiento siempre, con el cuerpo entero (goose: [13] = estado de la vibración/alarma)
+            let cmdNo = Int(frame[10])
+            if [66, 67, 68, 69, 106].contains(cmdNo) && frame.count > 12 {
+                log("⏰ Respuesta a la orden \(cmdNo): " + frame[12..<min(frame.count, 32)].map { String(format: "%02X", $0) }.joined())
+            } else if responsesLogged < 40 {
                 responsesLogged += 1
                 let code = Int(frame[12])
                 let res: String

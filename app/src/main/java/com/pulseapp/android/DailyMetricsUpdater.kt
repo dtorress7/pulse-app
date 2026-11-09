@@ -18,7 +18,7 @@ class DailyMetricsUpdater {
         private const val REST_GRACE_MINUTES = 20
         private const val REST_MIN_DURATION_MINUTES = 90
         private const val DISCONNECT_GAP_MINUTES = 3
-        const val RECALC_FLAG = "night_recalc_v15"   // v15 (9/11): fin de la noche antes del rato despierto tumbado e inquieto; v14 (7/11): inicio/fin de la noche despierto en la cama; v13 (5/11): fases con segunda pasada sobre la noche recortada; v12 (4/11): VFC sin los tramos de pulso alto; v11 (3/11): fin de la noche con 40 pasos y pesas con su carga; v10 (2/11): esfuerzo con la FCR de referencia; v9 (1/11): VFC por profundo + ligero; v8 (1/11): fin de la noche sin el rato remoloneando; v7 (30/10): esfuerzo sin el pulso bajo dormido; v6 (27/10): esfuerzo del día sin la base fuera de las actividades; v5 (26/10): modelo de fases con 11 noches (v4: VFC mezcla, esfuerzo v4, cambio de hora)
+        const val RECALC_FLAG = "night_recalc_v16"   // v16 (9/11 tarde): temperatura de la piel de cada noche; v15 (9/11): fin de la noche antes del rato despierto tumbado e inquieto; v14 (7/11): inicio/fin de la noche despierto en la cama; v13 (5/11): fases con segunda pasada sobre la noche recortada; v12 (4/11): VFC sin los tramos de pulso alto; v11 (3/11): fin de la noche con 40 pasos y pesas con su carga; v10 (2/11): esfuerzo con la FCR de referencia; v9 (1/11): VFC por profundo + ligero; v8 (1/11): fin de la noche sin el rato remoloneando; v7 (30/10): esfuerzo sin el pulso bajo dormido; v6 (27/10): esfuerzo del día sin la base fuera de las actividades; v5 (26/10): modelo de fases con 11 noches (v4: VFC mezcla, esfuerzo v4, cambio de hora)
     }
 
     private val dayFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
@@ -95,6 +95,7 @@ class DailyMetricsUpdater {
         }
         staged?.let { SleepStagesStore.save(csvFile.parentFile, yesterdayKey, it) }   // para la gráfica de fases de días pasados
         val window = staged?.let { it.startMillis to it.endMillis - 1 } ?: sleep?.let { it.startMillis to it.endMillis }
+        window?.let { SkinTemp.ensure(csvFile.parentFile, yesterdayKey, it.first, it.second) }   // 9/11: temperatura de la piel de esa noche
         val sleepWindowReadings = if (window != null) {
             nightReadings.filter { it.timeMillis in window.first..window.second }
         } else emptyList()
