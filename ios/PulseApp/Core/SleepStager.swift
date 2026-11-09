@@ -455,9 +455,34 @@ enum SleepStager {
                 }
             }
         }
+        // 9/11: despierto tumbado (sofá/cama) DESPUÉS de levantarse: 8/11 10:15–13:16 giros ≥ 3 °/s en el 48 % de los minutos y la
+        // noche se alargaba hasta las 13:16 (WHOOP 09:53). Dormido, en 24 noches, ningún tramo de 45 min pasa del 24 %. Si desde un
+        // minuto inquieto hasta el final (≥ 45 min) y sus primeros 45 min tienen ≥ 40 % de minutos inquietos, la noche acaba antes.
+        if end > start {
+            var cnt = 0, tot = 0, cut = -1
+            var fid = [Int](repeating: 0, count: end - start + 1), has = [Int](repeating: 0, count: end - start + 1)
+            for t in stride(from: end - 1, through: start, by: -1) {
+                let g = gyro[off + t]
+                let k = t - start
+                has[k] = has[k + 1] + (g > 0 ? 1 : 0); fid[k] = fid[k + 1] + (g >= fidgetGyro ? 1 : 0)
+                if g > 0 { tot += 1; if g >= fidgetGyro { cnt += 1 } }
+                if g < fidgetGyro || end - t < endRestlessMin { continue }
+                let k2 = k + endRestlessMin
+                let wt = has[k] - has[k2], wf = fid[k] - fid[k2]
+                if tot >= endRestlessMin / 2 && Double(cnt) >= endRestlessFrac * Double(tot)
+                    && wt >= endRestlessMin / 2 && Double(wf) >= endRestlessFrac * Double(wt) { cut = t }
+            }
+            if cut > start {
+                var e = cut
+                while e > start && st[e - 1] == awake { e -= 1 }
+                end = e
+            }
+        }
         return (start, end)
     }
 
+    private static let endRestlessMin = 45
+    private static let endRestlessFrac = 0.40
     private static let onsetPreMax = 40
     private static let onsetWakeMin = 5
     private static let onsetFidget = 0.15

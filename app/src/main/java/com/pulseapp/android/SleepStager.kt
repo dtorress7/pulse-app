@@ -495,9 +495,36 @@ object SleepStager {
                 }
             }
         }
+        // 9/11: despierto tumbado (sofá/cama con el móvil) DESPUÉS de levantarse: domingo 8/11 10:15–13:16 la muñeca hizo giros ≥ 3 °/s
+        // en el 48 % de los minutos y la noche se alargaba hasta las 13:16 (WHOOP 09:53). Dormido, en 24 noches, ningún tramo de 45 min
+        // pasa del 24 %. Si desde un minuto inquieto hasta el final (≥ END_RESTLESS_MIN min) y sus primeros END_RESTLESS_MIN min tienen
+        // ≥ END_RESTLESS_FRAC de minutos inquietos, la noche acaba antes de ese tramo (solo cuentan los minutos con movimiento grabado).
+        run {
+            // cnt/tot = desde t hasta el final; el tramo inquieto empieza en un minuto inquieto y sus primeros END_RESTLESS_MIN min
+            // también lo son (si no, el tramo largo del sofá "arrastraba" hacia atrás minutos dormidos).
+            var cnt = 0; var tot = 0; var cut = -1
+            val fid = IntArray(end - start + 1); val has = IntArray(end - start + 1)
+            for (t in end - 1 downTo start) {
+                val g = gyro[off + t]
+                val k = t - start
+                has[k] = has[k + 1] + (if (g > 0) 1 else 0); fid[k] = fid[k + 1] + (if (g >= FIDGET_GYRO) 1 else 0)
+                if (g > 0) { tot++; if (g >= FIDGET_GYRO) cnt++ }
+                if (g < FIDGET_GYRO || end - t < END_RESTLESS_MIN) continue
+                val k2 = k + END_RESTLESS_MIN
+                val wt = has[k] - has[k2]; val wf = fid[k] - fid[k2]
+                if (tot >= END_RESTLESS_MIN / 2 && cnt >= END_RESTLESS_FRAC * tot && wt >= END_RESTLESS_MIN / 2 && wf >= END_RESTLESS_FRAC * wt) cut = t
+            }
+            if (cut > start) {
+                var e = cut
+                while (e > start && st[e - 1] == AWAKE) e--
+                end = e
+            }
+        }
         return start to end
     }
 
+    private const val END_RESTLESS_MIN = 45
+    private const val END_RESTLESS_FRAC = 0.40
     private const val ONSET_PRE_MAX = 40
     private const val ONSET_WAKE_MIN = 5
     private const val ONSET_FIDGET = 0.15
