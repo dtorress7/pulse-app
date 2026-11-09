@@ -43,7 +43,7 @@ final class WhoopFrameHandler {
     private var eventsLogged = 0
     private var realtimeLogged = 0
     private var unknownHistLogged = 0
-    private var imuMessages = 0
+    private(set) var imuMessages = 0
 
     init(hrLog: HrLog, bio: WhoopBioStore, raw: BufferedAppender, motion: MotionTracker, processor: LiveHrProcessor,
          sendCommand: @escaping (Int, [UInt8], String) -> Void, log: @escaping (String) -> Void,

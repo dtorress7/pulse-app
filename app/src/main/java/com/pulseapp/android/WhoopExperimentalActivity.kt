@@ -28,6 +28,7 @@ import java.io.File
  */
 class WhoopExperimentalActivity : AppCompatActivity() {
     private var saverButton: TextView? = null
+    private var alarmButton: TextView? = null
 
     private lateinit var logText: TextView
     private lateinit var statusText: TextView
@@ -139,6 +140,23 @@ class WhoopExperimentalActivity : AppCompatActivity() {
                 }
             }
             parent.addView(saverButton, idx + 1, android.view.ViewGroup.MarginLayoutParams(imuButton.layoutParams as android.view.ViewGroup.MarginLayoutParams))
+            // 9/11: despertador con vibración de la pulsera + probar vibración
+            fun cloneButton(onClick: () -> Unit) = TextView(this).apply {
+                background = imuButton.background?.constantState?.newDrawable()?.mutate()
+                setTextColor(imuButton.textColors); textSize = imuButton.textSize / resources.displayMetrics.scaledDensity
+                typeface = imuButton.typeface; gravity = imuButton.gravity
+                setPadding(imuButton.paddingLeft, imuButton.paddingTop, imuButton.paddingRight, imuButton.paddingBottom)
+                isClickable = true; setOnClickListener { onClick() }
+            }
+            alarmButton = cloneButton {
+                val on = !WhoopBackgroundService.alarmEnabled(this@WhoopExperimentalActivity)
+                WhoopBackgroundService.setAlarmEnabled(this@WhoopExperimentalActivity, on)
+                WhoopBackgroundService.start(this@WhoopExperimentalActivity, WhoopBackgroundService.ACTION_ALARM); refresh()
+            }
+            val buzz = cloneButton { WhoopBackgroundService.start(this@WhoopExperimentalActivity, WhoopBackgroundService.ACTION_BUZZ) }
+            buzz.text = "Probar vibración de la pulsera"
+            val lp = { android.view.ViewGroup.MarginLayoutParams(imuButton.layoutParams as android.view.ViewGroup.MarginLayoutParams) }
+            parent.addView(alarmButton, idx + 2, lp()); parent.addView(buzz, idx + 3, lp())
         }
         findViewById<View>(R.id.batteryButton).setOnClickListener { askIgnoreBatteryOptimizations() }
         findViewById<View>(R.id.ackModeButton).setOnClickListener { AckModeDialog.show(this) { refresh() } }
@@ -212,6 +230,9 @@ class WhoopExperimentalActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.historyCountText).text = Ui.thousands(WhoopBackgroundService.historyCount.toLong())
         findViewById<TextView>(R.id.ackModeButton).text = AckModeDialog.label(WhoopBackgroundService.ackMode(this))
         imuButton.text = if (WhoopBackgroundService.imuEnabled(this)) "Movimiento y pasos: desactivar" else "Movimiento y pasos: activar"
+        alarmButton?.text = if (WhoopBackgroundService.alarmEnabled(this)) {
+            val m = SleepPlanner.wakeMinute(this); "Despertador con vibración: %02d:%02d (tocar para quitar)".format(m / 60, m % 60)
+        } else "Despertador con vibración: desactivado"
         saverButton?.text = if (WhoopBackgroundService.imuSaver(this)) "Ahorro de batería: ACTIVADO (movimiento 20:00–12:00)" else "Ahorro de batería: desactivado"
         val lines = synchronized(WhoopBackgroundService.serviceLogLines) { WhoopBackgroundService.serviceLogLines.take(150) }
         logText.text = if (lines.isEmpty()) "Sin actividad todavía." else lines.joinToString("\n")

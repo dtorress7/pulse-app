@@ -163,6 +163,14 @@ object WhoopProtocol {
     }
     const val CMD_START_RAW_DATA = 81
     const val CMD_TOGGLE_IMU_MODE = 106
+    // 9/11 (de noop, que ya los usa con la 5.0): parar el chorro crudo, vibración y alarma de la propia pulsera
+    const val CMD_STOP_RAW_DATA = 82
+    const val CMD_RUN_HAPTICS_PATTERN = 79
+    const val CMD_SET_ALARM_TIME = 66
+    const val CMD_DISABLE_ALARM = 69
+    /** SET_ALARM_TIME: [1] + hora unix u32 LE + [0, 0]. */
+    fun alarmPayload(unix: Long): ByteArray = byteArrayOf(1, (unix and 0xFF).toByte(), ((unix shr 8) and 0xFF).toByte(),
+        ((unix shr 16) and 0xFF).toByte(), ((unix shr 24) and 0xFF).toByte(), 0, 0)
 
     fun buildStartRawDataFrame(seq: Int): ByteArray {
         return buildCommand(CMD_START_RAW_DATA, seq, byteArrayOf(0))

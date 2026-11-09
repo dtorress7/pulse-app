@@ -499,8 +499,9 @@ enum HomeDataLoader {
         let mean = history.reduce(0, +) / Double(history.count)
         var sq = 0.0
         for h in history { sq += (h - mean) * (h - mean) }
-        let sd = (sq / Double(history.count)).squareRoot()
-        let half = max(sd, mean * 0.05)
+        // 9/11: media ± 0,85 sd (muestral) de 30 días, como el Monitor de salud de WHOOP (ver Android). Provisional.
+        let sd = history.count > 1 ? (sq / Double(history.count - 1)).squareRoot() : 0
+        let half = max(0.85 * sd, mean * 0.005)
         let lo = mean - half, hi = mean + half
         // Como WHOOP: fuera del rango hacia el lado bueno (VFC alta, FCR o respiración baja) sigue contando como bien
         let ok = (v >= lo && v <= hi) || (goodWhenHigh && v > hi) || (!goodWhenHigh && v < lo)

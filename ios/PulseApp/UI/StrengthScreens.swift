@@ -347,7 +347,7 @@ struct StrengthSummaryView: View {
                 }
                 WBody(text: "FC prom. = pulso medio de la serie entre \"Comenzar\" y \"Finalizar serie\" (\"--\" si no se cronometró). Medalla = récord personal en ese ejercicio: más peso que nunca (o más repeticiones si es sin peso), como WHOOP.", size: 13).padding(.top, 18)
             } else {
-                ProgressView().tint(Theme.textSecondary).frame(maxWidth: .infinity).padding(.top, 80)
+                ScreenLoading()
             }
         }
         .toolbar(.hidden, for: .navigationBar)
@@ -508,7 +508,7 @@ struct StrengthHomeView: View {
                     WBody(text: "A la derecha, tu mejor serie: la de más peso (o más repeticiones si es sin peso).", size: 13).padding(.top, 10)
                 }
             } else {
-                ProgressView().tint(Theme.textSecondary).frame(maxWidth: .infinity).padding(.top, 60)
+                ScreenLoading()
             }
         }
     }

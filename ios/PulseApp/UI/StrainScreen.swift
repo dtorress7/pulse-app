@@ -17,7 +17,7 @@ struct StrainDetailView: View {
             if let d = data {
                 content(d)
             } else {
-                ProgressView().tint(Theme.textSecondary).frame(maxWidth: .infinity).padding(.top, 80)
+                ScreenLoading()
             }
         }
         .toolbar(.hidden, for: .navigationBar)

@@ -294,7 +294,7 @@ struct StressDetailView: View {
                         .padding(.top, 12)
                 }
             } else {
-                ProgressView().tint(Theme.textSecondary).frame(maxWidth: .infinity).padding(.top, 80)
+                ScreenLoading()
             }
         }
         .toolbar(.hidden, for: .navigationBar)
@@ -471,7 +471,7 @@ struct ActivityDetailView: View {
             if let m = model {
                 content(m)
             } else {
-                ProgressView().tint(Theme.textSecondary).frame(maxWidth: .infinity).padding(.top, 80)
+                ScreenLoading()
             }
         }
         .toolbar(.hidden, for: .navigationBar)

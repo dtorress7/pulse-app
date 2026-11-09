@@ -27,6 +27,26 @@ enum WhoopSettings {
         get { return UserDefaults.standard.bool(forKey: kImuSaver) }
         set { UserDefaults.standard.set(newValue, forKey: kImuSaver) }
     }
+    /// 9/11: despertador con vibración de la pulsera a la hora de despertar de "El sueño de esta noche".
+    private static let kAlarm = "pulseapp_band_alarm"
+    private static let kAlarmArmed = "pulseapp_band_alarm_armed"
+    static var alarmEnabled: Bool {
+        get { return UserDefaults.standard.bool(forKey: kAlarm) }
+        set { UserDefaults.standard.set(newValue, forKey: kAlarm) }
+    }
+    /// Hora unix (s) de la alarma que tiene puesta la pulsera según PulseApp (0 = ninguna).
+    static var alarmArmedUnix: Int64 {
+        get { return Int64(UserDefaults.standard.integer(forKey: kAlarmArmed)) }
+        set { UserDefaults.standard.set(Int(newValue), forKey: kAlarmArmed) }
+    }
+    /// Próxima vez que llega la hora de despertar (hoy si aún no ha pasado, si no mañana).
+    static func nextAlarmUnix(now: Date = Date()) -> Int64 {
+        let m = SleepPlanner.wakeMinute()
+        let cal = Calendar.current
+        var d = cal.date(bySettingHour: m / 60, minute: m % 60, second: 0, of: now)!
+        if d <= now.addingTimeInterval(60) { d = cal.date(byAdding: .day, value: 1, to: d)! }
+        return Int64(d.timeIntervalSince1970)
+    }
     static func imuNightHour(_ hour: Int) -> Bool { return hour >= 20 || hour < 12 }
     static func imuWanted() -> Bool {
         return imuEnabled && (!imuSaver || imuNightHour(Calendar.current.component(.hour, from: Date())))

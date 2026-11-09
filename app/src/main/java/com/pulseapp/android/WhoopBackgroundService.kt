@@ -53,6 +53,8 @@ class WhoopBackgroundService : Service() {
         const val ACTION_IMU_ON = "com.pulseapp.android.whoop.IMU_ON"
         const val ACTION_IMU_OFF = "com.pulseapp.android.whoop.IMU_OFF"
         const val ACTION_STOP = "com.pulseapp.android.whoop.STOP"
+        const val ACTION_BUZZ = "com.pulseapp.android.whoop.BUZZ"
+        const val ACTION_ALARM = "com.pulseapp.android.whoop.ALARM"
 
         private const val PREFS = "pulseapp_whoop"
         private const val KEY_ADDRESS = "device_address"
@@ -118,6 +120,25 @@ class WhoopBackgroundService : Service() {
         fun setImuSaver(ctx: Context, on: Boolean) =
             ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_IMU_SAVER, on).apply()
         fun imuNightHour(hour: Int) = hour >= 20 || hour < 12
+
+        // 9/11: despertador con vibración de la pulsera a la hora de despertar de "El sueño de esta noche"
+        private const val KEY_ALARM = "band_alarm"
+        private const val KEY_ALARM_ARMED = "band_alarm_armed"
+        fun alarmEnabled(ctx: Context): Boolean = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_ALARM, false)
+        fun setAlarmEnabled(ctx: Context, on: Boolean) =
+            ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_ALARM, on).apply()
+        fun alarmArmedUnix(ctx: Context): Long = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getLong(KEY_ALARM_ARMED, 0L)
+        fun setAlarmArmedUnix(ctx: Context, v: Long) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putLong(KEY_ALARM_ARMED, v).apply()
+        /** Próxima vez que llega la hora de despertar (hoy si aún no ha pasado, si no mañana), en segundos unix. */
+        fun nextAlarmUnix(ctx: Context, nowMs: Long = System.currentTimeMillis()): Long {
+            val m = SleepPlanner.wakeMinute(ctx)
+            val c = java.util.Calendar.getInstance().apply {
+                timeInMillis = nowMs; set(java.util.Calendar.HOUR_OF_DAY, m / 60); set(java.util.Calendar.MINUTE, m % 60)
+                set(java.util.Calendar.SECOND, 0); set(java.util.Calendar.MILLISECOND, 0)
+            }
+            if (c.timeInMillis <= nowMs + 60_000L) c.add(java.util.Calendar.DAY_OF_MONTH, 1)
+            return c.timeInMillis / 1000
+        }
         fun imuWanted(ctx: Context): Boolean =
             imuEnabled(ctx) && (!imuSaver(ctx) || imuNightHour(java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)))
 
@@ -170,7 +191,7 @@ class WhoopBackgroundService : Service() {
     }
     @Volatile private var imuOn = false
     private val imuScheduleTimer = object : Runnable {
-        override fun run() { applyImuSchedule(); handler.postDelayed(this, 5 * 60_000L) }
+        override fun run() { applyImuSchedule(); applyAlarm(); handler.postDelayed(this, 5 * 60_000L) }
     }
     /** Enciende o apaga el movimiento según el ajuste y la hora (ahorro de batería). */
     private fun applyImuSchedule() {
@@ -278,6 +299,9 @@ class WhoopBackgroundService : Service() {
                 getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(KEY_IMU, true).apply()
                 if (isReady()) { if (imuWanted(this)) startImu() else log("🔋 Ahorro de batería: el movimiento empezará a las 20:00") } else connect()
             }
+            ACTION_BUZZ -> if (isReady()) command(WhoopProtocol.CMD_RUN_HAPTICS_PATTERN, byteArrayOf(2, 3, 0, 0, 0), "Vibración de prueba (orden 79)")
+                else log("⚠️ Vibración: la pulsera no está conectada")
+            ACTION_ALARM -> if (isReady()) applyAlarm(force = true) else connect()
             ACTION_IMU_OFF -> {
                 getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(KEY_IMU, false).apply()
                 if (isReady()) stopImu() else log("🚶 Movimiento desactivado: se aplicará al conectar")
@@ -373,7 +397,8 @@ class WhoopBackgroundService : Service() {
                 assemblers.clear()
                 setState("Conectada · esperando pulso")
                 imuOn = false
-                if (imuWanted(this@WhoopBackgroundService)) startImu()
+                if (imuWanted(this@WhoopBackgroundService)) startImu() else if (imuEnabled(this@WhoopBackgroundService)) stopImu(quiet = true)
+                applyAlarm(force = alarmEnabled(this@WhoopBackgroundService))
                 handler.removeCallbacks(imuScheduleTimer)
                 handler.postDelayed(imuScheduleTimer, 5 * 60_000L)
                 handler.removeCallbacks(offloadTimer)
@@ -595,17 +620,50 @@ class WhoopBackgroundService : Service() {
 
     private fun stopImu(quiet: Boolean = false) {
         imuOn = false
-        // La orden 63 de noop la rechaza la 5.0 (probado 14/10: "fallo"). Probamos el modo IMU con [0,0];
-        // la respuesta (OK / fallo) queda en el registro para saber si funciona.
+        // 9/11: el 7/11 y el 8/11 (iPhone) la orden 106 [0,0] respondió "código 0" pero el movimiento SIGUIÓ llegando toda la tarde.
+        // noop para el chorro crudo con la 63 [0] (la 82 es la pareja de la 81): se mandan las tres y se comprueba a los 2 min.
         command(WhoopProtocol.CMD_TOGGLE_IMU_MODE, byteArrayOf(0, 0), "Movimiento OFF (orden 106 [0,0])")
-        if (!quiet) log("🚶 Movimiento desactivado (mira abajo si la pulsera responde OK)")
+        command(WhoopProtocol.CMD_STOP_RAW_DATA, byteArrayOf(0), "Movimiento OFF: STOP_RAW_DATA (82)")
+        command(WhoopProtocol.CMD_SEND_R10_R11_REALTIME, byteArrayOf(0), "Movimiento OFF: chorro crudo (orden 63 [0])")
+        if (!quiet) log("🚶 Movimiento desactivado")
+        val before = imuMessages
+        handler.postDelayed({
+            if (isReady() && !imuOn) { val n = imuMessages - before
+                log(if (n > 10) "⚠️ Movimiento: sigue llegando tras pararlo ($n mensajes en 2 min)" else "✅ Movimiento parado de verdad ($n mensajes en 2 min)") }
+        }, 120_000L)
     }
 
-    private fun startImu() {
+    private fun startImu(retry: Boolean = true) {
         imuOn = true
+        command(WhoopProtocol.CMD_SEND_R10_R11_REALTIME, byteArrayOf(1), "Movimiento: chorro crudo ON (orden 63 [1])")
         command(WhoopProtocol.CMD_START_RAW_DATA, byteArrayOf(0), "Movimiento: START_RAW_DATA (81)")
         enqueue(Op.Delay(500))
         command(WhoopProtocol.CMD_TOGGLE_IMU_MODE, byteArrayOf(1, 1), "Movimiento: TOGGLE_IMU_MODE (106)")
+        val before = imuMessages
+        handler.postDelayed({
+            if (isReady() && imuOn) {
+                if (imuMessages == before) { log("⚠️ Movimiento: no llega nada 90 s después de activarlo" + if (retry) ", reintento" else ""); if (retry) startImu(false) }
+                else log("🚶 Movimiento llegando (${imuMessages - before} mensajes en 90 s)")
+            }
+        }, 90_000L)
+    }
+
+    /** 9/11: pone (o quita) la alarma de la PULSERA; vibra a la hora aunque el móvil esté lejos. Se mira cada 5 min y al conectar. */
+    private fun applyAlarm(force: Boolean = false) {
+        if (!isReady()) return
+        if (alarmEnabled(this)) {
+            val want = nextAlarmUnix(this)
+            if (want == alarmArmedUnix(this) && !force) return
+            val now = System.currentTimeMillis() / 1000
+            command(WhoopProtocol.CMD_SET_CLOCK, byteArrayOf((now and 0xFF).toByte(), ((now shr 8) and 0xFF).toByte(),
+                ((now shr 16) and 0xFF).toByte(), ((now shr 24) and 0xFF).toByte(), 0, 0, 0, 0), "Poner en hora antes de la alarma (orden 10)")
+            val hhmm = java.text.SimpleDateFormat("HH:mm", java.util.Locale.US).format(java.util.Date(want * 1000))
+            command(WhoopProtocol.CMD_SET_ALARM_TIME, WhoopProtocol.alarmPayload(want), "⏰ Alarma de la pulsera a las $hhmm (orden 66)")
+            setAlarmArmedUnix(this, want)
+        } else if (alarmArmedUnix(this) != 0L) {
+            command(WhoopProtocol.CMD_DISABLE_ALARM, byteArrayOf(1), "⏰ Alarma de la pulsera quitada (orden 69)")
+            setAlarmArmedUnix(this, 0L)
+        }
     }
 
     // ---------- Notificación ----------

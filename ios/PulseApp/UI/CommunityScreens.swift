@@ -28,7 +28,7 @@ struct CommunityView: View {
                 if !configured {
                     ServerSetupCard { configured = CommunityConfig.isConfigured; load() }.padding(.top, 18)
                 } else if loading {
-                    ProgressView().tint(Theme.textSecondary).frame(maxWidth: .infinity).padding(.top, 80)
+                    ScreenLoading()
                 } else if profile == nil || profile!.name.isEmpty {
                     ProfileSetupCard(initial: profile) { p in profile = p; load() }.padding(.top, 18)
                 } else {
@@ -637,7 +637,7 @@ struct LeaderboardView: View {
                     .opacity(l.value == nil ? 0.5 : 1)
                     .padding(.top, 20)
                 }
-                if !model.loaded { ProgressView().tint(Theme.textSecondary).frame(maxWidth: .infinity).padding(.top, 40) }
+                if !model.loaded { ScreenLoading() }
                 if !model.error.isEmpty { WBody(text: model.error, size: 13, color: Theme.alertAmber).padding(.top, 16) }
             }
             .padding(.horizontal, 16).padding(.bottom, 120)

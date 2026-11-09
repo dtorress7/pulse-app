@@ -18,6 +18,18 @@ enum WhoopProtocol {
     static let cmdSetConfig = 0x78
     static let cmdStartRawData = 81
     static let cmdToggleImuMode = 106
+    // 9/11 (de noop, que ya los usa con la 5.0): parar el chorro crudo, vibración y alarma de la propia pulsera
+    static let cmdStopRawData = 82
+    static let cmdSendR10R11Realtime = 63
+    static let cmdRunHapticsPattern = 79
+    static let cmdSetAlarmTime = 66
+    static let cmdGetAlarmTime = 67
+    static let cmdDisableAlarm = 69
+    /// SET_ALARM_TIME: [1] + hora unix u32 LE + [0, 0]
+    static func alarmPayload(_ unix: Int64) -> [UInt8] {
+        let u = UInt32(truncatingIfNeeded: unix)
+        return [1, UInt8(u & 0xFF), UInt8((u >> 8) & 0xFF), UInt8((u >> 16) & 0xFF), UInt8((u >> 24) & 0xFF), 0, 0]
+    }
 
     /// Órdenes que pueden borrar datos, reiniciar o reflashear la pulsera: NUNCA se envían.
     /// 25 FORCE_TRIM, 29 REBOOT, 32 POWER_CYCLE, 36/37/38 firmware, 45 BLE_DFU, 99 reset del medidor de batería.

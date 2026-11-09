@@ -10,11 +10,13 @@ struct WhoopView: View {
     @State private var logLines = ServiceLog.shared.snapshot(150)
     @State private var showClear = false
     @State private var testTick = 0
+    @State private var alarm = WhoopSettings.alarmEnabled
 
     var body: some View {
         NavigationStack {
             Screen("WHOOP") {
                 connectionCard
+                alarmCard
                 modesCard
                 dataCard
                 exportCard
@@ -51,6 +53,27 @@ struct WhoopView: View {
                 .foregroundColor(color == Theme.recoveryGreen || color == Theme.strainBlue ? Theme.onAccent : Theme.textPrimary)
                 .frame(maxWidth: Double.infinity).padding(.vertical, 10)
                 .background(color).cornerRadius(10)
+        }
+    }
+
+    /// 9/11: despertador con vibración de la propia pulsera (como WHOOP).
+    private var alarmCard: some View {
+        return Card {
+            VStack(alignment: .leading, spacing: 12) {
+                CapsLabel(text: "Alarma")
+                Toggle(isOn: Binding(get: { alarm }, set: { v in
+                    alarm = v; WhoopSettings.alarmEnabled = v; mgr.applyAlarm(force: true)
+                })) {
+                    Text("Despertador con vibración").font(Theme.text(15)).foregroundColor(Theme.textPrimary)
+                }
+                Text(alarm ? "La pulsera vibrará a las \(Fmt.clock(minuteOfDay: SleepPlanner.wakeMinute())) (la hora de despertar de «El sueño de esta noche», en Inicio). La alarma se guarda en la pulsera: suena aunque el móvil esté lejos. Si también tienes la alarma de la app de WHOOP, la última que se ponga sustituye a la otra."
+                     : "Usa la hora de despertar de «El sueño de esta noche» (Inicio). Pruébala primero con el botón de abajo.")
+                    .font(Theme.text(11)).foregroundColor(Theme.textSecondary)
+                Button(action: { mgr.testBuzz() }) {
+                    Text("Probar vibración").font(Theme.label(14)).foregroundColor(Theme.textPrimary)
+                        .frame(maxWidth: Double.infinity).padding(.vertical, 9).background(Theme.track).cornerRadius(10)
+                }
+            }
         }
     }
 

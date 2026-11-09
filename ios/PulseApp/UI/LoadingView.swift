@@ -6,6 +6,7 @@ import SwiftUI
 /// el anillo "late" y suelta una onda. Debajo, las letras de CARGANDO saltan una detrás de otra.
 struct LoadingView: View {
     var text: String = "CARGANDO"
+    var background: Color = .black
     @State private var start = Date()
 
     // Latido del logo (coordenadas del logo de 120 × 120 con el anillo de radio 44 centrado en 60,60)
@@ -41,7 +42,7 @@ struct LoadingView: View {
                 LoadingView.draw(&ctx, size, t, text)
             }
         }
-        .background(Color.black)
+        .background(background)
     }
 
     static func draw(_ ctx: inout GraphicsContext, _ size: CGSize, _ t: Double, _ text: String) {
@@ -119,5 +120,13 @@ struct LoadingView: View {
                      at: CGPoint(x: x, y: baseY - jump * 9), anchor: .bottomLeading)
             x += widths[i] + spacing
         }
+    }
+}
+
+/// 9/11: el logo de carga dentro de una pantalla (Sueño, Esfuerzo, Recuperación…) en lugar de la ruedecita de iOS.
+struct ScreenLoading: View {
+    var height: CGFloat = 460
+    var body: some View {
+        LoadingView(background: .clear).frame(maxWidth: .infinity).frame(height: height)
     }
 }

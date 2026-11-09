@@ -424,15 +424,20 @@ class HomeDataLoader(private val ctx: Context) {
         )
     }
 
-    /** Rango habitual = media ± 1 desviación (mínimo ±5 % de la media), como en Salud. Null con menos de 3 noches. */
+    private val HEALTH_RANGE_SD = 0.85
+
+    /** Rango habitual = media ± 0,85 desviaciones de 30 días (9/11), como el Monitor de salud de WHOOP. Null con menos de 3 noches. */
     private fun vital(key: String, label: String, icon: Int, value: Double?, unit: String, decimals: Int,
                       history: List<Double>, goodWhenHigh: Boolean): VitalStatus {
         if (history.size < BaselineProvider.MIN_DAYS_REQUIRED || value == null) {
             return VitalStatus(key, label, icon, value, unit, decimals, null, null, goodWhenHigh, null)
         }
         val mean = history.average()
-        val sd = sqrt(history.map { (it - mean) * (it - mean) }.average())
-        val half = maxOf(sd, mean * 0.05)
+        // 9/11: rango = media ± 0,85 sd (muestral) de 30 días. Con los valores de WHOOP da su Monitor de salud del 9/11 (VFC 79–102 → 76–102,
+        // FCR 56–61 → 55–61, resp 13,3–13,5 → 13,3–13,6) y deja dentro su VFC del 1/11 (78); con ± 1 sd y suelo del 5 % la respiración salía
+        // 12,7–14,0. Provisional: 2 días de WHOOP para comprobarlo.
+        val sd = if (history.size > 1) sqrt(history.sumOf { (it - mean) * (it - mean) } / (history.size - 1)) else 0.0
+        val half = maxOf(HEALTH_RANGE_SD * sd, mean * 0.005)
         val lo = mean - half
         val hi = mean + half
         // Como WHOOP: fuera del rango hacia el lado bueno (VFC alta, FCR o respiración baja) sigue contando como bien

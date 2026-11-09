@@ -431,7 +431,8 @@ final class WhoopManager: NSObject, ObservableObject, CBCentralManagerDelegate, 
             self.offloadedThisConnection = false
             self.setState("Conectada · esperando pulso")
             self.imuOn = false
-            if WhoopSettings.imuWanted() { self.startImu() }
+            if WhoopSettings.imuWanted() { self.startImu() } else if WhoopSettings.imuEnabled { self.stopImu() }
+            self.applyAlarm(force: WhoopSettings.alarmEnabled)
             self.lastOffloadRequest = Date.distantPast
             // Si en 15 s no llega ningún dato, también se reconecta
             DispatchQueue.main.asyncAfter(deadline: .now() + WhoopManager.setupTimeout) { [weak self] in
@@ -524,6 +525,7 @@ final class WhoopManager: NSObject, ObservableObject, CBCentralManagerDelegate, 
 
     private func tickOffload() {
         applyImuSchedule()
+        applyAlarm()
         guard ready, !handler.offloading else { return }
         if Date().timeIntervalSince(lastOffloadRequest) < WhoopManager.offloadEvery { return }
         if WhoopSettings.ackMode != 1 && offloadedThisConnection { return }
@@ -547,17 +549,67 @@ final class WhoopManager: NSObject, ObservableObject, CBCentralManagerDelegate, 
         DispatchQueue.main.asyncAfter(deadline: .now() + 60, execute: w)
     }
 
-    private func startImu() {
+    private func startImu(retry: Bool = true) {
         imuOn = true
+        // 9/11: si la orden 63 [0] lo paró, hay que volver a activarlo (si la pulsera la rechaza, no pasa nada)
+        command(WhoopProtocol.cmdSendR10R11Realtime, [1], "Movimiento: chorro crudo ON (orden 63 [1])")
         command(WhoopProtocol.cmdStartRawData, [0], "Movimiento: START_RAW_DATA (81)")
         enqueue(.delay(0.5))
         command(WhoopProtocol.cmdToggleImuMode, [1, 1], "Movimiento: TOGGLE_IMU_MODE (106)")
+        // Vigilancia: si en 90 s no llega movimiento, se avisa y se reintenta una vez
+        let before = handler.imuMessages
+        DispatchQueue.main.asyncAfter(deadline: .now() + 90) { [weak self] in
+            guard let self = self, self.ready, self.imuOn else { return }
+            if self.handler.imuMessages == before {
+                ServiceLog.shared.log("⚠️ Movimiento: no llega nada 90 s después de activarlo" + (retry ? ", reintento" : ""))
+                if retry { self.startImu(retry: false) }
+            } else { ServiceLog.shared.log("🚶 Movimiento llegando (\(self.handler.imuMessages - before) mensajes en 90 s)") }
+        }
     }
 
     private func stopImu() {
         imuOn = false
+        // 9/11: el 7/11 y el 8/11 la orden 106 [0,0] respondió "código 0" pero el movimiento SIGUIÓ llegando toda la tarde
+        // (el ahorro no ahorraba nada). noop para el chorro crudo con la 63 [0] (la 82 es la pareja de la 81): se mandan las tres.
         command(WhoopProtocol.cmdToggleImuMode, [0, 0], "Movimiento OFF (orden 106 [0,0])")
+        command(WhoopProtocol.cmdStopRawData, [0], "Movimiento OFF: STOP_RAW_DATA (82)")
+        command(WhoopProtocol.cmdSendR10R11Realtime, [0], "Movimiento OFF: chorro crudo (orden 63 [0])")
         ServiceLog.shared.log("🚶 Movimiento desactivado")
+        let before = handler.imuMessages
+        DispatchQueue.main.asyncAfter(deadline: .now() + 120) { [weak self] in
+            guard let self = self, self.ready, !self.imuOn else { return }
+            let n = self.handler.imuMessages - before
+            ServiceLog.shared.log(n > 10 ? "⚠️ Movimiento: sigue llegando tras pararlo (\(n) mensajes en 2 min)" : "✅ Movimiento parado de verdad (\(n) mensajes en 2 min)")
+        }
+    }
+
+    // ---------- Alarma y vibración (9/11) ----------
+
+    /// Hace vibrar la pulsera ahora (patrón 2 = el de la alarma de WHOOP, 3 veces).
+    func testBuzz() {
+        guard ready else { ServiceLog.shared.log("⚠️ Vibración: la pulsera no está conectada"); return }
+        command(WhoopProtocol.cmdRunHapticsPattern, [2, 3, 0, 0, 0], "Vibración de prueba (orden 79)")
+    }
+
+    /// Pone (o quita) la alarma de la PULSERA: vibra a la hora aunque el móvil esté lejos o PulseApp cerrada.
+    /// Se mira con cada dato (como mucho cada minuto): si cambias la hora de despertar o ya sonó, se pone la siguiente.
+    private var lastAlarmCheck = Date.distantPast
+    func applyAlarm(force: Bool = false) {
+        guard ready else { return }
+        if !force && Date().timeIntervalSince(lastAlarmCheck) < 60 { return }
+        lastAlarmCheck = Date()
+        if WhoopSettings.alarmEnabled {
+            let want = WhoopSettings.nextAlarmUnix()
+            if want == WhoopSettings.alarmArmedUnix && !force { return }
+            let now = UInt32(truncatingIfNeeded: Int64(Date().timeIntervalSince1970))
+            let clock: [UInt8] = [UInt8(now & 0xFF), UInt8((now >> 8) & 0xFF), UInt8((now >> 16) & 0xFF), UInt8((now >> 24) & 0xFF), 0, 0, 0, 0]
+            command(WhoopProtocol.cmdSetClock, clock, "Poner en hora antes de la alarma (orden 10)")
+            command(WhoopProtocol.cmdSetAlarmTime, WhoopProtocol.alarmPayload(want), "⏰ Alarma de la pulsera a las \(Fmt.clock(want * 1000)) (orden 66)")
+            WhoopSettings.alarmArmedUnix = want
+        } else if WhoopSettings.alarmArmedUnix != 0 {
+            command(WhoopProtocol.cmdDisableAlarm, [1], "⏰ Alarma de la pulsera quitada (orden 69)")
+            WhoopSettings.alarmArmedUnix = 0
+        }
     }
 
     // ---------- Estado visible ----------
