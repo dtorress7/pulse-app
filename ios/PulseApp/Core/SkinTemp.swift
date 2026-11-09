@@ -51,10 +51,10 @@ enum SkinTemp {
             carry.append(chunk)
             guard let lastNl = carry.lastIndex(of: 10) else { continue }
             let block = carry[carry.startIndex...lastNl]
-            if let text = String(data: block, encoding: .utf8) { text.enumerateLines { l, _ in body(l) } }
+            if let text = String(data: block, encoding: .utf8) { for l in text.split(separator: "\n") { body(String(l)) } }
             carry = Data(carry[carry.index(after: lastNl)...])
         }
-        if !carry.isEmpty, let text = String(data: carry, encoding: .utf8) { text.enumerateLines { l, _ in body(l) } }
+        if !carry.isEmpty, let text = String(data: carry, encoding: .utf8) { for l in text.split(separator: "\n") { body(String(l)) } }
     }
 
     static func loadAll() -> [String: Double] {
