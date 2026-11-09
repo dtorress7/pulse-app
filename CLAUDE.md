@@ -857,6 +857,14 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   hacia ARRIBA a 5 min (24 noches API 17/10→9/11: 26,8 → 30 = WHOOP; un dato; con las noches de PulseApp la media ronda 28–29 → 30, ojo si pasa de 30
   daría 35). "Óptimo" (barra azul) = franja sin depender de la alarma; "Sugerido" (horas blancas) = con tu alarma. Óptimo 9/11 22:45–07:35 NO es tu
   horario medio (24 noches: acostarse 23:22 / levantarse 08:00 de media, mediana 23:11–07:50) → regla desconocida, no se muestra todavía.
+  **Capturas "Mejorar mi sueño" (9/11 17:36)**: despertar 7:30 → acostarse 22:45, 8:45 en cama, "66 % de regularidad mañana"; despertar 8:30 → 23:15,
+  9:15, 74 %; Óptimo 22:45–07:35 en las dos (no depende de la alarma). Aplicado (Android + iOS `SleepAlarm.plan(…, nights, naps)`):
+  regularidad prevista = `sleepConsistency` (−4) de la noche planeada con las 3 anteriores → código real (check/plan09/P.kt) con las noches de
+  WHOOP 67/75, con las de PulseApp 67/76 (W 66/74): el −4 se confirma de forma independiente. PROVISIONAL (dos puntos): Óptimo = tiempo en cama al
+  100 % redondeado a 5 min acabando en la hora media de despertar (hora local) de las noches del mismo tipo de día (L–V / S–D) de 28 días, redondeada
+  a 5 → 22:50–07:40 (W 22:45–07:35; laborables 17/10→9/11 media 07:38, mediana 07:42; en hora de invierno fija 07:20). Mejorar = a mitad de camino
+  entre la hora para el 100 % de la necesidad y la del Óptimo, redondeado a 15 min → 22:45 y 23:15 = WHOOP. Mensaje como WHOOP ("Acuéstate hoy a
+  las X para lograr un N % de regularidad del sueño mañana") y fila ÓPTIMO bajo el tiempo en cama. Faltan más días para confirmar el Óptimo.
 
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,

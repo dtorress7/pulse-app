@@ -250,7 +250,12 @@ class HomeDataLoader(private val ctx: Context) {
             val dayStrain = summary.strain?.let { Formulas.addStrength(it, strengthMin, activityMin) }
             val plan = planner.computeTonightPlan(db, dayStrain, wake / 60, wake % 60, debtOverride = debtAfter)
             // 9/11: como el planificador de WHOOP: hora de acostarse = despertar − (meta + tiempo medio despierto)
-            val ap = SleepAlarm.plan(ctx, stored.filter { it.date < date.format(iso) }.map { it.awakeMinutes }, plan)
+            // Noches guardadas + la de hoy (para el Óptimo y la regularidad prevista de "Mejorar mi sueño")
+            val planNights = stored.filter { it.date < date.format(iso) && it.sleepStartMinuteOfDay != null && it.sleepEndMinuteOfDay != null }
+                .map { SleepAlarm.Night(it.date, it.sleepStartMinuteOfDay!!, it.sleepEndMinuteOfDay!!) }.toMutableList()
+            summary.sleepStartMinuteOfDay?.let { a -> summary.sleepEndMinuteOfDay?.let { b -> planNights.add(SleepAlarm.Night(date.format(iso), a, b)) } }
+            val planNaps = planNights.takeLast(3).map { Formulas.napMinutes(Formulas.napsForNight(allSessions, it.date, zone), zone) }
+            val ap = SleepAlarm.plan(ctx, stored.filter { it.date < date.format(iso) }.map { it.awakeMinutes }, plan, planNights, planNaps)
             alarmPlan = ap
             bedtime = "%02d:%02d".format(ap.bedMinute / 60, ap.bedMinute % 60)
             val prevRows = stored.filter { it.date < date.format(iso) && it.sleepStartMinuteOfDay != null && it.sleepEndMinuteOfDay != null }.takeLast(3)

@@ -25,15 +25,20 @@ object SleepPlannerDialogs {
 
     fun show(a: Activity, base: SleepAlarm.Plan?, onChange: () -> Unit) {
         // Se recalcula con la meta, el modo y la hora de ahora (el tiempo despierto es el de Inicio)
-        val plan = base?.let { SleepAlarm.plan(a, List(3) { _ -> it.awake }, SleepPlan(it.base, it.strain, it.debt, it.nap, it.need, null)) }
+        val plan = base?.let { SleepAlarm.plan(a, it.awakeList, SleepPlan(it.base, it.strain, it.debt, it.nap, it.need, null), it.nights, it.naps) }
         val nx = SleepAlarm.next(a)
         val alarmOn = nx.mode != SleepAlarm.MODE_NONE
         val pct = if (SleepAlarm.goal(a) == 1) "100 %" else "${SleepAlarm.goalPct(a)} %"
         val msg = StringBuilder()
         if (plan != null) {
-            msg.append(if (alarmOn) "Tu alarma se activará a las ${clock(plan.wakeMinute)}${if (plan.mode == SleepAlarm.MODE_EXACT) "" else " como muy tarde"}. " else "")
-            msg.append("Acuéstate a las ${clock(plan.bedMinute)} para obtener el $pct del sueño requerido.\n\n")
-            msg.append("TIEMPO EN CAMA ${hm(plan.inBed)}\n")
+            if (SleepAlarm.goal(a) == 1 && plan.regularity != null)
+                msg.append("Acuéstate hoy a las ${clock(plan.bedMinute)} para lograr un ${plan.regularity} % de regularidad del sueño mañana.\n\n")
+            else {
+                msg.append(if (alarmOn) "Tu alarma se activará a las ${clock(plan.wakeMinute)}${if (plan.mode == SleepAlarm.MODE_EXACT) "" else " como muy tarde"}. " else "")
+                msg.append("Acuéstate a las ${clock(plan.bedMinute)} para obtener el $pct del sueño requerido.\n\n")
+            }
+            msg.append("TIEMPO EN CAMA ${hm(plan.inBed)}  (${clock(plan.bedMinute)} – ${clock(plan.wakeMinute)})\n")
+            if (plan.optBed != null && plan.optWake != null) msg.append("ÓPTIMO ${clock(plan.optBed)} – ${clock(plan.optWake)}\n")
             msg.append("Necesidad ${hm(plan.need)} = referencia ${hm(plan.base)} + esfuerzo ${hm(plan.strain)} + deuda ${hm(plan.debt)} − siestas ${hm(Math.abs(plan.nap))}\n")
             msg.append("Meta $pct ${hm(plan.goal)} + tiempo promedio despierto ${hm(plan.awake)}")
         } else msg.append("Aún no hay datos de esta noche para calcular tu plan.")

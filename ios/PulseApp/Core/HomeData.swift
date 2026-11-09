@@ -289,7 +289,14 @@ enum HomeDataLoader {
             let plan = SleepPlanner.computeTonightPlan(store: store, todayStrain: dayStrain, wakeHour: wake / 60, wakeMinute: wake % 60,
                                                        debtOverride: debtAfter)
             // 9/11: como el planificador de WHOOP: hora de acostarse = despertar − (meta + tiempo medio despierto)
-            let ap = SleepAlarm.plan(store: store, sleepPlan: plan)
+            // Noches guardadas + la de hoy (para el Óptimo y la regularidad prevista de "Mejorar mi sueño")
+            var planNights = stored.filter { $0.date < date }.compactMap { r -> SleepAlarm.Night? in
+                guard let a = r.sleepStartMinuteOfDay, let b = r.sleepEndMinuteOfDay else { return nil }
+                return SleepAlarm.Night(date: r.date, start: a, end: b)
+            }
+            if let a = s.sleepStartMinuteOfDay, let b = s.sleepEndMinuteOfDay { planNights.append(SleepAlarm.Night(date: date, start: a, end: b)) }
+            let planNaps = planNights.suffix(3).map { Formulas.napMinutes(Formulas.napsForNight(allSessions, $0.date)) }
+            let ap = SleepAlarm.plan(store: store, sleepPlan: plan, nights: planNights, naps: Array(planNaps))
             alarmPlan = ap
             bedtime = String(format: "%02d:%02d", ap.bedMinute / 60, ap.bedMinute % 60)
             var consistency: Int? = nil

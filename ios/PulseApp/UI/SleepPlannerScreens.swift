@@ -24,7 +24,7 @@ struct SleepPlannerView: View {
         guard let b = basePlan else { return nil }
         let sp = SleepPlan(baselineMinutes: b.base, strainAdjustmentMinutes: b.strain, debtAdjustmentMinutes: b.debt,
                            napAdjustmentMinutes: b.nap, totalNeedMinutes: b.need, suggestedBedtime: nil)
-        return SleepAlarm.plan(store: AppStore.shared, sleepPlan: sp)
+        return SleepAlarm.plan(store: AppStore.shared, sleepPlan: sp, nights: b.nights, naps: b.naps)
     }
     private var alarmOn: Bool { _ = tick; return SleepAlarm.next().mode != SleepAlarm.modeNone }
 
@@ -80,7 +80,9 @@ struct SleepPlannerView: View {
             Image("LaunchLogo").resizable().scaledToFit().frame(width: 52, height: 52)
             if let p = plan {
                 let pct = SleepAlarm.goal == 1 ? "100 %" : "\(SleepAlarm.goalPct) %"
-                Text(alarmOn ? "Tu alarma se activará a las \(clock(p.wakeMinute))\(p.mode == SleepAlarm.modeExact ? "" : " como muy tarde"). Acuéstate a las \(clock(p.bedMinute)) para obtener el \(pct) del sueño requerido."
+                Text(SleepAlarm.goal == 1 && p.regularity != nil
+                     ? "Acuéstate hoy a las \(clock(p.bedMinute)) para lograr un \(p.regularity!) % de regularidad del sueño mañana."
+                     : alarmOn ? "Tu alarma se activará a las \(clock(p.wakeMinute))\(p.mode == SleepAlarm.modeExact ? "" : " como muy tarde"). Acuéstate a las \(clock(p.bedMinute)) para obtener el \(pct) del sueño requerido."
                              : "Acuéstate a las \(clock(p.bedMinute)) para obtener el \(pct) del sueño requerido si te despiertas a las \(clock(p.wakeMinute)).")
                     .font(Theme.text(19, .medium)).foregroundColor(Theme.textPrimary).multilineTextAlignment(.center)
             } else {
@@ -122,6 +124,13 @@ struct SleepPlannerView: View {
                         Text(plan.map { hm($0.inBed) } ?? "--").font(Theme.number(22)).foregroundColor(Theme.textPrimary)
                             .padding(.horizontal, 18).padding(.vertical, 2)
                             .background(Capsule().fill(Theme.wBgMid)).overlay(Capsule().stroke(Color.white, lineWidth: 2))
+                    }
+                    if let p = plan, let ob = p.optBed, let ow = p.optWake {
+                        VStack(spacing: 4) {
+                            WTitle(text: "Óptimo", size: 12.5, color: Theme.sleepBlue)
+                            Text("\(clock(ob)) - \(Fmt.clock(minuteOfDay: ow))").font(Theme.number(15)).foregroundColor(Theme.textSecondary)
+                        }
+                        .padding(.top, 8)
                     }
                 }
             }

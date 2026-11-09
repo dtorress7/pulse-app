@@ -112,19 +112,71 @@ enum SleepAlarm {
         let base: Int, strain: Int, debt: Int, nap: Int, need: Int
         let goal: Int, awake: Int, inBed: Int
         let bedMinute: Int, wakeMinute: Int, mode: Int, alarmUnix: Int64
+        /// "Óptimo" de WHOOP (franja sin depender de la alarma) y regularidad prevista para mañana (solo con "Mejorar").
+        var optBed: Int? = nil, optWake: Int? = nil, regularity: Int? = nil
+        /// Noches y siestas con las que se calculó (para rehacer el plan en el planificador al cambiar meta u hora).
+        var nights: [Night] = []
+        var naps: [[(Int, Int)]] = []
     }
 
-    /// Plan de esta noche con la necesidad que ya calcula Inicio.
-    static func plan(store: AppStore, sleepPlan p: SleepPlan, now: Date = Date()) -> Plan {
+    /// Una noche guardada: fecha en que acaba (yyyy-MM-dd), inicio y fin en minutos del día (hora local).
+    struct Night { let date: String; let start: Int; let end: Int }
+
+    private static func round(_ m: Int, to q: Int) -> Int { return Int((Double(m) / Double(q)).rounded()) * q }
+    private static func wrap(_ m: Int) -> Int { return ((m % 1440) + 1440) % 1440 }
+
+    /// 9/11 (capturas de WHOOP con "Mejorar mi sueño": despertar 7:30 → 22:45, 8:45 en cama, 66 %; despertar 8:30 → 23:15, 9:15, 74 %;
+    /// Óptimo 22:45–7:35 en las dos):
+    /// - Óptimo (PROVISIONAL) = tiempo en cama al 100 % redondeado a 5 min, acabando a tu hora media de despertar de las últimas
+    ///   28 noches del mismo tipo de día (L–V o S–D), redondeada a 5 min. 9/11: 07:38 → 07:40 y 8:48 → 8:50 → 22:50–07:40 (WHOOP 22:45–07:35).
+    /// - Mejorar (PROVISIONAL) = a mitad de camino entre la hora de acostarse para tu necesidad (con tu hora de despertar) y la del Óptimo,
+    ///   redondeado a 15 min: 7:30 → 22:46 → 22:45 (W 22:45), 8:30 → 23:16 → 23:15 (W 23:15).
+    /// - Regularidad prevista = Formulas.sleepConsistency de esa noche con las 3 anteriores (comprobado con las noches de WHOOP:
+    ///   22:45–7:30 → 66,6 (W 66), 23:15–8:30 → 75,0 (W 74)).
+    static func plan(store: AppStore, sleepPlan p: SleepPlan, nights: [Night] = [], naps: [[(Int, Int)]] = [], now: Date = Date()) -> Plan {
         let nx = next(now: now)
-        let goalMin = Int((Double(p.totalNeedMinutes) * goalFactor()).rounded())
         let awake = avgAwakeMinutes(store: store)
-        let inBed = goalMin + awake
-        var bed = (nx.minute - inBed) % 1440
-        if bed < 0 { bed += 1440 }
+        let fullInBed = p.totalNeedMinutes + awake
+        var goalMin = Int((Double(p.totalNeedMinutes) * goalFactor()).rounded())
+        var inBed = goalMin + awake
+        var bed = wrap(nx.minute - inBed)
+        let wakeDate = Date(timeIntervalSince1970: TimeInterval(nx.unix))
+        let weekend = weekdayIndex(wakeDate) >= 5
+        // Óptimo: hora media de despertar del mismo tipo de día (28 noches)
+        var optBed: Int? = nil, optWake: Int? = nil
+        let cutoff = TimeUtil.dayKey(Int64(wakeDate.addingTimeInterval(-28 * 86400).timeIntervalSince1970 * 1000))
+        let same = nights.filter { n in
+            guard n.date >= cutoff, let d = TimeUtil.parseDayKey(n.date) else { return false }
+            return (weekdayIndex(Date(timeIntervalSince1970: TimeInterval(d / 1000))) >= 5) == weekend
+        }
+        if same.count >= 5 {
+            let w = round(Int((Double(same.reduce(0) { $0 + $1.end }) / Double(same.count)).rounded()), to: 5)
+            optWake = w
+            optBed = wrap(w - round(fullInBed, to: 5))
+        }
+        var regularity: Int? = nil
+        if goal == 1 {
+            let needBed = nx.minute - fullInBed            // puede ser negativo (antes de medianoche)
+            var b = needBed
+            if let ob = optBed {
+                var o = ob; if o > 720 { o -= 1440 }         // en el mismo eje que needBed
+                b = Int((Double(needBed + o) / 2).rounded())
+            }
+            bed = wrap(round(b, to: 15))
+            inBed = wrap(nx.minute - bed)
+            goalMin = inBed - awake
+            let prev = Array(nights.suffix(3))
+            if prev.count >= 1 {
+                let tomorrow = TimeUtil.dayKey(Int64(nx.unix) * 1000)
+                let all = prev.map { Formulas.standardNight($0.date, $0.start, $0.end) } + [Formulas.standardNight(tomorrow, bed, nx.minute)]
+                let np = Array(naps.suffix(prev.count)) + [[]]
+                regularity = Formulas.sleepConsistency(all, naps: np.count == all.count ? np : nil)
+            }
+        }
         return Plan(base: p.baselineMinutes, strain: p.strainAdjustmentMinutes, debt: p.debtAdjustmentMinutes, nap: p.napAdjustmentMinutes,
                     need: p.totalNeedMinutes, goal: goalMin, awake: awake, inBed: inBed, bedMinute: bed, wakeMinute: nx.minute,
-                    mode: nx.mode, alarmUnix: nx.unix)
+                    mode: nx.mode, alarmUnix: nx.unix, optBed: optBed, optWake: optWake, regularity: regularity,
+                    nights: nights, naps: naps)
     }
 
     /// ¿Hay que despertar ya? (modos inteligentes, dentro de la ventana antes de la hora de despertar)

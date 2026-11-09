@@ -100,18 +100,64 @@ object SleepAlarm {
 
     data class Plan(
         val base: Int, val strain: Int, val debt: Int, val nap: Int, val need: Int,
-        val goal: Int, val awake: Int, val inBed: Int, val bedMinute: Int, val wakeMinute: Int, val mode: Int, val alarmUnix: Long
+        val goal: Int, val awake: Int, val inBed: Int, val bedMinute: Int, val wakeMinute: Int, val mode: Int, val alarmUnix: Long,
+        /** "Óptimo" de WHOOP y regularidad prevista para mañana (solo con "Mejorar mi sueño"). */
+        val optBed: Int? = null, val optWake: Int? = null, val regularity: Int? = null,
+        /** Datos con los que se calculó (para rehacerlo en el planificador). */
+        val awakeList: List<Int?> = emptyList(), val nights: List<Night> = emptyList(), val naps: List<List<Pair<Int, Int>>> = emptyList()
     )
 
-    /** Plan de esta noche con la necesidad que ya calcula Inicio. `awake` = tiempo despierto de las noches guardadas (en orden). */
-    fun plan(ctx: Context, awake: List<Int?>, p: SleepPlan, nowMs: Long = System.currentTimeMillis()): Plan {
+    /** Una noche guardada: fecha en que acaba (yyyy-MM-dd), inicio y fin en minutos del día (hora local). */
+    data class Night(val date: String, val start: Int, val end: Int)
+
+    private fun round(m: Int, q: Int) = Math.round(m.toDouble() / q).toInt() * q
+    private fun wrap(m: Int) = ((m % 1440) + 1440) % 1440
+
+    /**
+     * Plan de esta noche con la necesidad que ya calcula Inicio (iOS igual; ver SleepAlarm.swift para la comprobación con las capturas
+     * de WHOOP del 9/11: Mejorar 7:30 → 22:45/8:45/66 %, 8:30 → 23:15/9:15/74 %, Óptimo 22:45–7:35).
+     * - Óptimo (PROVISIONAL): tiempo en cama al 100 % redondeado a 5 min acabando a tu hora media de despertar (28 noches del mismo tipo de día).
+     * - Mejorar (PROVISIONAL): a mitad de camino entre la hora para tu necesidad y la del Óptimo, redondeado a 15 min.
+     * - Regularidad prevista = Formulas.sleepConsistency con las 3 noches anteriores.
+     */
+    fun plan(ctx: Context, awake: List<Int?>, p: SleepPlan, nights: List<Night> = emptyList(), naps: List<List<Pair<Int, Int>>> = emptyList(),
+             nowMs: Long = System.currentTimeMillis()): Plan {
         val nx = next(ctx, nowMs)
-        val goalMin = Math.round(p.totalNeedMinutes * goalFactor(ctx)).toInt()
         val aw = avgAwakeMinutes(awake)
-        val inBed = goalMin + aw
-        val bed = ((nx.minute - inBed) % 1440 + 1440) % 1440
+        val fullInBed = p.totalNeedMinutes + aw
+        var goalMin = Math.round(p.totalNeedMinutes * goalFactor(ctx)).toInt()
+        var inBed = goalMin + aw
+        var bed = wrap(nx.minute - inBed)
+        val wakeDay = java.time.Instant.ofEpochSecond(nx.unix).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+        val weekend = wakeDay.dayOfWeek.value >= 6
+        var optBed: Int? = null
+        var optWake: Int? = null
+        val cutoff = wakeDay.minusDays(28).toString()
+        val same = nights.filter { n ->
+            n.date >= cutoff && (try { java.time.LocalDate.parse(n.date).dayOfWeek.value >= 6 } catch (_: Exception) { return@filter false }) == weekend
+        }
+        if (same.size >= 5) {
+            val w = round(Math.round(same.map { it.end }.average()).toInt(), 5)
+            optWake = w
+            optBed = wrap(w - round(fullInBed, 5))
+        }
+        var regularity: Int? = null
+        if (goal(ctx) == 1) {
+            val needBed = nx.minute - fullInBed
+            var b = needBed
+            optBed?.let { ob -> val o = if (ob > 720) ob - 1440 else ob; b = Math.round((needBed + o) / 2.0).toInt() }
+            bed = wrap(round(b, 15))
+            inBed = wrap(nx.minute - bed)
+            goalMin = inBed - aw
+            val prev = nights.takeLast(3)
+            if (prev.isNotEmpty()) {
+                val all = prev.map { Formulas.standardNight(it.date, it.start, it.end) } + Formulas.standardNight(wakeDay.toString(), bed, nx.minute)
+                val np = naps.takeLast(prev.size) + listOf(emptyList())
+                regularity = Formulas.sleepConsistency(all, if (np.size == all.size) np else null)
+            }
+        }
         return Plan(p.baselineMinutes, p.strainAdjustmentMinutes, p.debtAdjustmentMinutes, p.napAdjustmentMinutes, p.totalNeedMinutes,
-            goalMin, aw, inBed, bed, nx.minute, nx.mode, nx.unix)
+            goalMin, aw, inBed, bed, nx.minute, nx.mode, nx.unix, optBed, optWake, regularity, awake, nights, naps)
     }
 
     /** ¿Hay que despertar ya? (modos inteligentes, dentro de la ventana antes de la hora de despertar) */
