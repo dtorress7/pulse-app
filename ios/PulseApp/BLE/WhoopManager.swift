@@ -549,6 +549,7 @@ final class WhoopManager: NSObject, ObservableObject, CBCentralManagerDelegate, 
         DispatchQueue.main.asyncAfter(deadline: .now() + 60, execute: w)
     }
 
+    private var imuGen = 0
     private func startImu(retry: Bool = true) {
         imuOn = true
         command(WhoopProtocol.cmdStartRawData, [0], "Movimiento: START_RAW_DATA (81)")
@@ -556,8 +557,9 @@ final class WhoopManager: NSObject, ObservableObject, CBCentralManagerDelegate, 
         command(WhoopProtocol.cmdToggleImuMode, [1, 1], "Movimiento: TOGGLE_IMU_MODE (106)")
         // Vigilancia: si en 90 s no llega movimiento, se avisa y se reintenta una vez
         let before = handler.imuMessages
+        imuGen += 1; let gen = imuGen
         DispatchQueue.main.asyncAfter(deadline: .now() + 90) { [weak self] in
-            guard let self = self, self.ready, self.imuOn else { return }
+            guard let self = self, self.ready, self.imuOn, gen == self.imuGen else { return }
             if self.handler.imuMessages == before {
                 ServiceLog.shared.log("⚠️ Movimiento: no llega nada 90 s después de activarlo" + (retry ? ", reintento" : ""))
                 if retry { self.startImu(retry: false) }
@@ -571,8 +573,10 @@ final class WhoopManager: NSObject, ObservableObject, CBCentralManagerDelegate, 
         command(WhoopProtocol.cmdToggleImuMode, [1, 0], "Movimiento OFF (orden 106 [1,0])")
         ServiceLog.shared.log("🚶 Movimiento desactivado")
         let before = handler.imuMessages
+        imuGen += 1; let gen = imuGen
         DispatchQueue.main.asyncAfter(deadline: .now() + 120) { [weak self] in
-            guard let self = self, self.ready, !self.imuOn else { return }
+            // 9/11: solo la comprobación de la última orden (antes una parada vieja contaba lo de un arranque posterior)
+            guard let self = self, self.ready, !self.imuOn, gen == self.imuGen else { return }
             let n = self.handler.imuMessages - before
             ServiceLog.shared.log(n > 10 ? "⚠️ Movimiento: sigue llegando tras pararlo (\(n) mensajes en 2 min)" : "✅ Movimiento parado de verdad (\(n) mensajes en 2 min)")
         }

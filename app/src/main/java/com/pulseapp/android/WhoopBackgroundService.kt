@@ -627,20 +627,23 @@ class WhoopBackgroundService : Service() {
         command(WhoopProtocol.CMD_TOGGLE_IMU_MODE, byteArrayOf(1, 0), "Movimiento OFF (orden 106 [1,0])")
         if (!quiet) log("🚶 Movimiento desactivado")
         val before = imuMessages
+        val gen = ++imuGen
         handler.postDelayed({
-            if (isReady() && !imuOn) { val n = imuMessages - before
+            if (isReady() && !imuOn && gen == imuGen) { val n = imuMessages - before
                 log(if (n > 10) "⚠️ Movimiento: sigue llegando tras pararlo ($n mensajes en 2 min)" else "✅ Movimiento parado de verdad ($n mensajes en 2 min)") }
         }, 120_000L)
     }
 
+    private var imuGen = 0
     private fun startImu(retry: Boolean = true) {
         imuOn = true
         command(WhoopProtocol.CMD_START_RAW_DATA, byteArrayOf(0), "Movimiento: START_RAW_DATA (81)")
         enqueue(Op.Delay(500))
         command(WhoopProtocol.CMD_TOGGLE_IMU_MODE, byteArrayOf(1, 1), "Movimiento: TOGGLE_IMU_MODE (106)")
         val before = imuMessages
+        val gen = ++imuGen
         handler.postDelayed({
-            if (isReady() && imuOn) {
+            if (isReady() && imuOn && gen == imuGen) {
                 if (imuMessages == before) { log("⚠️ Movimiento: no llega nada 90 s después de activarlo" + if (retry) ", reintento" else ""); if (retry) startImu(false) }
                 else log("🚶 Movimiento llegando (${imuMessages - before} mensajes en 90 s)")
             }

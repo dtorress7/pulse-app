@@ -835,6 +835,11 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
     de hoy solo en memoria). Monitor de salud: diferencia con la media de las 30 noches anteriores, rango ± 0,85 sd, "cerca de −x a +y"; cuenta
     como dentro salvo > 0,5 °C fuera del rango (WHOOP daba ✓ con +0,9 y −0,4…+0,5). La importación de WHOOP guarda su temperatura
     ("Temp. cutánea (grados centígrados)") → con el export hasta 22/10 + PulseApp 4–8/11 el 9/11 da +0,93 (WHOOP +0,9). `night_recalc_v16` / iOS 16.
+- **9/11 13:22 — PROBADO en la pulsera (iPhone)**: "Probar vibración" VIBRA. 66 → `01 04 01 00` (OK, revisión 4, estado 1 = patrón válido), 68 → `02…`
+  (pendiente) y luego `01 02 05 00` (5 = reproducido); eventos 56 (alarma puesta), 58 (alarma de la app), 60 (vibración), 100 (fin, 30 s después).
+  Movimiento OFF 106 [1,0] → `01 01 00 00` y "✅ Movimiento parado de verdad (0 mensajes en 2 min)": el ahorro de batería YA funciona.
+  El aviso "⚠️ sigue llegando (17)" de las 13:25:16 era la comprobación de una parada anterior que contó un arranque posterior → ahora cada
+  comprobación solo vale para la última orden (`imuGen`, Android + iOS). Falta: medir la batería con el ahorro de verdad (band_battery.csv).
 
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
