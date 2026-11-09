@@ -79,7 +79,7 @@ struct SleepPlannerView: View {
         VStack(spacing: 14) {
             Image("LaunchLogo").resizable().scaledToFit().frame(width: 52, height: 52)
             if let p = plan {
-                let pct = SleepAlarm.goal == 1 ? "85 %" : "100 %"
+                let pct = SleepAlarm.goal == 1 ? "100 %" : "\(SleepAlarm.goalPct) %"
                 Text(alarmOn ? "Tu alarma se activará a las \(clock(p.wakeMinute))\(p.mode == SleepAlarm.modeExact ? "" : " como muy tarde"). Acuéstate a las \(clock(p.bedMinute)) para obtener el \(pct) del sueño requerido."
                              : "Acuéstate a las \(clock(p.bedMinute)) para obtener el \(pct) del sueño requerido si te despiertas a las \(clock(p.wakeMinute)).")
                     .font(Theme.text(19, .medium)).foregroundColor(Theme.textPrimary).multilineTextAlignment(.center)
@@ -93,7 +93,7 @@ struct SleepPlannerView: View {
         VStack(spacing: 10) {
             WTitle(text: "Mañana quiero", size: 12.5, color: Theme.textSecondary)
             Button(action: { showGoal = true }) {
-                WTitle(text: SleepAlarm.goal == 1 ? "Mejorar mi sueño" : "Lograr mi sueño necesario", size: 14)
+                WTitle(text: SleepAlarm.goalLabel(), size: 14)
                     .padding(.horizontal, 22).frame(height: 46)
                     .overlay(Capsule().stroke(Color.white, lineWidth: 2))
             }
@@ -208,6 +208,7 @@ struct GoalSheet: View {
     let onSave: () -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var goal = SleepAlarm.goal
+    @State private var pct = SleepAlarm.goalPct
     var body: some View {
         VStack(spacing: 26) {
             WBody(text: "Selecciona tu meta de sueño.", size: 18, color: Theme.textPrimary).padding(.top, 24)
@@ -227,9 +228,22 @@ struct GoalSheet: View {
                 }
                 .buttonStyle(.plain)
             }
-            WBody(text: "Lograr: el 100 % de tu necesidad de sueño. Mejorar: el 85 % (provisional, hasta saber la regla exacta de WHOOP).", size: 12.5)
+            if goal == 0 {
+                HStack(spacing: 10) {
+                    ForEach([70, 85, 100], id: \.self) { v in
+                        Button(action: { pct = v }) {
+                            Text("\(v) %").font(Theme.number(18)).foregroundColor(pct == v ? .black : Theme.textPrimary)
+                                .frame(maxWidth: .infinity).frame(height: 44)
+                                .background(Capsule().fill(pct == v ? Color.white : Theme.wRow))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            WBody(text: goal == 0 ? "Lograr: dormir ese porcentaje de tu necesidad de sueño (referencia + esfuerzo + deuda − siestas)."
+                                  : "Mejorar: equilibra cuánto duermes con mantener horarios regulares, con cambios graduales. WHOOP no publica la regla: de momento PulseApp apunta al 100 % de tu necesidad.", size: 12.5)
             Spacer()
-            Button(action: { SleepAlarm.goal = goal; HomeStore.shared.invalidate(); onSave(); dismiss() }) {
+            Button(action: { SleepAlarm.goal = goal; SleepAlarm.goalPct = pct; HomeStore.shared.invalidate(); onSave(); dismiss() }) {
                 WTitle(text: "Guardar", size: 16).frame(maxWidth: .infinity).frame(height: 60)
                     .overlay(Capsule().stroke(Color.white, lineWidth: 2))
             }
@@ -304,7 +318,7 @@ struct RecommendationSheet: View {
                 row("Deuda de sueño", "+" + hm(plan.debt))
                 row("Siestas recientes", "-" + hm(abs(plan.nap)))
                 dashed
-                row("Meta de sueño \(SleepAlarm.goal == 1 ? "85" : "100") %", hm(plan.goal), bold: true)
+                row("Meta de sueño \(SleepAlarm.goal == 1 ? 100 : SleepAlarm.goalPct) %", hm(plan.goal), bold: true)
                 row("Tiempo promedio despierto", "+" + hm(plan.awake), bold: true)
                 Rectangle().fill(Color.black).frame(height: 2).padding(.vertical, 6)
                 HStack {

@@ -4,7 +4,8 @@ import Foundation
 /// - Modos de alarma: hora exacta, objetivo de sueño (vibra cuando has dormido tu meta), en verde (vibra cuando la
 ///   recuperación llega a verde). La alarma de la PULSERA queda siempre puesta a la hora de despertar (lo más tarde
 ///   posible); en los modos inteligentes el móvil la lanza antes si se cumple la condición (ventana de 90 min).
-/// - Meta de mañana: "Lograr mi sueño necesario" (100 %) o "Mejorar mi sueño" (85 %, PROVISIONAL: falta el texto de WHOOP).
+/// - Meta de mañana (IA de WHOOP 9/11): "Lograr mi sueño necesario" al 70, 85 o 100 % de la necesidad, o "Mejorar mi sueño"
+///   (regularidad + necesidad con cambios graduales, mira 28 días; sin regla publicada → de momento como lograr al 100 %, PROVISIONAL).
 /// - Horario: días de la semana con su hora y su modo (o sin alarma), como "Mi horario" de WHOOP.
 enum SleepAlarm {
     static let modeExact = 0, modeGoal = 1, modeGreen = 2, modeNone = -1
@@ -21,11 +22,17 @@ enum SleepAlarm {
         get { return d.object(forKey: "pulseapp_alarm_mode") as? Int ?? modeExact }
         set { d.set(newValue, forKey: "pulseapp_alarm_mode") }
     }
-    /// 0 = lograr mi sueño necesario (100 %), 1 = mejorar mi sueño (85 %)
+    /// 0 = lograr mi sueño necesario, 1 = mejorar mi sueño
     static var goal: Int {
         get { return d.object(forKey: "pulseapp_sleep_goal") as? Int ?? 0 }
         set { d.set(newValue, forKey: "pulseapp_sleep_goal") }
     }
+    /// Porcentaje de "Lograr mi sueño necesario": 70, 85 o 100
+    static var goalPct: Int {
+        get { return d.object(forKey: "pulseapp_sleep_goal_pct") as? Int ?? 100 }
+        set { d.set(newValue, forKey: "pulseapp_sleep_goal_pct") }
+    }
+    static func goalLabel() -> String { return goal == 1 ? "Mejorar mi sueño" : "Lograr el \(goalPct) % de mi sueño necesario" }
     static var scheduleOn: Bool {
         get { return d.bool(forKey: "pulseapp_schedule_on") }
         set { d.set(newValue, forKey: "pulseapp_schedule_on") }
@@ -44,7 +51,7 @@ enum SleepAlarm {
         set { d.set(Int(newValue), forKey: "pulseapp_alarm_fired") }
     }
 
-    static func goalFactor() -> Double { return goal == 1 ? 0.85 : 1.0 }
+    static func goalFactor() -> Double { return goal == 1 ? 1.0 : Double(goalPct) / 100.0 }
 
     /// Lunes = 0 … domingo = 6
     static func weekdayIndex(_ date: Date) -> Int { return (Calendar.current.component(.weekday, from: date) + 5) % 7 }
@@ -88,12 +95,17 @@ enum SleepAlarm {
         return Next(unix: Int64(t.timeIntervalSince1970), minute: w, mode: modeNone)
     }
 
-    /// Tiempo medio despierto en la cama de las últimas 14 noches (WHOOP lo suma a la meta: "+0:30"). PROVISIONAL: con las
-    /// noches de WHOOP la media de 14 da 27 min y WHOOP pone 30 (pendiente de saber su regla). Sin noches, 30.
+    /// Tiempo medio despierto en la cama (WHOOP lo suma a la meta: "+0:30"). PROVISIONAL: media de las últimas 28 noches
+    /// redondeada hacia arriba a 5 min (con las 24 noches de WHOOP 17/10→9/11 la media es 26,8 → 30 = lo que muestra WHOOP;
+    /// un solo dato, falta confirmar). Sin noches, 30.
     static func avgAwakeMinutes(store: AppStore) -> Int {
-        let v = store.lastDays(14).compactMap { $0.awakeMinutes }.filter { $0 > 0 }
+        return awakeRounded(store.lastDays(28).compactMap { $0.awakeMinutes })
+    }
+    static func awakeRounded(_ awake: [Int]) -> Int {
+        let v = awake.filter { $0 > 0 }
         if v.count < 3 { return 30 }
-        return Int((Double(v.reduce(0, +)) / Double(v.count)).rounded())
+        let mean = Double(v.reduce(0, +)) / Double(v.count)
+        return Int((mean / 5).rounded(.up)) * 5
     }
 
     struct Plan {

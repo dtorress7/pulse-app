@@ -28,7 +28,7 @@ object SleepPlannerDialogs {
         val plan = base?.let { SleepAlarm.plan(a, List(3) { _ -> it.awake }, SleepPlan(it.base, it.strain, it.debt, it.nap, it.need, null)) }
         val nx = SleepAlarm.next(a)
         val alarmOn = nx.mode != SleepAlarm.MODE_NONE
-        val pct = if (SleepAlarm.goal(a) == 1) "85 %" else "100 %"
+        val pct = if (SleepAlarm.goal(a) == 1) "100 %" else "${SleepAlarm.goalPct(a)} %"
         val msg = StringBuilder()
         if (plan != null) {
             msg.append(if (alarmOn) "Tu alarma se activará a las ${clock(plan.wakeMinute)}${if (plan.mode == SleepAlarm.MODE_EXACT) "" else " como muy tarde"}. " else "")
@@ -39,7 +39,7 @@ object SleepPlannerDialogs {
         } else msg.append("Aún no hay datos de esta noche para calcular tu plan.")
         val sched = SleepAlarm.scheduleOn(a)
         val items = arrayOf(
-            "Mañana quiero: " + if (SleepAlarm.goal(a) == 1) "Mejorar mi sueño" else "Lograr mi sueño necesario",
+            "Mañana quiero: " + SleepAlarm.goalLabel(a),
             "Alarma: " + if (WhoopBackgroundService.alarmEnabled(a)) "activada" else "desactivada",
             "Alarma establecida en: " + SleepAlarm.modeName(SleepAlarm.mode(a)),
             "Hora de despertar: " + clock(SleepPlanner.wakeMinute(a)),
@@ -53,8 +53,11 @@ object SleepPlannerDialogs {
                     val reopen = { onChange(); show(a, base, onChange) }
                     when (w) {
                         0 -> AlertDialog.Builder(a).setTitle("Selecciona tu meta de sueño")
-                            .setSingleChoiceItems(arrayOf("Lograr mi sueño necesario (100 %)", "Mejorar mi sueño (85 %, provisional)"), SleepAlarm.goal(a)) { d, g ->
-                                SleepAlarm.setGoal(a, g); d.dismiss(); reopen()
+                            .setSingleChoiceItems(arrayOf("Lograr el 70 % de mi sueño necesario", "Lograr el 85 % de mi sueño necesario",
+                                "Lograr el 100 % de mi sueño necesario", "Mejorar mi sueño (regularidad; de momento 100 %, provisional)"),
+                                if (SleepAlarm.goal(a) == 1) 3 else when (SleepAlarm.goalPct(a)) { 70 -> 0; 85 -> 1; else -> 2 }) { d, g ->
+                                if (g == 3) SleepAlarm.setGoal(a, 1) else { SleepAlarm.setGoal(a, 0); SleepAlarm.setGoalPct(a, listOf(70, 85, 100)[g]) }
+                                d.dismiss(); reopen()
                             }.show()
                         1 -> { WhoopBackgroundService.setAlarmEnabled(a, !WhoopBackgroundService.alarmEnabled(a)); save(a, reopen) }
                         2 -> pickMode(a, false, SleepAlarm.mode(a)) { m -> SleepAlarm.setMode(a, m); save(a, reopen) }

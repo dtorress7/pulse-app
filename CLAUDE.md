@@ -850,8 +850,13 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   de despertar; en objetivo/en verde el móvil mira cada 5 min en los 90 min de antes (noche hasta ahora, sigue dormido, dormido ≥ meta o
   recuperación ≥ 67) y lanza 68 + quita la de la hora fija (69) a los 60 s. Al guardar: pantalla "Guardando… Mantén tu WHOOP cerca" con el logo
   hasta la respuesta de 66 ([12]=1 y [14]=1) o 69 → "¡Correcto!" (10–12 s sin respuesta → "No se pudo guardar"). La vibración se para con
-  DOS TOQUES en la pulsera (probado 9/11). SIN PROBAR: modos inteligentes y horario en la pulsera. Pendiente: texto del "?" de "Mejorar mi sueño"
-  y cómo calcula WHOOP el "tiempo promedio despierto" y "Óptimo 22:45–7:35" (con necesidad 8:18 + 0:30 a las 7:35 sale 22:47).
+  DOS TOQUES en la pulsera (probado 9/11). SIN PROBAR: modos inteligentes y horario en la pulsera.
+  **IA de WHOOP (9/11 tarde)**: "Lograr mi sueño necesario" = 70/85/100 % de la necesidad (aplicado); "Mejorar mi sueño" = regularidad + necesidad con
+  cambios graduales, mira tus horarios de 28 días, sin % fijo (regla no publicada → PulseApp apunta al 100 %, PROVISIONAL; pedir capturas con "Mejorar"
+  para ver cómo cambian las horas). Tiempo promedio despierto: margen según tu eficiencia, nº de noches no publicado → media de 28 noches redondeada
+  hacia ARRIBA a 5 min (24 noches API 17/10→9/11: 26,8 → 30 = WHOOP; un dato; con las noches de PulseApp la media ronda 28–29 → 30, ojo si pasa de 30
+  daría 35). "Óptimo" (barra azul) = franja sin depender de la alarma; "Sugerido" (horas blancas) = con tu alarma. Óptimo 9/11 22:45–07:35 NO es tu
+  horario medio (24 noches: acostarse 23:22 / levantarse 08:00 de media, mediana 23:11–07:50) → regla desconocida, no se muestra todavía.
 
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,

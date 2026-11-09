@@ -7,7 +7,8 @@ import java.util.Calendar
  * 9/11: planificador de sueño y alarma como WHOOP (iOS `Core/SleepAlarm.swift`, mismas reglas).
  * - Modos: hora exacta, objetivo de sueño (vibra cuando has dormido tu meta), en verde (recuperación ≥ 67). La alarma de la
  *   PULSERA queda siempre a la hora de despertar; en los modos inteligentes el móvil la lanza antes (ventana de 90 min).
- * - Meta: "Lograr mi sueño necesario" (100 %) o "Mejorar mi sueño" (85 %, PROVISIONAL).
+ * - Meta (IA de WHOOP 9/11): "Lograr mi sueño necesario" al 70/85/100 % o "Mejorar mi sueño" (sin regla publicada → como
+ *   lograr al 100 %, PROVISIONAL).
  * - Horario ("Mi horario"): días con su hora y su modo (o sin alarma).
  */
 object SleepAlarm {
@@ -25,6 +26,9 @@ object SleepAlarm {
     fun setMode(ctx: Context, m: Int) = p(ctx).edit().putInt("mode", m).apply()
     fun goal(ctx: Context) = p(ctx).getInt("goal", 0)
     fun setGoal(ctx: Context, g: Int) = p(ctx).edit().putInt("goal", g).apply()
+    fun goalPct(ctx: Context) = p(ctx).getInt("goal_pct", 100)
+    fun setGoalPct(ctx: Context, v: Int) = p(ctx).edit().putInt("goal_pct", v).apply()
+    fun goalLabel(ctx: Context) = if (goal(ctx) == 1) "Mejorar mi sueño" else "Lograr el ${goalPct(ctx)} % de mi sueño necesario"
     fun scheduleOn(ctx: Context) = p(ctx).getBoolean("schedule_on", false)
     fun setScheduleOn(ctx: Context, on: Boolean) = p(ctx).edit().putBoolean("schedule_on", on).apply()
     fun firedUnix(ctx: Context) = p(ctx).getLong("fired", 0L)
@@ -38,7 +42,7 @@ object SleepAlarm {
     fun setSchedule(ctx: Context, e: List<Entry>) =
         p(ctx).edit().putString("schedule", e.joinToString(";") { "${it.days}:${it.minute}:${it.mode}" }).apply()
 
-    fun goalFactor(ctx: Context) = if (goal(ctx) == 1) 0.85 else 1.0
+    fun goalFactor(ctx: Context) = if (goal(ctx) == 1) 1.0 else goalPct(ctx) / 100.0
 
     /** Lunes = 0 … domingo = 6 */
     fun weekdayIndex(c: Calendar) = (c.get(Calendar.DAY_OF_WEEK) + 5) % 7
@@ -86,11 +90,12 @@ object SleepAlarm {
         return Next(c.timeInMillis / 1000, w, MODE_NONE)
     }
 
-    /** Tiempo medio despierto en la cama de las últimas 14 noches (WHOOP lo suma a la meta: "+0:30"). PROVISIONAL. Sin noches, 30. */
+    /** Tiempo medio despierto en la cama (WHOOP lo suma a la meta: "+0:30"). PROVISIONAL: media de las últimas 28 noches redondeada
+     *  hacia arriba a 5 min (24 noches de WHOOP 17/10→9/11: 26,8 → 30 = WHOOP; un solo dato). Sin noches, 30. */
     fun avgAwakeMinutes(awake: List<Int?>): Int {
-        val v = awake.takeLast(14).filterNotNull().filter { it > 0 }
+        val v = awake.takeLast(28).filterNotNull().filter { it > 0 }
         if (v.size < 3) return 30
-        return Math.round(v.average()).toInt()
+        return Math.ceil(v.average() / 5.0).toInt() * 5
     }
 
     data class Plan(
