@@ -151,7 +151,7 @@ Solo se ejecuta si esa noche hay `motion_minutes.csv` (≥60 % de los minutos de
   - [28..627] acelerómetro 100 X, 100 Y, 100 Z (int16 LE), **4096 = 1 g**, ±8 g
   - [628..639] sub-cabecera giro · [640..1239] giroscopio 100 X/Y/Z, **16,4 = 1 °/s**, ±2000 °/s
   - [1240..1243] CRC32 de [8..1239]. `-32768` = muestra no válida.
-  - Gasta 1,5–2,3× batería. **PARAR (16/10): TOGGLE_IMU_MODE 106 con payload `[0,0]` responde código 0 (igual que 81 al arrancar) y DEJAN de llegar datos: el último minuto de movimiento es el de la orden (07:21:43) aunque el pulso siguió 1 min más. Funciona.**
+  - Gasta 1,5–2,3× batería. **PARAR: 106 con `[1,0]` (revisión 1 + apagado, formato de goose). Con `[0,0]` responde "código 0" (revisión no válida) y el movimiento SIGUE llegando (comprobado 7, 8 y 9/11; lo del 16/10 fue casualidad). La 63 da "fallo" en la 5.0 y la 82 "código 0".**
 - **Historial (14/10, basado en los proyectos abiertos goose y noop, que ya descargan la 5.0)** — en `WhoopBackgroundService`:
   conexión: HELLO → SET_CLOCK (10, **8 bytes** [unix u32][0×4]; si no, la pulsera cree que perdió la hora y no entrega
   historial) → GET_CLOCK (11, vacío) → EXIT_HIGH_FREQ_SYNC (97,[0]) → orden 3 [1] → a los 1,5 s SEND_HISTORICAL_DATA (22,[0]),
@@ -822,6 +822,19 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   - Recuperación 64 → 63 tras el recálculo v15: la noche 8/11 pasó de VFC 71,2/FCR 64 (la de las 13:16) a 72,7/62 → la línea base de FCR baja y
     hoy (58) cuenta algo menos (arnés check/n07/r/R2.kt: 63 → 62 con 86,8). La 8/11 nueva está más cerca de WHOOP (67,7/61).
   - iOS: las pantallas que cargan (Sueño, Esfuerzo, Recuperación, Estrés, fuerza, comunidad) muestran el logo animado (`ScreenLoading`) en vez de la ruedecita.
+- **9/11 (3.ª parte, tras la prueba del usuario)**: "Probar vibración" con 79 [2,3,0,0,0] (noop = formato de la 4.0) → "fallo"; 106 [0,0] y 82 → "código 0"
+  y el movimiento siguió (120 mensajes en 2 min); 63 → "fallo". goose (5.0) usa otros formatos → cambiado (Android + iOS):
+  - Movimiento OFF = 106 [1,0] (revisión 1); ON = 81 + 106 [1,1] (sin 63).
+  - Alarma: SET 66 [4, id 1, unix u32, subseg u16 (1/32768), efectos 47,152,0×6, bucle u16 0, repeticiones 7, 30 s] (20 bytes), RUN 68 [2, 1]
+    (vibrar ahora), GET 67 [4, 1], DISABLE 69 [2, 0xFF]. Probar vibración = SET + RUN (si el despertador está apagado, DISABLE a los 45 s).
+    Respuestas de 66–69 y 106 se escriben enteras ("⏰ Respuesta a la orden N: <hex>", [13] = estado: 1 patrón válido, 5 reproducido,
+    6 fallo, 8 ocupado, 10 hora no válida, 11 id no válido). Eventos: 57 alarma de la pulsera, 58 alarma de la app, 60 vibración, 100 fin.
+  - **Temperatura de la piel (Android `SkinTemp.kt` + iOS `Core/SkinTemp.swift`)**: mediana de whoop_bio_log (u16/128) en la ventana de sueño × 1,28
+    (= u16/100). 9 noches (19–21/10, 4–9/11) frente a skin_temp_celsius de WHOOP: r 1,000, dejando una fuera 0,01 °C; código real con las ventanas
+    de PulseApp (check/skin/S.kt) ±0,04. skin_temp_days.csv por noche (DailyMetricsUpdater al cerrar el día, HomeData para el día mirado; la
+    de hoy solo en memoria). Monitor de salud: diferencia con la media de las 30 noches anteriores, rango ± 0,85 sd, "cerca de −x a +y"; cuenta
+    como dentro salvo > 0,5 °C fuera del rango (WHOOP daba ✓ con +0,9 y −0,4…+0,5). La importación de WHOOP guarda su temperatura
+    ("Temp. cutánea (grados centígrados)") → con el export hasta 22/10 + PulseApp 4–8/11 el 9/11 da +0,93 (WHOOP +0,9). `night_recalc_v16` / iOS 16.
 
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
