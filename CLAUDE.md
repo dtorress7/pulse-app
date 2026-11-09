@@ -798,6 +798,30 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
     02:27–02:32. REM 38 de 81 coinciden. Para la ronda de fases.
   - **Batería (band_battery.csv 5/11→9/11)**: con movimiento 0,53–0,63 %/h (noche 0,53–0,56, día 0,62–0,69); sin movimiento (ahorro) sábado 13:06–16:40
     0,62 %/h, domingo 12:27–19:57 0,48 %/h. Diferencia ≤ 0,15 %/h (~1–3 % al día), del orden del ruido (escalones de 0,25–0,3 %). ~7 días por carga.
+- **9/11 (2.ª parte)**:
+  - **El ahorro de batería NO paraba el movimiento**: 7/11 13:04 y 8/11 12:00 la orden 106 [0,0] respondió "código 0" pero motion_minutes tiene 60 min/h
+    toda la tarde (y el registro sigue con "🚶 Minuto"). La comparación de batería con/sin ahorro de antes NO vale (siempre hubo movimiento).
+    Batería medida 0,53–0,69 %/h (~7 días); WHOOP (su IA) dice ~7 %/día (14 días). Ahora (Android + iOS) parar = 106 [0,0] + 82 STOP_RAW_DATA + 63 [0]
+    (noop: la 63 es la que corta el chorro tipo 43); arrancar = 63 [1] + 81 + 106 [1,1]; al conectar, si no se quiere movimiento, se para.
+    Registro: "✅ Movimiento parado de verdad" / "⚠️ sigue llegando" a los 2 min y "⚠️ no llega nada" (reintento) a los 90 s de arrancar.
+    Pulso en directo (orden 3) siempre ON = como la difusión de FC de WHOOP: posible causa principal del gasto, sin probar (los RR salen de ahí).
+  - **Alarma de la pulsera (Android + iOS)**: órdenes de noop: SET_ALARM_TIME 66 [1, unix u32 LE, 0, 0] (antes SET_CLOCK), DISABLE_ALARM 69 [1],
+    RUN_HAPTICS_PATTERN 79 [2, 3, 0, 0, 0] (patrón de la alarma de WHOOP). Mi WHOOP: "Despertador con vibración" (hora de despertar de Inicio,
+    `alarmEnabled`/`alarmArmedUnix`, se rearma al conectar y cada minuto/5 min si cambia la hora o ya sonó) y "Probar vibración". La app de WHOOP
+    también manda 66 (su alarma): la última que se ponga gana. SIN PROBAR en la pulsera.
+  - **Monitor de salud**: WHOOP 9/11 VFC 79–102, FCR 56–61, resp 13,3–13,5, SpO2 95–100, temp +0,9 (−0,4…+0,5). Con sus valores: media ± 0,85 sd
+    (muestral) de 30 días encaja el 9/11 y deja dentro la VFC 78 del 1/11 (14 días no). Antes ± 1 sd con suelo del 5 % (resp 12,7–14,0).
+    Provisional (2 días). `HEALTH_RANGE_SD`. Informe PDF de WHOOP: gráficas de 30 días y medias de 6 meses (sin rangos numéricos).
+  - **Temperatura de la piel SÍ se puede**: registros v18 → whoop_bio_log.csv (iOS). Mediana dormido 19/20/21/10: 25,52/25,29/26,72 vs WHOOP
+    32,66/32,37/34,21 (WHOOP ≈ 32,37 + 1,28·(nuestra − 25,29), cuadra en las 3). WHOOP muestra la diferencia con la media de 30 noches
+    (34,68 − 33,80 = +0,88 ≈ +0,9). Falta: más noches con whoop_bio_log para validar y guardarla por día.
+  - **Esfuerzo**: WHOOP 9/11 0,36 en la API con updated_at 07:07 (no se actualiza por la mañana); PulseApp hasta 07:07 da 0,12, hasta 08:52 0,89.
+    8/11 (día tranquilo tras el partido): ventana de WHOOP, FCR 59 → 5,05 sin paseo, 6,33 con el paseo (WHOOP 4,04 con paseo 2,97) → sesgo de
+    día +1–2 (check/n30/Z7.kt). Paseo 19:08–19:27 (WHOOP, zona 0, FC media 90) no detectado: sí había movimiento (≈100 pasos/min) pero
+    `detectWalks` pide FC media ≥ 26 % de reserva (≈ 94). Para la ronda de esfuerzo/actividades (cuidado: el paseo de 92 min a FC 86 del 24/10 no es de WHOOP).
+  - Recuperación 64 → 63 tras el recálculo v15: la noche 8/11 pasó de VFC 71,2/FCR 64 (la de las 13:16) a 72,7/62 → la línea base de FCR baja y
+    hoy (58) cuenta algo menos (arnés check/n07/r/R2.kt: 63 → 62 con 86,8). La 8/11 nueva está más cerca de WHOOP (67,7/61).
+  - iOS: las pantallas que cargan (Sueño, Esfuerzo, Recuperación, Estrés, fuerza, comunidad) muestran el logo animado (`ScreenLoading`) en vez de la ruedecita.
 
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
