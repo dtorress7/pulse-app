@@ -21,6 +21,8 @@ final class WhoopFrameHandler {
     var onOffloadFinished: (() -> Void)? = nil
     /// Llega algo del historial (registro o metadatos): sirve para rearmar el temporizador de "sin respuesta".
     var onOffloadActivity: (() -> Void)? = nil
+    /// 9/11: respuestas de la alarma (66–69): orden y cuerpo desde [12]
+    var onAlarmResponse: ((Int, [UInt8]) -> Void)? = nil
 
     private let hrLog: HrLog
     private let bio: WhoopBioStore
@@ -143,6 +145,7 @@ final class WhoopFrameHandler {
             let cmdNo = Int(frame[10])
             if [66, 67, 68, 69, 106].contains(cmdNo) && frame.count > 12 {
                 log("⏰ Respuesta a la orden \(cmdNo): " + frame[12..<min(frame.count, 32)].map { String(format: "%02X", $0) }.joined())
+                if (66...69).contains(cmdNo) { onAlarmResponse?(cmdNo, Array(frame[12..<min(frame.count, 32)])) }
             } else if responsesLogged < 40 {
                 responsesLogged += 1
                 let code = Int(frame[12])

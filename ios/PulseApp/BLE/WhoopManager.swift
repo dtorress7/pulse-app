@@ -36,6 +36,8 @@ final class WhoopManager: NSObject, ObservableObject, CBCentralManagerDelegate, 
     @Published var historyCount = 0
     @Published var deviceName: String? = nil
     @Published var logVersion = 0
+    /// 9/11: guardar la alarma en la pulsera: 0 nada, 1 guardando, 2 guardada, 3 no se pudo (pulsera lejos)
+    @Published var alarmSave = 0
     @Published var scanning = false
 
     let store = AppStore.shared
@@ -92,6 +94,14 @@ final class WhoopManager: NSObject, ObservableObject, CBCentralManagerDelegate, 
             hrMax: { [weak self] in self?.hrMax ?? 190.0 })
         handler.onChange = { [weak self] in self?.pushLive() }
         handler.onOffloadActivity = { [weak self] in self?.armOffloadIdle() }
+        handler.onAlarmResponse = { [weak self] cmd, body in
+            DispatchQueue.main.async {
+                guard let self = self, self.alarmSave == 1 else { return }
+                // 66: [13] revisión, [14] estado (1 = patrón válido); 69: cualquier respuesta vale
+                if cmd == 69 || (cmd == 66 && body.count > 2 && body[0] == 1 && body[2] == 1) { self.alarmSave = 2 }
+                else if cmd == 66 { self.alarmSave = 3 }
+            }
+        }
         ServiceLog.shared.onUpdate = { [weak self] in
             DispatchQueue.main.async { self?.logVersion += 1 }
         }
@@ -432,7 +442,7 @@ final class WhoopManager: NSObject, ObservableObject, CBCentralManagerDelegate, 
             self.setState("Conectada · esperando pulso")
             self.imuOn = false
             if WhoopSettings.imuWanted() { self.startImu() } else if WhoopSettings.imuEnabled { self.stopImu() }
-            self.applyAlarm(force: WhoopSettings.alarmEnabled)
+            self.applyAlarm(force: SleepAlarm.next().mode != SleepAlarm.modeNone)
             self.lastOffloadRequest = Date.distantPast
             // Si en 15 s no llega ningún dato, también se reconecta
             DispatchQueue.main.asyncAfter(deadline: .now() + WhoopManager.setupTimeout) { [weak self] in
@@ -588,35 +598,89 @@ final class WhoopManager: NSObject, ObservableObject, CBCentralManagerDelegate, 
     /// está apagado, la alarma se quita a los 45 s (el patrón dura 30 s).
     func testBuzz() {
         guard ready else { ServiceLog.shared.log("⚠️ Vibración: la pulsera no está conectada"); return }
-        let when = WhoopSettings.alarmEnabled ? WhoopSettings.nextAlarmUnix() : Int64(Date().timeIntervalSince1970) + 86400
+        let nx = SleepAlarm.next(); let armed = nx.mode != SleepAlarm.modeNone
+        let when = armed ? nx.unix : Int64(Date().timeIntervalSince1970) + 86400
         command(WhoopProtocol.cmdSetAlarmTime, WhoopProtocol.alarmPayload(when), "Vibración de prueba: alarma nº 1 (orden 66)")
         command(WhoopProtocol.cmdRunAlarm, [2, WhoopProtocol.alarmId], "Vibración de prueba: ¡ahora! (orden 68)")
-        if WhoopSettings.alarmEnabled { WhoopSettings.alarmArmedUnix = when } else {
+        if armed { WhoopSettings.alarmArmedUnix = when } else {
             DispatchQueue.main.asyncAfter(deadline: .now() + 45) { [weak self] in
-                guard let self = self, self.ready, !WhoopSettings.alarmEnabled else { return }
+                guard let self = self, self.ready, SleepAlarm.next().mode == SleepAlarm.modeNone else { return }
                 self.command(WhoopProtocol.cmdDisableAlarm, [2, 0xFF], "Vibración de prueba: alarma quitada (orden 69)")
             }
         }
     }
 
-    /// Pone (o quita) la alarma de la PULSERA: vibra a la hora aunque el móvil esté lejos o PulseApp cerrada.
-    /// Se mira con cada dato (como mucho cada minuto): si cambias la hora de despertar o ya sonó, se pone la siguiente.
+    /// Pone (o quita) la alarma de la PULSERA a la próxima hora de despertar (SleepAlarm: hora de Inicio o tu horario). Vibra aunque
+    /// el móvil esté lejos. Se mira cada minuto con los datos: si cambias la hora o ya sonó, se pone la siguiente.
     private var lastAlarmCheck = Date.distantPast
     func applyAlarm(force: Bool = false) {
         guard ready else { return }
         if !force && Date().timeIntervalSince(lastAlarmCheck) < 60 { return }
         lastAlarmCheck = Date()
-        if WhoopSettings.alarmEnabled {
-            let want = WhoopSettings.nextAlarmUnix()
-            if want == WhoopSettings.alarmArmedUnix && !force { return }
-            let now = UInt32(truncatingIfNeeded: Int64(Date().timeIntervalSince1970))
-            let clock: [UInt8] = [UInt8(now & 0xFF), UInt8((now >> 8) & 0xFF), UInt8((now >> 16) & 0xFF), UInt8((now >> 24) & 0xFF), 0, 0, 0, 0]
-            command(WhoopProtocol.cmdSetClock, clock, "Poner en hora antes de la alarma (orden 10)")
-            command(WhoopProtocol.cmdSetAlarmTime, WhoopProtocol.alarmPayload(want), "⏰ Alarma de la pulsera a las \(Fmt.clock(want * 1000)) (orden 66)")
-            WhoopSettings.alarmArmedUnix = want
-        } else if WhoopSettings.alarmArmedUnix != 0 {
+        let nx = SleepAlarm.next()
+        if nx.mode != SleepAlarm.modeNone {
+            if nx.unix != WhoopSettings.alarmArmedUnix || force {
+                let now = UInt32(truncatingIfNeeded: Int64(Date().timeIntervalSince1970))
+                let clock: [UInt8] = [UInt8(now & 0xFF), UInt8((now >> 8) & 0xFF), UInt8((now >> 16) & 0xFF), UInt8((now >> 24) & 0xFF), 0, 0, 0, 0]
+                command(WhoopProtocol.cmdSetClock, clock, "Poner en hora antes de la alarma (orden 10)")
+                command(WhoopProtocol.cmdSetAlarmTime, WhoopProtocol.alarmPayload(nx.unix),
+                        "⏰ Alarma de la pulsera a las \(Fmt.clock(nx.unix * 1000)) (\(SleepAlarm.modeName(nx.mode).lowercased()), orden 66)")
+                WhoopSettings.alarmArmedUnix = nx.unix
+            } else if alarmSave == 1 { alarmSave = 2 }
+        } else if WhoopSettings.alarmArmedUnix != 0 || force {
             command(WhoopProtocol.cmdDisableAlarm, [2, 0xFF], "⏰ Alarma de la pulsera quitada (orden 69)")
             WhoopSettings.alarmArmedUnix = 0
+        } else if alarmSave == 1 { alarmSave = 2 }
+        smartAlarmCheck(nx)
+    }
+
+    /// Desde la pantalla del planificador: guarda en la pulsera y enseña "Guardando…" hasta que responde.
+    func saveAlarmNow() {
+        guard ready else { alarmSave = 3; return }
+        alarmSave = 1
+        applyAlarm(force: true)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 10) { [weak self] in
+            if self?.alarmSave == 1 { self?.alarmSave = 3 }
+        }
+    }
+
+    /// Modos "objetivo de sueño" y "en verde": en los 90 min antes de la hora de despertar, cada 5 min se calcula la noche
+    /// hasta ahora; si ya has dormido tu meta (o la recuperación está en verde) la pulsera vibra ya y se quita la de la hora fija.
+    private var lastSmartCheck = Date.distantPast
+    private var smartBusy = false
+    private func smartAlarmCheck(_ nx: SleepAlarm.Next) {
+        guard nx.mode == SleepAlarm.modeGoal || nx.mode == SleepAlarm.modeGreen, !smartBusy else { return }
+        let now = Int64(Date().timeIntervalSince1970)
+        guard now >= nx.unix - Int64(SleepAlarm.smartWindowMin * 60), now < nx.unix - 120 else { return }
+        if Date().timeIntervalSince(lastSmartCheck) < 300 { return }
+        lastSmartCheck = Date(); smartBusy = true
+        let log = hrLog
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let store = AppStore.shared
+            let profile = store.getProfile()
+            let s = MetricsCalculator(ageYears: profile?.ageYears() ?? 30, male: profile?.sex != "F").analyze(hrLog: log)
+            let nowMs = TimeUtil.nowMillis()
+            let stillAsleep = (s.sleepEndMillis ?? 0) >= nowMs - 15 * 60_000
+            let goal = Int((Double(SleepPlanner.planForLastNight(store: store, summary: s).totalNeedMinutes) * SleepAlarm.goalFactor()).rounded())
+            var rec: Int? = nil
+            if s.avgHrv != nil || s.restingHr != nil {
+                rec = RecoveryCalculator.breakdown(nightlyHrv: s.avgHrv, restingHr: s.restingHr, baseline: BaselineProvider.compute(store: store),
+                                                   respiratoryRate: s.respiratoryRate).total
+            }
+            let wake = stillAsleep && SleepAlarm.shouldWakeEarly(mode: nx.mode, asleepMinutes: s.sleepMinutes, goalMinutes: goal, recovery: rec)
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                self.smartBusy = false
+                ServiceLog.shared.log("⏰ Alarma \(SleepAlarm.modeName(nx.mode).lowercased()): dormido \(s.sleepMinutes ?? 0) de \(goal) min, recuperación \(rec.map(String.init) ?? "–")" + (wake ? " → ¡despertar!" : ""))
+                guard wake, self.ready else { return }
+                self.command(WhoopProtocol.cmdRunAlarm, [2, WhoopProtocol.alarmId], "⏰ Despertar ya (orden 68)")
+                SleepAlarm.firedUnix = nx.unix
+                DispatchQueue.main.asyncAfter(deadline: .now() + 60) { [weak self] in
+                    guard let self = self, self.ready else { return }
+                    self.command(WhoopProtocol.cmdDisableAlarm, [2, 0xFF], "⏰ Quito la alarma de la hora fija (ya sonó)")
+                    WhoopSettings.alarmArmedUnix = 0
+                }
+            }
         }
     }
 

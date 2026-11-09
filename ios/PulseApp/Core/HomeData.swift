@@ -121,6 +121,8 @@ struct HomeData {
     var stages: SleepStager.Result?
     /// Pulso de la noche (lecturas de la ventana de sueño ± 10 min), para la gráfica de Sueño.
     var nightReadings: [HrReading]
+    /// 9/11: plan de esta noche como el planificador de sueño de WHOOP (necesidad, meta, tiempo despierto, hora de acostarse).
+    var alarmPlan: SleepAlarm.Plan? = nil
 }
 
 enum PanelKeys {
@@ -267,6 +269,7 @@ enum HomeDataLoader {
         // ---------- Hoy en directo ----------
         var todayRecord: DayRecord? = nil
         var bedtime: String? = nil
+        var alarmPlan: SleepAlarm.Plan? = nil
         if isToday, let s = summary {
             let baseline = BaselineProvider.compute(store: store)
             var r = DayRecord(date: date)
@@ -285,7 +288,10 @@ enum HomeDataLoader {
             let dayStrain = Formulas.addStrength(s.strain, strengthMin, activityMin)
             let plan = SleepPlanner.computeTonightPlan(store: store, todayStrain: dayStrain, wakeHour: wake / 60, wakeMinute: wake % 60,
                                                        debtOverride: debtAfter)
-            bedtime = plan.suggestedBedtime
+            // 9/11: como el planificador de WHOOP: hora de acostarse = despertar − (meta + tiempo medio despierto)
+            let ap = SleepAlarm.plan(store: store, sleepPlan: plan)
+            alarmPlan = ap
+            bedtime = String(format: "%02d:%02d", ap.bedMinute / 60, ap.bedMinute % 60)
             var consistency: Int? = nil
             if let a = s.sleepStartMinuteOfDay, let b = s.sleepEndMinuteOfDay {
                 let prevRows = Array(stored.filter { $0.date < date && $0.sleepStartMinuteOfDay != nil && $0.sleepEndMinuteOfDay != nil }.suffix(3))
@@ -486,11 +492,11 @@ enum HomeDataLoader {
             stressFrom: dayStart, stressTo: stressTo, sleepFromMillis: sleepFrom, sleepToMillis: sleepTo,
             sessions: sessionsOfDay,
             napAsleep: Dictionary(uniqueKeysWithValues: sessionsOfDay.filter { $0.type == Formulas.napType }.map { ($0.id, NapStages.asleepMinutes($0)) }),
-            bedtime: bedtime, wakeMinute: wake, panel: panel, week: week, streak: streak,
+            bedtime: bedtime, wakeMinute: alarmPlan?.wakeMinute ?? wake, panel: panel, week: week, streak: streak,
             insight: Insight.build(day: day, previous: previous, isToday: isToday, baselineReady: baselineNow != nil),
             baselineReady: baselineNow != nil, profileMissing: profile == nil,
             records: records.values.sorted { $0.date < $1.date }, sleepStressSeries: sleepStress,
-            stages: isToday ? summary?.stages : SleepStagesStore.load(date), nightReadings: nightReadings)
+            stages: isToday ? summary?.stages : SleepStagesStore.load(date), nightReadings: nightReadings, alarmPlan: alarmPlan)
     }
 
     /// (inicio, fin) de las noches guardadas que tienen las dos horas.

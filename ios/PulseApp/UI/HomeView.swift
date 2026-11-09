@@ -117,11 +117,8 @@ struct HomeView: View {
         .sheet(isPresented: $showAdd) {
             AddActivitySheet(dayOffset: dayOffset) { start, end, type in saveSession(start, end, type) }
         }
-        .sheet(isPresented: $showWake) {
-            WakeTimeSheet(minute: SleepPlanner.wakeMinute()) { m in
-                SleepPlanner.setWakeMinute(m)
-                HomeStore.shared.invalidate()
-            }
+        .fullScreenCover(isPresented: $showWake, onDismiss: { HomeStore.shared.invalidate() }) {
+            SleepPlannerView(basePlan: data?.alarmPlan)
         }
         .sheet(isPresented: $showPersonalize) {
             PersonalizeSheet { HomeStore.shared.invalidate() }
@@ -601,6 +598,14 @@ struct HomeView: View {
                     timeColumn("applewatch.side.right", Fmt.clock(minuteOfDay: wake), "Hora de\ndespertar")
                 }
                 .padding(.top, 18)
+                if let ap = data?.alarmPlan, dayOffset == 0 {
+                    HStack(spacing: 8) {
+                        Image(systemName: ap.mode == SleepAlarm.modeNone ? "bell.slash" : "applewatch.radiowaves.left.and.right").font(.system(size: 13))
+                        WTitle(text: ap.mode == SleepAlarm.modeNone ? "Alarma apagada" : "Alarma · " + SleepAlarm.modeName(ap.mode), size: 12)
+                    }
+                    .foregroundColor(ap.mode == SleepAlarm.modeNone ? Theme.textSecondary : Theme.recoveryGreen)
+                    .padding(.top, 12)
+                }
                 Button(action: { showWake = true }) {
                     HStack(spacing: 8) {
                         Image(systemName: "pencil").font(.system(size: 14, weight: .semibold))

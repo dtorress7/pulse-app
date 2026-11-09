@@ -661,12 +661,9 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
+    /** 9/11: "Editar hora de despertar" abre el planificador de sueño (como WHOOP). */
     private fun editWakeTime() {
-        val current = SleepPlanner.wakeMinute(this)
-        TimePickerDialog(this, { _, h, m ->
-            SleepPlanner.setWakeMinute(this, h * 60 + m)
-            refresh()
-        }, current / 60, current % 60, true).apply { setTitle("Hora de despertar") }.show()
+        SleepPlannerDialogs.show(this, lastData?.alarmPlan) { refresh() }
     }
 
     private fun personalizePanel() {

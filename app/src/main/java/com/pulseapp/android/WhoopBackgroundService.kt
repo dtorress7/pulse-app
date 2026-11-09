@@ -129,16 +129,9 @@ class WhoopBackgroundService : Service() {
             ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_ALARM, on).apply()
         fun alarmArmedUnix(ctx: Context): Long = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getLong(KEY_ALARM_ARMED, 0L)
         fun setAlarmArmedUnix(ctx: Context, v: Long) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putLong(KEY_ALARM_ARMED, v).apply()
-        /** Próxima vez que llega la hora de despertar (hoy si aún no ha pasado, si no mañana), en segundos unix. */
-        fun nextAlarmUnix(ctx: Context, nowMs: Long = System.currentTimeMillis()): Long {
-            val m = SleepPlanner.wakeMinute(ctx)
-            val c = java.util.Calendar.getInstance().apply {
-                timeInMillis = nowMs; set(java.util.Calendar.HOUR_OF_DAY, m / 60); set(java.util.Calendar.MINUTE, m % 60)
-                set(java.util.Calendar.SECOND, 0); set(java.util.Calendar.MILLISECOND, 0)
-            }
-            if (c.timeInMillis <= nowMs + 60_000L) c.add(java.util.Calendar.DAY_OF_MONTH, 1)
-            return c.timeInMillis / 1000
-        }
+        /** Estado de "Guardando…" del planificador: 0 nada, 1 guardando, 2 guardada, 3 no se pudo. */
+        @Volatile var alarmSave = 0
+        fun markAlarmSave(v: Int) { alarmSave = v; onUpdate?.invoke() }
         fun imuWanted(ctx: Context): Boolean =
             imuEnabled(ctx) && (!imuSaver(ctx) || imuNightHour(java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)))
 
@@ -300,7 +293,7 @@ class WhoopBackgroundService : Service() {
                 if (isReady()) { if (imuWanted(this)) startImu() else log("🔋 Ahorro de batería: el movimiento empezará a las 20:00") } else connect()
             }
             ACTION_BUZZ -> if (isReady()) testBuzz() else log("⚠️ Vibración: la pulsera no está conectada")
-            ACTION_ALARM -> if (isReady()) applyAlarm(force = true) else connect()
+            ACTION_ALARM -> if (isReady()) saveAlarmNow() else { markAlarmSave(3); connect() }
             ACTION_IMU_OFF -> {
                 getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(KEY_IMU, false).apply()
                 if (isReady()) stopImu() else log("🚶 Movimiento desactivado: se aplicará al conectar")
@@ -397,7 +390,7 @@ class WhoopBackgroundService : Service() {
                 setState("Conectada · esperando pulso")
                 imuOn = false
                 if (imuWanted(this@WhoopBackgroundService)) startImu() else if (imuEnabled(this@WhoopBackgroundService)) stopImu(quiet = true)
-                applyAlarm(force = alarmEnabled(this@WhoopBackgroundService))
+                applyAlarm(force = SleepAlarm.next(this@WhoopBackgroundService).mode != SleepAlarm.MODE_NONE)
                 handler.removeCallbacks(imuScheduleTimer)
                 handler.postDelayed(imuScheduleTimer, 5 * 60_000L)
                 handler.removeCallbacks(offloadTimer)
@@ -479,6 +472,8 @@ class WhoopBackgroundService : Service() {
                 log("🔋 Respuesta a la orden 26 (batería): ${WhoopProtocol.bytesToHex(frame).replace(" ", "")}")
               val cmdNo = frame[10].toInt() and 0xFF
               // 9/11: las de la alarma y el movimiento siempre, con el cuerpo entero (goose: [13] = estado de la vibración/alarma)
+              if (alarmSave == 1 && frame.size > 15 && (cmdNo == 69 || cmdNo == 66))
+                markAlarmSave(if (cmdNo == 69 || ((frame[12].toInt() and 0xFF) == 1 && (frame[14].toInt() and 0xFF) == 1)) 2 else 3)
               if (cmdNo in listOf(66, 67, 68, 69, 106) && frame.size > 12)
                 log("⏰ Respuesta a la orden $cmdNo: ${WhoopProtocol.bytesToHex(frame.copyOfRange(12, minOf(frame.size, 32))).replace(" ", "")}")
               else if (responsesLogged++ < 40) {
@@ -650,34 +645,85 @@ class WhoopBackgroundService : Service() {
         }, 90_000L)
     }
 
-    /** 9/11: vibrar ahora = poner la alarma nº 1 con el patrón de WHOOP y lanzarla (RUN_ALARM 68). Si el despertador está apagado,
-     *  la alarma se quita a los 45 s (el patrón dura 30 s). */
+    /** 9/11: vibrar ahora = poner la alarma nº 1 con el patrón de WHOOP y lanzarla (RUN_ALARM 68). Si no hay alarma puesta,
+     *  se quita a los 45 s (el patrón dura 30 s). */
     private fun testBuzz() {
-        val on = alarmEnabled(this)
-        val whenS = if (on) nextAlarmUnix(this) else System.currentTimeMillis() / 1000 + 86400
+        val nx = SleepAlarm.next(this)
+        val armed = nx.mode != SleepAlarm.MODE_NONE
+        val whenS = if (armed) nx.unix else System.currentTimeMillis() / 1000 + 86400
         command(WhoopProtocol.CMD_SET_ALARM_TIME, WhoopProtocol.alarmPayload(whenS), "Vibración de prueba: alarma nº 1 (orden 66)")
         command(WhoopProtocol.CMD_RUN_ALARM, byteArrayOf(2, WhoopProtocol.ALARM_ID), "Vibración de prueba: ¡ahora! (orden 68)")
-        if (on) setAlarmArmedUnix(this, whenS) else handler.postDelayed({
-            if (isReady() && !alarmEnabled(this))
+        if (armed) setAlarmArmedUnix(this, whenS) else handler.postDelayed({
+            if (isReady() && SleepAlarm.next(this).mode == SleepAlarm.MODE_NONE)
                 command(WhoopProtocol.CMD_DISABLE_ALARM, byteArrayOf(2, 0xFF.toByte()), "Vibración de prueba: alarma quitada (orden 69)")
         }, 45_000L)
     }
 
-    /** 9/11: pone (o quita) la alarma de la PULSERA; vibra a la hora aunque el móvil esté lejos. Se mira cada 5 min y al conectar. */
+    /** 9/11: pone (o quita) la alarma de la PULSERA a la próxima hora de despertar (SleepAlarm: hora de Inicio o "Mi horario");
+     *  vibra aunque el móvil esté lejos. Se mira cada 5 min y al conectar. */
     private fun applyAlarm(force: Boolean = false) {
         if (!isReady()) return
-        if (alarmEnabled(this)) {
-            val want = nextAlarmUnix(this)
-            if (want == alarmArmedUnix(this) && !force) return
-            val now = System.currentTimeMillis() / 1000
-            command(WhoopProtocol.CMD_SET_CLOCK, byteArrayOf((now and 0xFF).toByte(), ((now shr 8) and 0xFF).toByte(),
-                ((now shr 16) and 0xFF).toByte(), ((now shr 24) and 0xFF).toByte(), 0, 0, 0, 0), "Poner en hora antes de la alarma (orden 10)")
-            val hhmm = java.text.SimpleDateFormat("HH:mm", java.util.Locale.US).format(java.util.Date(want * 1000))
-            command(WhoopProtocol.CMD_SET_ALARM_TIME, WhoopProtocol.alarmPayload(want), "⏰ Alarma de la pulsera a las $hhmm (orden 66)")
-            setAlarmArmedUnix(this, want)
-        } else if (alarmArmedUnix(this) != 0L) {
+        val nx = SleepAlarm.next(this)
+        if (nx.mode != SleepAlarm.MODE_NONE) {
+            if (nx.unix != alarmArmedUnix(this) || force) {
+                val now = System.currentTimeMillis() / 1000
+                command(WhoopProtocol.CMD_SET_CLOCK, byteArrayOf((now and 0xFF).toByte(), ((now shr 8) and 0xFF).toByte(),
+                    ((now shr 16) and 0xFF).toByte(), ((now shr 24) and 0xFF).toByte(), 0, 0, 0, 0), "Poner en hora antes de la alarma (orden 10)")
+                val hhmm = java.text.SimpleDateFormat("HH:mm", java.util.Locale.US).format(java.util.Date(nx.unix * 1000))
+                command(WhoopProtocol.CMD_SET_ALARM_TIME, WhoopProtocol.alarmPayload(nx.unix),
+                    "⏰ Alarma de la pulsera a las $hhmm (${SleepAlarm.modeName(nx.mode).lowercase()}, orden 66)")
+                setAlarmArmedUnix(this, nx.unix)
+            } else if (alarmSave == 1) markAlarmSave(2)
+        } else if (alarmArmedUnix(this) != 0L || force) {
             command(WhoopProtocol.CMD_DISABLE_ALARM, byteArrayOf(2, 0xFF.toByte()), "⏰ Alarma de la pulsera quitada (orden 69)")
             setAlarmArmedUnix(this, 0L)
+        } else if (alarmSave == 1) markAlarmSave(2)
+        smartAlarmCheck(nx)
+    }
+
+    private fun saveAlarmNow() {
+        if (!isReady()) { markAlarmSave(3); return }
+        markAlarmSave(1)
+        applyAlarm(force = true)
+        handler.postDelayed({ if (alarmSave == 1) markAlarmSave(3) }, 10_000L)
+    }
+
+    /** Modos "objetivo de sueño" y "en verde": en los 90 min antes de la hora de despertar, cada 5 min se calcula la noche hasta
+     *  ahora; si ya has dormido tu meta (o la recuperación está en verde) la pulsera vibra ya y se quita la de la hora fija. */
+    private var lastSmartCheck = 0L
+    @Volatile private var smartBusy = false
+    private fun smartAlarmCheck(nx: SleepAlarm.Next) {
+        if ((nx.mode != SleepAlarm.MODE_GOAL && nx.mode != SleepAlarm.MODE_GREEN) || smartBusy) return
+        val nowS = System.currentTimeMillis() / 1000
+        if (nowS < nx.unix - SleepAlarm.SMART_WINDOW_MIN * 60 || nowS >= nx.unix - 120) return
+        if (System.currentTimeMillis() - lastSmartCheck < 290_000L) return
+        lastSmartCheck = System.currentTimeMillis(); smartBusy = true
+        scope.launch {
+            try {
+                val db = com.pulseapp.android.data.AppDatabase.getInstance(applicationContext)
+                val profile = db.userProfileDao().getOnce()
+                val s = MetricsCalculator(ageYears = profile?.ageYears() ?: 30, male = profile?.sex != "F")
+                    .analyze(java.io.File(getExternalFilesDir(null), "hr_log.csv"))
+                val stillAsleep = (s.sleepEndMillis ?: 0L) >= System.currentTimeMillis() - 15 * 60_000L
+                val goal = Math.round(SleepPlanner().planForLastNight(db, s).totalNeedMinutes * SleepAlarm.goalFactor(this@WhoopBackgroundService)).toInt()
+                val rec = if (s.avgHrv != null || s.restingHr != null)
+                    RecoveryCalculator().breakdown(s.avgHrv, s.restingHr, BaselineProvider().compute(db), s.respiratoryRate).total else null
+                val wake = stillAsleep && SleepAlarm.shouldWakeEarly(nx.mode, s.sleepMinutes, goal, rec)
+                handler.post {
+                    log("⏰ Alarma ${SleepAlarm.modeName(nx.mode).lowercase()}: dormido ${s.sleepMinutes ?: 0} de $goal min, recuperación ${rec ?: "–"}" +
+                        if (wake) " → ¡despertar!" else "")
+                    if (wake && isReady()) {
+                        command(WhoopProtocol.CMD_RUN_ALARM, byteArrayOf(2, WhoopProtocol.ALARM_ID), "⏰ Despertar ya (orden 68)")
+                        SleepAlarm.setFiredUnix(this@WhoopBackgroundService, nx.unix)
+                        handler.postDelayed({
+                            if (isReady()) {
+                                command(WhoopProtocol.CMD_DISABLE_ALARM, byteArrayOf(2, 0xFF.toByte()), "⏰ Quito la alarma de la hora fija (ya sonó)")
+                                setAlarmArmedUnix(this@WhoopBackgroundService, 0L)
+                            }
+                        }, 60_000L)
+                    }
+                }
+            } catch (e: Exception) { log("⚠️ Alarma inteligente: ${e.message}") } finally { smartBusy = false }
         }
     }
 

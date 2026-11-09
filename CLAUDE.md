@@ -841,6 +841,18 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   El aviso "⚠️ sigue llegando (17)" de las 13:25:16 era la comprobación de una parada anterior que contó un arranque posterior → ahora cada
   comprobación solo vale para la última orden (`imuGen`, Android + iOS). Falta: medir la batería con el ahorro de verdad (band_battery.csv).
 
+- **Planificador de sueño como WHOOP (9/11, Android `SleepAlarm.kt` + `SleepPlannerDialogs.kt`, iOS `Core/SleepAlarm.swift` + `UI/SleepPlannerScreens.swift`)**:
+  "Editar hora de despertar" abre el planificador: "Tu alarma se activará a las X. Acuéstate a las Y para obtener el 100 % del sueño requerido",
+  MAÑANA QUIERO (lograr 100 % / mejorar 85 % PROVISIONAL), tiempo en cama = meta + tiempo medio despierto (media de 14 noches, PROVISIONAL: WHOOP
+  pone 30 y nuestra media de sus noches da ~27) → "Tu recomendación de sueño" (referencia + esfuerzo + deuda − siestas). Hora sugerida de acostarse
+  en Inicio = despertar − tiempo en cama (antes solo la necesidad). Alarma on/off, modo (hora exacta / objetivo de sueño / en verde), hora, y
+  "Mi horario" (días con hora y modo o "no usar alarma"; si está activo manda sobre lo demás). La alarma de la pulsera se pone siempre a la hora
+  de despertar; en objetivo/en verde el móvil mira cada 5 min en los 90 min de antes (noche hasta ahora, sigue dormido, dormido ≥ meta o
+  recuperación ≥ 67) y lanza 68 + quita la de la hora fija (69) a los 60 s. Al guardar: pantalla "Guardando… Mantén tu WHOOP cerca" con el logo
+  hasta la respuesta de 66 ([12]=1 y [14]=1) o 69 → "¡Correcto!" (10–12 s sin respuesta → "No se pudo guardar"). La vibración se para con
+  DOS TOQUES en la pulsera (probado 9/11). SIN PROBAR: modos inteligentes y horario en la pulsera. Pendiente: texto del "?" de "Mejorar mi sueño"
+  y cómo calcula WHOOP el "tiempo promedio despierto" y "Óptimo 22:45–7:35" (con necesidad 8:18 + 0:30 a las 7:35 sale 22:47).
+
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
 esfuerzo 11,5, 271 kcal, FC media 127 (la media aritmética de esos segundos es 133: WHOOP no usa la media simple), máx 170,

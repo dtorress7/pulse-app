@@ -93,6 +93,8 @@ data class HomeData(
     /** Estrés durante la noche que termina ese día. */
     val sleepStressSeries: List<StressPoint> = emptyList(),
     /** Fases minuto a minuto de esa noche (solo hoy, si hubo movimiento). */
+    /** 9/11: plan de esta noche como el planificador de sueño de WHOOP. */
+    val alarmPlan: SleepAlarm.Plan? = null,
     val stages: SleepStager.Result? = null
 )
 
@@ -231,6 +233,7 @@ class HomeDataLoader(private val ctx: Context) {
         // ---------- Hoy en directo (mismas cuentas que el Inicio anterior) ----------
         var todayRecord: DayRecord? = null
         var bedtime: String? = null
+        var alarmPlan: SleepAlarm.Plan? = null
         if (isToday && summary != null) {
             val baseline = BaselineProvider().compute(db)
             val recovery = if (summary.avgHrv != null || summary.restingHr != null)
@@ -246,7 +249,10 @@ class HomeDataLoader(private val ctx: Context) {
             val activityMin = todaySessions.sumOf { Formulas.activityLoadMinutes(it.type, (it.endMillis - it.startMillis) / 60000.0) }
             val dayStrain = summary.strain?.let { Formulas.addStrength(it, strengthMin, activityMin) }
             val plan = planner.computeTonightPlan(db, dayStrain, wake / 60, wake % 60, debtOverride = debtAfter)
-            bedtime = plan.suggestedBedtime
+            // 9/11: como el planificador de WHOOP: hora de acostarse = despertar − (meta + tiempo medio despierto)
+            val ap = SleepAlarm.plan(ctx, stored.filter { it.date < date.format(iso) }.map { it.awakeMinutes }, plan)
+            alarmPlan = ap
+            bedtime = "%02d:%02d".format(ap.bedMinute / 60, ap.bedMinute % 60)
             val prevRows = stored.filter { it.date < date.format(iso) && it.sleepStartMinuteOfDay != null && it.sleepEndMinuteOfDay != null }.takeLast(3)
             val prevNights = prevRows.map { r -> Formulas.standardNight(r.date, r.sleepStartMinuteOfDay!!, r.sleepEndMinuteOfDay!!) }
             val prevNaps = prevRows.map { r -> Formulas.napMinutes(Formulas.napsForNight(allSessions, r.date, zone), zone) }
@@ -427,7 +433,7 @@ class HomeDataLoader(private val ctx: Context) {
             stressScore = lastPoint, stressLevel = level, stressMinute = lastMinute, stressSeries = series,
             stressFrom = dayStart, stressTo = stressTo, sleepFromMillis = sleepFrom, sleepToMillis = sleepTo,
             sessions = sessionsOfDay, napAsleep = sessionsOfDay.filter { it.type == Formulas.NAP_TYPE }.associate { it.id to NapStages.asleepMinutes(it) },
-            bedtime = bedtime, wakeMinute = wake, panel = panel, week = week, streak = streak,
+            bedtime = bedtime, wakeMinute = alarmPlan?.wakeMinute ?: wake, alarmPlan = alarmPlan, panel = panel, week = week, streak = streak,
             insight = Insight.build(day, previous, isToday, baselineNow != null),
             baselineReady = baselineNow != null, profileMissing = profile == null,
             records = records.values.sortedBy { it.date }, sleepStressSeries = sleepStress,
