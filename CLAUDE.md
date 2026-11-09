@@ -783,6 +783,22 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
     pero el 23/10 con 8 noches y las fases de WHOOP "último profundo" daba MAE 9,8 → no es regla general. Revisar en la ronda de fases (si el profundo
     nuestro cae donde el de WHOOP, volver a probar el peso al último bloque).
 
+- **8/11→9/11 (24.ª referencia, domingo tranquilo, ahorro de batería activo desde el sábado 13:00)**: WHOOP (API) 22:40:46Z–06:44:48Z (23:40–07:44),
+  dormido 7:28, 36/235/140/74, 4 despertares, 93,6 %, VFC 86,96, FCR 58, resp 13,4, calificación 82 (89/66/94), recuperación 64; necesidad 504 min
+  (470 + 2 + 32 deuda). PulseApp iPhone: a las 8:14 23:42–07:44, VFC 86, recuperación 63; a las 9:08 –07:49, VFC 87, recuperación 64; calificación 85
+  (96/69/94). Código real con todos los datos (check/n09/N.kt): 23:42–07:48, 26/300/104/57, VFC 86,8, FCR 58.
+  - **Fin de la noche 8/11 alargado hasta las 13:16 con los datos del domingo (9/11, Android + iOS `trimBounds`)**: tumbado despierto en el sofá/cama
+    10:15–13:16 con la muñeca inquieta (giro ≥ 3 °/s en el 48 % de los minutos). Dormido, en 24 noches, ningún tramo de 45 min pasa del 24 %.
+    Regla: desde un minuto inquieto hasta el final (≥ 45 min) Y sus primeros 45 min con ≥ 40 % de minutos inquietos → la noche acaba antes
+    (`END_RESTLESS_MIN/FRAC` / `endRestlessMin/Frac`). Sin la 2.ª condición cortaba a las 09:03 (el tramo largo arrastraba minutos dormidos).
+    24 noches: solo cambia la 8/11 → 01:42–09:52 (WHOOP original 09:53), 8/307/90/86. Test de Swift con la noche 8/11. `night_recalc_v15` / iOS 15.
+    Esto también arregla la necesidad de la 9/11: con la 8/11 de 11 h dormida la deuda salía 0 (horas vs necesidad 96 %, WHOOP 89 %).
+  - Fases 9/11: hipnograma de WHOOP leído (check/hyp/dig09.py → n09/hyp09.json, totales = API al minuto). De nuestros 104 min de profundo, 100 caen
+    en el profundo de WHOOP (precisión 96 %), pero faltan 46 min: 04:21–04:42 (tenemos 04:27–04:35), 06:10–06:18 (nada), 01:48–01:51, 02:01–02:08,
+    02:27–02:32. REM 38 de 81 coinciden. Para la ronda de fases.
+  - **Batería (band_battery.csv 5/11→9/11)**: con movimiento 0,53–0,63 %/h (noche 0,53–0,56, día 0,62–0,69); sin movimiento (ahorro) sábado 13:06–16:40
+    0,62 %/h, domingo 12:27–19:57 0,48 %/h. Diferencia ≤ 0,15 %/h (~1–3 % al día), del orden del ruido (escalones de 0,25–0,3 %). ~7 días por carga.
+
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
 esfuerzo 11,5, 271 kcal, FC media 127 (la media aritmética de esos segundos es 133: WHOOP no usa la media simple), máx 170,
