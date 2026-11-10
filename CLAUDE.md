@@ -888,6 +888,11 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
     (válida, sin 69 ajena después) y tampoco vibró → sin explicar (payload idéntico al de goose). Añadido (Android + iOS): eventos 56/57/58/59/60/100
     SIEMPRE al registro con su cuerpo ("🔔 Evento de alarma/vibración"), y entre 10 y 1 min antes de la alarma se lee la alarma guardada (67 [4,1]).
     Falta whoop_history_raw.txt de esa mañana para ver si hubo evento 57 a las 07:25.
+    **CAUSA ENCONTRADA (10/11 17:00, whoop_service_log_16, prueba a las 16:58 con la versión nueva)**: 16:56:26 66 para las 16:58 (evento 56 con
+    hora 0x6AF33F08 = 10/11 16:58; GET 67 lo confirma) pero 16:57:27 PulseApp volvió a mandar 66 y el evento 56 trae 0x6AF49088 = **11/11** 16:58:
+    `SleepAlarm.next` (y antes `nextAlarmUnix`) daba por pasada la alarma cuando faltaba < 1 min (`t <= now + 60`) → saltaba a mañana y la reescribía.
+    Lo mismo a las 07:24:21 del 10/11 (versión vieja). Ahora (Android + iOS) la de hoy sigue siendo la próxima hasta 2 min DESPUÉS de su hora
+    (`t <= now − 120`), así no se toca mientras suena; luego se pone la de mañana. `nextAlarmUnix` (iOS, ya sin uso) borrado.
 
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,

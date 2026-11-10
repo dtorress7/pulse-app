@@ -85,7 +85,9 @@ enum SleepAlarm {
                 minute = e.minute; m = e.mode
             }
             guard let t = cal.date(bySettingHour: minute / 60, minute: minute % 60, second: 0, of: day) else { continue }
-            if t <= now.addingTimeInterval(60) { continue }
+            // 10/11: la alarma de hoy sigue siendo "la próxima" hasta 2 min DESPUÉS de su hora. Antes, en el último minuto pasaba a la de
+            // mañana y PulseApp la reescribía (16:57:27 → 66 para el 11/11 16:58, evento 56 con 0x6AF49088): por eso nunca vibraba.
+            if t <= now.addingTimeInterval(-120) { continue }
             let u = Int64(t.timeIntervalSince1970)
             if u == firedUnix { continue }   // ya sonó antes de tiempo esa mañana
             return Next(unix: u, minute: minute, mode: m)

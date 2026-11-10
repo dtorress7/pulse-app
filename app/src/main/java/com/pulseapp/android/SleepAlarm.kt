@@ -77,7 +77,9 @@ object SleepAlarm {
             }
             day.set(Calendar.HOUR_OF_DAY, minute / 60); day.set(Calendar.MINUTE, minute % 60)
             day.set(Calendar.SECOND, 0); day.set(Calendar.MILLISECOND, 0)
-            if (day.timeInMillis <= nowMs + 60_000L) continue
+            // 10/11: la de hoy sigue siendo "la próxima" hasta 2 min DESPUÉS de su hora (antes, en el último minuto pasaba a la de mañana
+            // y PulseApp la reescribía: evento 56 con la hora de mañana; por eso nunca vibraba)
+            if (day.timeInMillis <= nowMs - 120_000L) continue
             val u = day.timeInMillis / 1000
             if (u == fired) continue   // ya sonó antes de tiempo esa mañana
             return Next(u, minute, m)

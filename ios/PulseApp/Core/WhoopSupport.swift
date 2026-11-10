@@ -39,14 +39,6 @@ enum WhoopSettings {
         get { return Int64(UserDefaults.standard.integer(forKey: kAlarmArmed)) }
         set { UserDefaults.standard.set(Int(newValue), forKey: kAlarmArmed) }
     }
-    /// Próxima vez que llega la hora de despertar (hoy si aún no ha pasado, si no mañana).
-    static func nextAlarmUnix(now: Date = Date()) -> Int64 {
-        let m = SleepPlanner.wakeMinute()
-        let cal = Calendar.current
-        var d = cal.date(bySettingHour: m / 60, minute: m % 60, second: 0, of: now)!
-        if d <= now.addingTimeInterval(60) { d = cal.date(byAdding: .day, value: 1, to: d)! }
-        return Int64(d.timeIntervalSince1970)
-    }
     static func imuNightHour(_ hour: Int) -> Bool { return hour >= 20 || hour < 12 }
     static func imuWanted() -> Bool {
         return imuEnabled && (!imuSaver || imuNightHour(Calendar.current.component(.hour, from: Date())))
