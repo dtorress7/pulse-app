@@ -645,8 +645,15 @@ final class WhoopManager: NSObject, ObservableObject, CBCentralManagerDelegate, 
             command(WhoopProtocol.cmdDisableAlarm, [2, 0xFF], "⏰ Alarma de la pulsera quitada (orden 69)")
             WhoopSettings.alarmArmedUnix = 0
         } else if alarmSave == 1 { alarmSave = 2 }
+        // 10/11: entre 10 y 1 min antes de la alarma se lee lo que tiene guardado la pulsera (orden 67) para el registro
+        let nowS = Int64(Date().timeIntervalSince1970)
+        if nx.mode != SleepAlarm.modeNone && nowS >= nx.unix - 600 && nowS <= nx.unix - 60 && alarmCheckedFor != nx.unix {
+            alarmCheckedFor = nx.unix
+            command(WhoopProtocol.cmdGetAlarmTime, [4, 1], "⏰ Comprobar la alarma guardada en la pulsera (orden 67)")
+        }
         smartAlarmCheck(nx)
     }
+    private var alarmCheckedFor: Int64 = 0
 
     /// Desde la pantalla del planificador: guarda en la pulsera y enseña "Guardando…" hasta que responde.
     func saveAlarmNow() {

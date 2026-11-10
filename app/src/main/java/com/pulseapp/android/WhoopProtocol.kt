@@ -166,6 +166,7 @@ object WhoopProtocol {
     // 9/11: alarma de la WHOOP 5.0 (formato del proyecto goose; el de noop era de la 4.0 y la 79 daba "fallo")
     const val CMD_STOP_RAW_DATA = 82
     const val CMD_SET_ALARM_TIME = 66
+    const val CMD_GET_ALARM = 67
     const val CMD_RUN_ALARM = 68
     const val CMD_DISABLE_ALARM = 69
     const val ALARM_ID: Byte = 1

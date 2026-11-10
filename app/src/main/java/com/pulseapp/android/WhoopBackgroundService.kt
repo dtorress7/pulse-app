@@ -495,7 +495,11 @@ class WhoopBackgroundService : Service() {
             }
             48, 53, 54 -> {
                 if ((frame[8].toInt() and 0xFF) == 48) BandBattery.handleEvent(this, frame)?.let { log(it) }
-                if (eventsLogged++ < 20) log("🔔 Evento de la pulsera nº ${frame[10].toInt() and 0xFF}")
+                // 10/11: los de la alarma y la vibración siempre, con el cuerpo (56 puesta, 57 de la pulsera, 58 de la app, 60 vibración, 100 fin)
+                val ev = frame[10].toInt() and 0xFF
+                if ((frame[8].toInt() and 0xFF) == 48 && ev in listOf(56, 57, 58, 59, 60, 100))
+                    log("🔔 Evento de alarma/vibración nº $ev: ${WhoopProtocol.bytesToHex(frame.copyOfRange(10, minOf(frame.size, 28))).replace(" ", "")}")
+                else if (eventsLogged++ < 20) log("🔔 Evento de la pulsera nº $ev")
             }
         }
     }
@@ -690,8 +694,15 @@ class WhoopBackgroundService : Service() {
             command(WhoopProtocol.CMD_DISABLE_ALARM, byteArrayOf(2, 0xFF.toByte()), "⏰ Alarma de la pulsera quitada (orden 69)")
             setAlarmArmedUnix(this, 0L)
         } else if (alarmSave == 1) markAlarmSave(2)
+        // 10/11: entre 10 y 1 min antes de la alarma se lee lo que tiene guardado la pulsera (orden 67) para el registro
+        val nowS = System.currentTimeMillis() / 1000
+        if (nx.mode != SleepAlarm.MODE_NONE && nowS in (nx.unix - 600)..(nx.unix - 60) && alarmCheckedFor != nx.unix) {
+            alarmCheckedFor = nx.unix
+            command(WhoopProtocol.CMD_GET_ALARM, byteArrayOf(4, WhoopProtocol.ALARM_ID), "⏰ Comprobar la alarma guardada en la pulsera (orden 67)")
+        }
         smartAlarmCheck(nx)
     }
+    private var alarmCheckedFor = 0L
 
     private fun saveAlarmNow() {
         if (!isReady()) { markAlarmSave(3); return }

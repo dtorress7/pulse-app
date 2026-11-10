@@ -882,6 +882,12 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   - **La alarma no vibró (10/11)**: tenía "Despertador con vibración" activado. Sin whoop_service_log no se puede confirmar; causa probable: con las dos
     apps conectadas la app de WHOOP manda su alarma (66) o la quita (69) al sincronizar y gana la última. Ahora (Android + iOS) si llega la respuesta a una
     66/69 que no mandó PulseApp y hay alarma puesta, PulseApp la vuelve a poner a los 10 s (máx. 1/min) y lo apunta ("⏰ Otra app (WHOOP) ha cambiado…").
+    **CONFIRMADO con whoop_service_log_15 (10/11 tarde)**: 22:50:36 PulseApp pone la alarma a las 07:25 (respuesta 01 04 01 = válida) y 22:54:05 llega la
+    respuesta a una 69 que NO mandó PulseApp (la app de WHOOP, justo antes de su descarga de historial de las 22:54:06) → alarma borrada. También 69 ajenas
+    el 9/11 13:45, 13:53, 16:13–16:15 y 22:49:31 (no en cada sincronización). PERO 07:24:21 PulseApp (versión vieja) volvió a mandar 66 para las 07:25
+    (válida, sin 69 ajena después) y tampoco vibró → sin explicar (payload idéntico al de goose). Añadido (Android + iOS): eventos 56/57/58/59/60/100
+    SIEMPRE al registro con su cuerpo ("🔔 Evento de alarma/vibración"), y entre 10 y 1 min antes de la alarma se lee la alarma guardada (67 [4,1]).
+    Falta whoop_history_raw.txt de esa mañana para ver si hubo evento 57 a las 07:25.
 
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,

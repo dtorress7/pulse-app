@@ -161,7 +161,11 @@ final class WhoopFrameHandler {
             }
         case 48, 53, 54:
             if frame[8] == 48, let msg = BandBattery.handleEvent(frame) { log(msg) }
-            if eventsLogged < 20 { eventsLogged += 1; log("🔔 Evento de la pulsera nº \(Int(frame[10]))") }
+            // 10/11: los de la alarma y la vibración siempre, con el cuerpo (56 alarma puesta, 57 alarma de la pulsera, 58 de la app,
+            // 59 ?, 60 vibración, 100 fin): para saber si la alarma llegó a sonar.
+            if frame[8] == 48 && [56, 57, 58, 59, 60, 100].contains(Int(frame[10])) {
+                log("🔔 Evento de alarma/vibración nº \(Int(frame[10])): " + frame[10..<min(frame.count, 28)].map { String(format: "%02X", $0) }.joined())
+            } else if eventsLogged < 20 { eventsLogged += 1; log("🔔 Evento de la pulsera nº \(Int(frame[10]))") }
         default: break
         }
     }
