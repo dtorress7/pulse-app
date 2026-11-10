@@ -96,7 +96,17 @@ final class WhoopManager: NSObject, ObservableObject, CBCentralManagerDelegate, 
         handler.onOffloadActivity = { [weak self] in self?.armOffloadIdle() }
         handler.onAlarmResponse = { [weak self] cmd, body in
             DispatchQueue.main.async {
-                guard let self = self, self.alarmSave == 1 else { return }
+                guard let self = self else { return }
+                // 10/11: la alarma no sonó. Con las dos apps conectadas, la app de WHOOP manda su propia alarma (66) o la quita (69) al
+                // sincronizar y "la última que se pone gana". Si llega la respuesta a una 66/69 que NO mandó PulseApp y hay alarma
+                // puesta en PulseApp, se vuelve a poner a los 10 s (como mucho una vez por minuto).
+                if (cmd == 66 || cmd == 69) && Date().timeIntervalSince(self.lastOwnAlarmCmd) > 8
+                    && SleepAlarm.next().mode != SleepAlarm.modeNone && Date().timeIntervalSince(self.lastForeignRearm) > 60 {
+                    self.lastForeignRearm = Date()
+                    ServiceLog.shared.log("⏰ Otra app (WHOOP) ha cambiado la alarma de la pulsera (orden \(cmd)): PulseApp la vuelve a poner en 10 s")
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 10) { [weak self] in self?.applyAlarm(force: true) }
+                }
+                guard self.alarmSave == 1 else { return }
                 // 66: [13] revisión, [14] estado (1 = patrón válido); 69: cualquier respuesta vale
                 if cmd == 69 || (cmd == 66 && body.count > 2 && body[0] == 1 && body[2] == 1) { self.alarmSave = 2 }
                 else if cmd == 66 { self.alarmSave = 3 }
@@ -510,7 +520,11 @@ final class WhoopManager: NSObject, ObservableObject, CBCentralManagerDelegate, 
 
     // ---------- Órdenes ----------
 
+    /// 10/11: hora de la última orden de alarma (66–69) enviada por PulseApp, para reconocer las que manda la app de WHOOP.
+    private var lastOwnAlarmCmd = Date.distantPast
+    private var lastForeignRearm = Date.distantPast
     private func command(_ cmd: Int, _ payload: [UInt8], _ label: String) {
+        if (66...69).contains(cmd) { lastOwnAlarmCmd = Date() }
         seq = (seq + 1) % 256
         guard let frame = WhoopProtocol.buildCommand(cmd, seq: seq, payload: payload) else {
             ServiceLog.shared.log("⛔ Orden \(cmd) prohibida (destructiva): no se envía")

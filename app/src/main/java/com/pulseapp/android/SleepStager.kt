@@ -171,7 +171,10 @@ object SleepStager {
             }
             runs.add(longArrayOf(a, b)); k = b + 1
         }
-        val long = runs.filter { it[1] - it[0] + 1 >= 15 }
+        // 10/11: por la mañana, en tiempo real, el último rato quieto aún no ha terminado (07:18–07:31, sigue en la cama): si llega hasta
+        // el último dato cuenta como tramo largo aunque dure < 15 min (si no, la noche acababa a las 07:14 hasta que se levantaba).
+        val lastData = byMin.keys.maxOrNull() ?: 0L
+        val long = runs.filter { it[1] - it[0] + 1 >= 15 || (it[1] >= minOf(m1, lastData) - 1 && it[1] - it[0] + 1 >= ONGOING_MIN) }
         val anchor = long.firstOrNull { it[1] >= m0 && it[0] <= m1 } ?: return startMillis to endMillis
         // Inicio: hacia atrás desde el ancla
         var onset = anchor[0]
@@ -196,8 +199,8 @@ object SleepStager {
                 // Al despertar suele haber ratos quietos cortos entre giros (≤2 min, ≤15 pasos): siguen siendo noche
                 while (true) {
                     var b = end + 1; var steps = 0
-                    while (byMin[b] != null && !still(byMin[b]) && b - end <= 3) { steps += byMin[b]!!.steps; b++ }
-                    if (b - end - 1 > 2 || steps > END_EXT_STEPS || !still(byMin[b])) break
+                    while (byMin[b] != null && !still(byMin[b]) && b - end <= END_EXT_GAP + 1) { steps += byMin[b]!!.steps; b++ }
+                    if (b - end - 1 > END_EXT_GAP || steps > END_EXT_STEPS || !still(byMin[b])) break
                     while (still(byMin[b + 1])) b++
                     end = b
                 }
@@ -415,6 +418,9 @@ object SleepStager {
     /** 3/11: levantarse 2 min (16 + 9 pasos, p. ej. al baño) y volver a dormirse sigue siendo noche (WHOOP 06:55, antes 06:44).
      *  15 → 40 pasos: 18 noches, solo cambia la 3/11 (error del fin 1,9 → 1,3 min); igual con 25–60. */
     private const val END_EXT_STEPS = 40
+    // 10/11: despertar de 3 min (07:15–07:17, 26 pasos) y otra vez quieto: sigue siendo noche (antes ≤ 2 min)
+    private const val END_EXT_GAP = 3
+    private const val ONGOING_MIN = 5
     private const val NAP_MIN_MINUTES = 20
     private const val NAP_NO_REM_MIN = 60
 
@@ -487,7 +493,11 @@ object SleepStager {
                 val after = ((t + 1) until end).map { hr[off + it] }.filter { !it.isNaN() }
                 val before = ((t - END_BEFORE) until t).map { hr[off + it] }.filter { !it.isNaN() }
                 if (after.size < END_HR_MIN || before.size < 10) continue
-                if (median(after) >= median(before) + END_HR_RISE) {
+                // 10/11: y el pulso NO vuelve a bajar a lo de antes (ningún rato de 5 min a ≤ +END_HR_RETURN): 06:48–07:30 dormitando (REM, 61–72
+                // lpm con ratos a 54–58) cortaba la noche a las 06:47 mientras seguía en la cama (WHOOP 07:30).
+                val base = median(before)
+                val back = (0..after.size - 5).any { k -> median(after.subList(k, k + 5)) <= base + END_HR_RETURN }
+                if (median(after) >= base + END_HR_RISE && !back) {
                     // 7/11: los giros (≥ 3 °/s) de los 3 min siguientes (09:17, 09:19) son aún el despertar: acaba en el último (WHOOP 09:19)
                     var t2 = t
                     for (u in t + 1..minOf(t + END_CLUSTER, end - 1)) if (gyro[off + u] >= FIDGET_GYRO || steps[off + u] > 0) t2 = u
@@ -533,6 +543,7 @@ object SleepStager {
     private const val END_LOOK = 120
     private const val END_HR_MIN = 10
     private const val END_HR_RISE = 7.0
+    private const val END_HR_RETURN = 4.0
     private const val END_EVENT_GYRO = 6.0
     private const val END_CLUSTER = 3
 

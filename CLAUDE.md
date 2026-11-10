@@ -866,6 +866,23 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   entre la hora para el 100 % de la necesidad y la del Óptimo, redondeado a 15 min → 22:45 y 23:15 = WHOOP. Mensaje como WHOOP ("Acuéstate hoy a
   las X para lograr un N % de regularidad del sueño mañana") y fila ÓPTIMO bajo el tiempo en cama. Faltan más días para confirmar el Óptimo.
 
+- **9/11→10/11 (25.ª referencia, lunes tranquilo, acostarse 22:50)**: WHOOP (API) 21:50:37Z–06:30:52Z (22:50–07:30), dormido 8:07, 33/318/114/56,
+  12 despertares, 94 %, VFC 102,78, FCR 58, resp 13,4, calificación 84 (97/68/94/1), recuperación 90, temp 33,80. PulseApp iPhone (versión del 9/11
+  mañana, no pudo instalar la última): 22:51–07:36, 8:04, 41/292/83/109, VFC 103, FCR 57, resp 13,5, calificación 84 (96/68/92/0), recuperación 83.
+  Código real (check/n10/N.kt, hr_log_37 + motion_minutes_25) = app. Con la VFC/FCR EXACTAS de WHOOP la fórmula da también 83 (check/n07/r/R3.kt)
+  → −7 de la fórmula de recuperación (el mayor de las últimas noches). Profundo −31 / REM +53. Capturas en check/hyp/n10.
+  - **Fin de la noche en tiempo real (10/11, Android + iOS)**: a las 07:30 PulseApp marcaba 06:47 y más tarde 07:36. Reproducido cortando los datos
+    (check/n10/cut, mkcut.py, T3.kt): hasta las 08:00 → 06:47. Dos causas: (1) la regla del pulso alto al final (7/11) saltaba al dormitar 06:48–07:30
+    (61–72 lpm con ratos a 54–58, REM); ahora además el pulso NO puede volver a ≤ base + 4 en ningún rato de 5 min (`END_HR_RETURN`); (2) `motionBounds`
+    cortaba en 07:14: el último rato quieto aún no había terminado (07:18–07:31, < 15 min) y el despertar 07:15–07:17 duraba 3 min (permitidos 2).
+    Ahora un rato quieto que llega al último dato cuenta (≥ 5 min, `ONGOING_MIN`) y el hueco de giros puede ser de 3 min (`END_EXT_GAP`).
+    Resultado 10/11 a las 07:20/07:28/07:31/07:36…08:45: 07:19/07:27/07:30/07:35 (WHOOP 07:30). 7/11 igual a cualquier hora (09:19). 25 noches con todos
+    los datos: solo cambian 16/10 07:24 → 07:25 (W 07:25) y 26/10 07:03 → 07:23 (W 07:17); MAE iguales. Test de Swift ampliado: también compara
+    `motionBounds` (6 casos, uno el 10/11 a las 07:31; check/n10/sw/X.kt). `night_recalc_v17` / iOS 17.
+  - **La alarma no vibró (10/11)**: tenía "Despertador con vibración" activado. Sin whoop_service_log no se puede confirmar; causa probable: con las dos
+    apps conectadas la app de WHOOP manda su alarma (66) o la quita (69) al sincronizar y gana la última. Ahora (Android + iOS) si llega la respuesta a una
+    66/69 que no mandó PulseApp y hay alarma puesta, PulseApp la vuelve a poner a los 10 s (máx. 1/min) y lo apunta ("⏰ Otra app (WHOOP) ha cambiado…").
+
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
 esfuerzo 11,5, 271 kcal, FC media 127 (la media aritmética de esos segundos es 133: WHOOP no usa la media simple), máx 170,

@@ -99,7 +99,10 @@ enum SleepStager {
             }
             runs.append((a, b)); k = b + 1
         }
-        let long = runs.filter { $0.1 - $0.0 + 1 >= 15 }
+        // 10/11: en tiempo real el último rato quieto aún no ha terminado (sigue en la cama): si llega hasta el último dato cuenta
+        // como tramo largo aunque dure < 15 min (≥ 5). Igual que Android.
+        let lastData = byMin.keys.max() ?? 0
+        let long = runs.filter { $0.1 - $0.0 + 1 >= 15 || ($0.1 >= min(m1, lastData) - 1 && $0.1 - $0.0 + 1 >= 5) }
         guard let anchor = long.first(where: { $0.1 >= m0 && $0.0 <= m1 }) else { return (startMillis, endMillis) }
         var onset = anchor.0
         var m = anchor.0 - 1
@@ -122,8 +125,9 @@ enum SleepStager {
                 end = last.1
                 while true {
                     var b = end + 1, steps = 0
-                    while let x = byMin[b], !still(x), b - end <= 3 { steps += x.steps; b += 1 }
-                    if b - end - 1 > 2 || steps > 40 || !still(byMin[b]) { break }   // 3/11: 15 → 40 pasos (levantarse 2 min y volver a dormir sigue siendo noche)
+                    while let x = byMin[b], !still(x), b - end <= 4 { steps += x.steps; b += 1 }
+                    if b - end - 1 > 3 || steps > 40 || !still(byMin[b]) { break }   // 10/11: hueco de giros hasta 3 min (antes 2)
+                      // 3/11: 15 → 40 pasos (levantarse 2 min y volver a dormir sigue siendo noche)
                     while still(byMin[b + 1]) { b += 1 }
                     end = b
                 }
@@ -446,7 +450,10 @@ enum SleepStager {
                 let after = ((t + 1)..<end).map { hr[off + $0] }.filter { !$0.isNaN }
                 let before = ((t - endBefore)..<t).map { hr[off + $0] }.filter { !$0.isNaN }
                 if after.count < endHrMin || before.count < 10 { continue }
-                if median(after) >= median(before) + endHrRise {
+                // 10/11: y el pulso no vuelve a bajar a lo de antes (ningún rato de 5 min a ≤ +4 lpm): dormitar con REM no corta la noche
+                let base = median(before)
+                let back = after.count >= 5 && (0...(after.count - 5)).contains { k in median(Array(after[k..<(k + 5)])) <= base + 4.0 }
+                if median(after) >= base + endHrRise && !back {
                     // 7/11: los giros (≥ 3 °/s) de los 3 min siguientes son aún el despertar: acaba en el último (WHOOP 09:19)
                     var t2 = t
                     let top = min(t + endCluster, end - 1)

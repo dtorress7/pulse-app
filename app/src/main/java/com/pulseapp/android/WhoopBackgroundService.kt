@@ -246,7 +246,11 @@ class WhoopBackgroundService : Service() {
         }
     }
 
+    /** 10/11: última orden de alarma (66–69) de PulseApp, para reconocer las que manda la app de WHOOP. */
+    @Volatile private var lastOwnAlarmCmd = 0L
+    private var lastForeignRearm = 0L
     private fun command(cmd: Int, payload: ByteArray, label: String) {
+        if (cmd in 66..69) lastOwnAlarmCmd = System.currentTimeMillis()
         seq = (seq + 1) % 256
         enqueue(Op.Write(WhoopProtocol.buildCommand(cmd, seq, payload), label))
     }
@@ -472,6 +476,14 @@ class WhoopBackgroundService : Service() {
                 log("🔋 Respuesta a la orden 26 (batería): ${WhoopProtocol.bytesToHex(frame).replace(" ", "")}")
               val cmdNo = frame[10].toInt() and 0xFF
               // 9/11: las de la alarma y el movimiento siempre, con el cuerpo entero (goose: [13] = estado de la vibración/alarma)
+              // 10/11: la alarma no sonó; con las dos apps conectadas la app de WHOOP manda su alarma (66) o la quita (69) al sincronizar
+              // y gana la última. Respuesta a una 66/69 que no mandó PulseApp + alarma puesta → se vuelve a poner a los 10 s (máx. 1/min).
+              if ((cmdNo == 66 || cmdNo == 69) && System.currentTimeMillis() - lastOwnAlarmCmd > 8_000L &&
+                  SleepAlarm.next(this).mode != SleepAlarm.MODE_NONE && System.currentTimeMillis() - lastForeignRearm > 60_000L) {
+                  lastForeignRearm = System.currentTimeMillis()
+                  log("⏰ Otra app (WHOOP) ha cambiado la alarma de la pulsera (orden $cmdNo): PulseApp la vuelve a poner en 10 s")
+                  handler.postDelayed({ applyAlarm(force = true) }, 10_000L)
+              }
               if (alarmSave == 1 && frame.size > 15 && (cmdNo == 69 || cmdNo == 66))
                 markAlarmSave(if (cmdNo == 69 || ((frame[12].toInt() and 0xFF) == 1 && (frame[14].toInt() and 0xFF) == 1)) 2 else 3)
               if (cmdNo in listOf(66, 67, 68, 69, 106) && frame.size > 12)
