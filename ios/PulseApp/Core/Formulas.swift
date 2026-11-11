@@ -429,17 +429,20 @@ enum Formulas {
     /// [readings] = (hora en ms, pulso), en orden. Esfuerzo del DÍA (27/10): sin la base por minuto (24 h en reposo sumaban
     /// 2,5–3 puntos que WHOOP no da); la base solo cuenta dentro de las actividades (addStrength).
     static func strainOf(readings: [(Int64, Int)], restingHr: Int?, hrMax: Double, male: Bool = true,
-                         maxGapMinutes: Double = 5.0, sleepWindow: (Int64, Int64)? = nil) -> Double {
+                         maxGapMinutes: Double = 5.0, sleepWindow: (Int64, Int64)? = nil,
+                         activities: [(Int64, Int64)] = []) -> Double {
         if readings.count < 2 { return 0 }
         let rhr = restingHr ?? defaultRestingHr
         var total = 0.0
         for i in 1..<readings.count {
             let dt = Double(readings[i].0 - readings[i - 1].0) / 60000.0
             if dt <= 0 || dt > maxGapMinutes { continue }
+            let t = readings[i].0
             var asleep = false
-            if let w = sleepWindow { asleep = readings[i].0 >= w.0 && readings[i].0 <= w.1 }
-            total += trimp(minutes: dt, hr: readings[i].1, restingHr: rhr, hrMax: hrMax, male: male, withBase: false,
-                           floor: asleep ? sleepStrainFloor : 0)
+            if let w = sleepWindow { asleep = t >= w.0 && t <= w.1 }
+            let inAct = activities.contains { t >= $0.0 && t <= $0.1 }
+            let floor = inAct ? 0 : (asleep ? sleepStrainFloor : dayStrainFloor)
+            total += trimp(minutes: dt, hr: readings[i].1, restingHr: rhr, hrMax: hrMax, male: male, withBase: false, floor: floor)
         }
         return strainFromTrimp(total)
     }
@@ -447,6 +450,9 @@ enum Formulas {
     /// 30/10 (igual que Android): dormido, el pulso que pasa poco de la FC en reposo (< 5 % de la reserva) no suma esfuerzo.
     /// La noche sola daba 0,7–0,8 (WHOOP 0,2). 11 ciclos de WHOOP: error medio 0,59 → 0,45, ningún día empeora.
     static let sleepStrainFloor = 0.05
+    /// 11/11 (igual que Android DAY_STRAIN_FLOOR): despierto y fuera de las actividades, < 3 % de la reserva no suma esfuerzo.
+    /// 20 ciclos de WHOOP 20/10→10/11: error medio 0,77 → 0,52 (octubre 0,38 → 0,26, noviembre 1,16 → 0,77).
+    static let dayStrainFloor = 0.03
 
     // ---------- Recuperación ----------
     /// 30/10 (igual que Android): lineal + percentil de la VFC de hoy entre tus últimas 30 noches. 193 noches de WHOOP:

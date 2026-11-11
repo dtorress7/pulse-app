@@ -357,12 +357,18 @@ class MainActivity : AppCompatActivity() {
         val sleepColor = Ui.color(ctx, R.color.w_ring_sleep)
         val recColor = Ui.color(ctx, day.recovery?.let { W.recoveryColor(it) } ?: R.color.w_recovery_high)
         val strainColor = Ui.color(ctx, R.color.strain_blue)
-        sleepRing.setValue((day.sleepScore ?: 0) / 100f, day.sleepScore?.let { "$it%" } ?: "--", "", sleepColor)
-        recoveryRing.setValue((day.recovery ?: 0) / 100f, day.recovery?.let { "$it%" } ?: "--", "", recColor)
-        strainRing.setValue(((day.strain ?: 0.0) / 21.0).toFloat(), day.strain?.let { Ui.comma(it) } ?: "--", "", strainColor)
-        miniSleep.setValue((day.sleepScore ?: 0) / 100f, "", "", sleepColor)
-        miniRecovery.setValue((day.recovery ?: 0) / 100f, "", "", recColor)
-        miniStrain.setValue(((day.strain ?: 0.0) / 21.0).toFloat(), "", "", strainColor)
+        // 11/11: "Sueño detectado" sin procesar → anillos vacíos ("--%" / "--"), como WHOOP
+        val pend = d.sleepPending
+        val sleepScore = if (pend) null else day.sleepScore
+        val recovery = if (pend) null else day.recovery
+        val strain = if (pend) null else day.strain
+        sleepRing.setValue((sleepScore ?: 0) / 100f, sleepScore?.let { "$it%" } ?: if (pend) "--%" else "--", "", sleepColor)
+        recoveryRing.setValue((recovery ?: 0) / 100f, recovery?.let { "$it%" } ?: if (pend) "--%" else "--", "", recColor)
+        strainRing.setValue(((strain ?: 0.0) / 21.0).toFloat(), strain?.let { Ui.comma(it) } ?: "--", "", strainColor)
+        miniSleep.setValue((sleepScore ?: 0) / 100f, "", "", sleepColor)
+        miniRecovery.setValue((recovery ?: 0) / 100f, "", "", recColor)
+        miniStrain.setValue(((strain ?: 0.0) / 21.0).toFloat(), "", "", strainColor)
+        showSleepDetectedCard(d)
 
         // Monitor de salud
         val healthText = findViewById<TextView>(R.id.healthStatusText)
@@ -436,13 +442,88 @@ class MainActivity : AppCompatActivity() {
         fillPanel(d)
     }
 
+    private var sleepDetectedCard: View? = null
+
+    /** 11/11: procesa el sueño detectado (como "FIN DEL SUEÑO" de WHOOP) y vuelve a pintar Inicio. */
+    private fun processSleep(d: HomeData) {
+        SleepPending.markProcessed(this, d.date.toString())
+        refresh()
+    }
+
+    /** Tarjeta "Sueño detectado" bajo los anillos (solo mientras está pendiente). */
+    private fun showSleepDetectedCard(d: HomeData) {
+        val rings = findViewById<View>(R.id.ringsRow)
+        val parent = rings.parent as ViewGroup
+        sleepDetectedCard?.let { parent.removeView(it) }
+        sleepDetectedCard = null
+        if (!d.sleepPending) return
+        val ctx = this
+        val card = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setBackgroundResource(R.drawable.bg_card_w)
+            val p = Ui.dp(ctx, 20f)
+            setPadding(p, p, p, p)
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = Ui.dp(ctx, 28f) }
+            val col = LinearLayout(ctx).apply {
+                orientation = LinearLayout.VERTICAL
+                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                addView(W.body(ctx, "Sueño detectado", 18f, R.color.text_primary))
+                addView(W.body(ctx, "¿Estás listo para ver tus estadísticas de sueño? Procesa tu sueño ahora o nos ocuparemos de ello automáticamente.", 15f).apply {
+                    setPadding(0, Ui.dp(ctx, 6f), 0, Ui.dp(ctx, 12f)) })
+                addView(W.title(ctx, "Fin del sueño  →", 15f, R.color.w_ring_sleep).apply {
+                    setPadding(0, Ui.dp(ctx, 6f), 0, Ui.dp(ctx, 6f))
+                    setOnClickListener { processSleep(d) } })
+            }
+            addView(col)
+            addView(W.icon(ctx, R.drawable.ic_moon_filled, 64f, R.color.w_ring_sleep).apply {
+                (layoutParams as LinearLayout.LayoutParams).marginStart = Ui.dp(ctx, 12f) })
+        }
+        parent.addView(card, parent.indexOfChild(rings) + 1)
+        sleepDetectedCard = card
+    }
+
+    /** Fila "SUEÑO DETECTADO · PROCESO" de Actividades de hoy (como WHOOP). */
+    private fun sleepDetectedRow(d: HomeData): View {
+        val ctx = this
+        return LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setBackgroundResource(R.drawable.bg_row_w)
+            val p = Ui.dp(ctx, 8f)
+            setPadding(p, p, Ui.dp(ctx, 12f), p)
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Ui.dp(ctx, 66f)).apply { bottomMargin = Ui.dp(ctx, 10f) }
+            addView(LinearLayout(ctx).apply {
+                gravity = Gravity.CENTER
+                background = W.rounded(ctx, R.color.background, 10f)
+                layoutParams = LinearLayout.LayoutParams(Ui.dp(ctx, 112f), ViewGroup.LayoutParams.MATCH_PARENT)
+                addView(W.icon(ctx, R.drawable.ic_moon_filled, 22f, R.color.text_primary))
+            })
+            addView(W.title(ctx, "Sueño detectado", 16f).apply {
+                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = Ui.dp(ctx, 18f) }
+            })
+            addView(W.title(ctx, "Proceso", 14f).apply {
+                gravity = Gravity.CENTER
+                val h = Ui.dp(ctx, 16f); val v = Ui.dp(ctx, 12f)
+                setPadding(h, v, h, v)
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    cornerRadius = Ui.dp(ctx, 10f).toFloat()
+                    setStroke(Ui.dp(ctx, 2f), Ui.color(ctx, R.color.text_primary))
+                }
+                setOnClickListener { processSleep(d) }
+            })
+        }
+    }
+
     private fun fillActivities(d: HomeData) {
         todayList.removeAllViews()
         val timeFmt = SimpleDateFormat("H:mm", esLocale)
         val day = d.day
         val from = d.sleepFromMillis
         val to = d.sleepToMillis
-        if (day.sleepMinutes != null && from != null && to != null) {
+        if (d.sleepPending) {
+            todayList.addView(sleepDetectedRow(d))
+        } else if (day.sleepMinutes != null && from != null && to != null) {
             val row = W.activityRow(this, R.color.w_ring_sleep, R.drawable.ic_moon_filled, Ui.hm(day.sleepMinutes), "Sueño",
                 timeFmt.format(Date(from)), timeFmt.format(Date(to)))
             row.setOnClickListener {

@@ -39,7 +39,8 @@ class MetricsCalculator(ageYears: Int, private val male: Boolean = true) {
         private const val DISCONNECT_GAP_MINUTES = 3
     }
 
-    fun analyze(file: File, motionFile: File = File(file.parentFile, MotionTracker.FILE_NAME)): DailySummary {
+    fun analyze(file: File, motionFile: File = File(file.parentFile, MotionTracker.FILE_NAME),
+                activities: List<Pair<Long, Long>> = emptyList()): DailySummary {
         val readings = parseCsv(file)
         if (readings.isEmpty()) {
             return DailySummary(null, null, null, null, 0.0, null, null, null, null, null, null, null, null, null, 0)
@@ -86,7 +87,7 @@ class MetricsCalculator(ageYears: Int, private val male: Boolean = true) {
         // VFC: con fases, la de los tramos de sueño profundo (como WHOOP); ver NightMetrics
         val avgHrv = if (sleepReadings.isNotEmpty()) NightMetrics.hrv(sleepReadings.map { it.timeMillis to it.rr }, staged, sleepReadings.map { it.bpm }) else null
         val vo2Max = restingHr?.let { 15.3 * (hrMax / it) }
-        val strain = computeStrain(cycleReadings, restingHr, window)
+        val strain = computeStrain(cycleReadings, restingHr, window, activities)
 
         val calStart = window?.first?.let { java.util.Calendar.getInstance().apply { timeInMillis = it } }
         val calEnd = window?.second?.let { java.util.Calendar.getInstance().apply { timeInMillis = it } }
@@ -203,6 +204,6 @@ class MetricsCalculator(ageYears: Int, private val male: Boolean = true) {
     // 2/11: el esfuerzo del día usa la FC en reposo de REFERENCIA (la de las zonas, como WHOOP: "FCR de referencia 59"), no la de
     // anoche. Con la de cada noche una noche de FCR baja (54) subía el esfuerzo de toda la mañana. 14 ciclos de WHOOP: 0,54 → 0,37–0,46.
     @Suppress("UNUSED_PARAMETER")
-    private fun computeStrain(readings: List<Reading>, restingHr: Int?, sleepWindow: Pair<Long, Long>?): Double =
-        Formulas.strainOf(readings.map { it.timeMillis to it.bpm }, Formulas.zoneRestingHr(), hrMax, male, sleepWindow = sleepWindow)
+    private fun computeStrain(readings: List<Reading>, restingHr: Int?, sleepWindow: Pair<Long, Long>?, activities: List<Pair<Long, Long>>): Double =
+        Formulas.strainOf(readings.map { it.timeMillis to it.bpm }, Formulas.zoneRestingHr(), hrMax, male, sleepWindow = sleepWindow, activities = activities)
 }

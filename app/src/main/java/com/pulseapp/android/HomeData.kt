@@ -95,7 +95,9 @@ data class HomeData(
     /** Fases minuto a minuto de esa noche (solo hoy, si hubo movimiento). */
     /** 9/11: plan de esta noche como el planificador de sueño de WHOOP. */
     val alarmPlan: SleepAlarm.Plan? = null,
-    val stages: SleepStager.Result? = null
+    val stages: SleepStager.Result? = null,
+    /** 11/11: "Sueño detectado" sin procesar (anillos en "--" como WHOOP, ver SleepPending). */
+    val sleepPending: Boolean = false
 )
 
 object PanelKeys {
@@ -148,8 +150,6 @@ class HomeDataLoader(private val ctx: Context) {
         val dayEnd = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
         val now = System.currentTimeMillis()
 
-        val summary = if (isToday) withContext(Dispatchers.IO) { MetricsCalculator(ageYears = age, male = male).analyze(hrFile) } else null
-
         // Tras actualizar (23/10): rehace una vez las noches guardadas con la VFC y la recuperación nuevas
         if (isToday) withContext(Dispatchers.IO) {
             DailyMetricsUpdater().recalcPastNightsOnce(db, hrFile, age, profile?.weightKg ?: 75f, profile?.sex ?: "M")
@@ -159,6 +159,11 @@ class HomeDataLoader(private val ctx: Context) {
         val byDate = stored.associateBy { it.date }
         if (isToday) AutoActivityScanner.scan(ctx, hrFile)
         val allSessions = db.activitySessionDao().getAll()
+        // 11/11: las actividades se pasan al esfuerzo del día (fuera de ellas el pulso casi en reposo no suma)
+        val summary = if (isToday) withContext(Dispatchers.IO) {
+            MetricsCalculator(ageYears = age, male = male).analyze(hrFile,
+                activities = allSessions.filter { it.type != Formulas.NAP_TYPE }.map { it.startMillis to it.endMillis })
+        } else null
         // 2/11: fases de las siestas recientes (una vez cada una; restan de la necesidad con su tiempo dormido)
         if (NapStages.dir == null) NapStages.dir = dir
         withContext(Dispatchers.IO) {
@@ -442,7 +447,8 @@ class HomeDataLoader(private val ctx: Context) {
             insight = Insight.build(day, previous, isToday, baselineNow != null),
             baselineReady = baselineNow != null, profileMissing = profile == null,
             records = records.values.sortedBy { it.date }, sleepStressSeries = sleepStress,
-            stages = if (isToday) summary?.stages else SleepStagesStore.load(dir, date.toString())
+            stages = if (isToday) summary?.stages else SleepStagesStore.load(dir, date.toString()),
+            sleepPending = isToday && SleepPending.isPending(ctx, date.toString(), sleepTo, now)
         )
     }
 

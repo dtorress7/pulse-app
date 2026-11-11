@@ -903,6 +903,20 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   0,39/0,49 %/h; noches con movimiento 0,80/1,12 %/h, pero antes (con más batería) 0,41–0,62 → el % baja más rápido con poca batería (no lineal),
   no se puede separar el efecto del movimiento. 85 % → 11 % en 5,3 días (~6 días por carga; WHOOP dice ~14 días sin PulseApp).
 
+- **11/11 (2.ª parte)**:
+  - **Esfuerzo del día (Android + iOS `Formulas.DAY_STRAIN_FLOOR` / `dayStrainFloor` = 0,03)**: 10/11 PulseApp 12,1 (funcional 10,5 + paseo 4,4) vs WHOOP
+    10,9 (funcional 10,8; el paseo 20:30–20:55, FC media 95, WHOOP no lo detectó). Con las ventanas de WHOOP y SIN paseo seguía dando 12,0 → sobra
+    el pulso del resto del día. 20 ciclos de WHOOP 20/10→10/11 (check/n30/Z9.kt, Z9b.kt, Z10.kt con el código real; FCR 59): despierto y FUERA de las
+    actividades, lo que pase menos del 3 % de la reserva no suma (dentro de actividades nada; dormido sigue 0,05) → error medio 0,77 → 0,52,
+    octubre 0,38 → 0,26, noviembre 1,16 → 0,77; descanso 25/10 +0,5 → −0,6, 1/11 +0,9 → −0,1. Probado y peor: escalar el resto del día, "máximo de
+    entreno y día" (0,96), suma suave (1,30). Sigue sin explicar el 2/11 (pesas, WHOOP 4,68, nosotros +2,7). `strainOf(..., activities)`;
+    MetricsCalculator.analyze recibe las actividades (HomeData). `night_recalc_v18` / iOS 18.
+    Mañana 11/11: PulseApp hasta 08:23 0,20–0,22 = WHOOP 0,18 (la API no se actualizó desde las 08:23) → a la misma hora cuadra.
+  - **"Sueño detectado" como WHOOP (Android `SleepPending.kt` + iOS `Core/SleepPending.swift`)**: al despertar WHOOP deja los anillos en "--%" con la
+    tarjeta "Sueño detectado … FIN DEL SUEÑO →" y la fila "SUEÑO DETECTADO · PROCESO" hasta que lo procesas (11/11: seguía pendiente a las 08:23,
+    1 h después de despertar; la API creó el sueño justo a esa hora). PulseApp: pendiente desde 5 min después del fin de la noche hasta que pulsas o
+    2 h después (PROVISIONAL: pregunta a la IA de WHOOP). Procesar solo enseña lo calculado (prefs `pulseapp_sleep_processed`).
+
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
 esfuerzo 11,5, 271 kcal, FC media 127 (la media aritmética de esos segundos es 133: WHOOP no usa la media simple), máx 170,

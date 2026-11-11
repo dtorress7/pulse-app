@@ -123,6 +123,8 @@ struct HomeData {
     var nightReadings: [HrReading]
     /// 9/11: plan de esta noche como el planificador de sueño de WHOOP (necesidad, meta, tiempo despierto, hora de acostarse).
     var alarmPlan: SleepAlarm.Plan? = nil
+    /// 11/11: "Sueño detectado" sin procesar (anillos en "--" como WHOOP, ver SleepPending).
+    var sleepPending: Bool = false
 }
 
 enum PanelKeys {
@@ -175,8 +177,6 @@ enum HomeDataLoader {
         let dayStart = Day.start(date)
         let dayEnd = Day.start(Day.add(date, 1))
 
-        let summary: DailySummary? = isToday ? MetricsCalculator(ageYears: age, male: male).analyze(hrLog: hrLog) : nil
-
         // Tras actualizar (23/10): rehace una vez las noches guardadas con la VFC y la recuperación nuevas
         if isToday {
             DailyMetricsUpdater.recalcPastNightsOnce(store: store, hrLog: hrLog, motionFile: motionFile, ageYears: age,
@@ -188,6 +188,9 @@ enum HomeDataLoader {
         for d in stored { byDate[d.date] = d }
         if isToday { AutoActivityScanner.scan(store: store, hrLog: hrLog) }
         let allSessions = store.allSessions()
+        // 11/11: las actividades se pasan al esfuerzo del día (fuera de ellas el pulso casi en reposo no suma)
+        let summary: DailySummary? = isToday ? MetricsCalculator(ageYears: age, male: male)
+            .analyze(hrLog: hrLog, activities: allSessions.filter { $0.type != Formulas.napType }.map { ($0.startMillis, $0.endMillis) }) : nil
         // 2/11: fases de las siestas recientes (una vez cada una; restan de la necesidad con su tiempo dormido)
         let napSince = Day.start(Day.add(date, -2))
         for s in allSessions where s.type == Formulas.napType && s.startMillis >= napSince { _ = NapStages.get(s, hrLog: hrLog) }
@@ -503,7 +506,8 @@ enum HomeDataLoader {
             insight: Insight.build(day: day, previous: previous, isToday: isToday, baselineReady: baselineNow != nil),
             baselineReady: baselineNow != nil, profileMissing: profile == nil,
             records: records.values.sorted { $0.date < $1.date }, sleepStressSeries: sleepStress,
-            stages: isToday ? summary?.stages : SleepStagesStore.load(date), nightReadings: nightReadings, alarmPlan: alarmPlan)
+            stages: isToday ? summary?.stages : SleepStagesStore.load(date), nightReadings: nightReadings, alarmPlan: alarmPlan,
+            sleepPending: isToday && SleepPending.isPending(date: date, sleepEnd: sleepTo, now: now))
     }
 
     /// (inicio, fin) de las noches guardadas que tienen las dos horas.

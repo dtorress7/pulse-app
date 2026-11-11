@@ -62,6 +62,7 @@ struct HomeView: View {
                             .background(GeometryReader { g in
                                 Color.clear.preference(key: RingsBottomKey.self, value: g.frame(in: .named("homeScroll")).maxY)
                             })
+                        if pending { sleepDetectedCard.padding(.top, 28) }
                         monitors.padding(.top, 28)
                         myDay
                         tonightCard
@@ -336,14 +337,18 @@ struct HomeView: View {
 
     private var day: DayRecord? { return data?.day }
 
+    /// 11/11: "Sueño detectado" sin procesar → anillos vacíos, como WHOOP
+    private var pending: Bool { data?.sleepPending == true }
+
     private var rings: some View {
-        let sleepScore = day?.sleepScore
-        let rec = day?.recovery
-        let strain = day?.strain
+        let sleepScore = pending ? nil : day?.sleepScore
+        let rec = pending ? nil : day?.recovery
+        let strain = pending ? nil : day?.strain
+        let dash = pending ? "--%" : "--"
         return HStack(alignment: .top, spacing: 0) {
-            ringBox(WRing(progress: Double(sleepScore ?? 0) / 100, value: sleepScore.map { "\($0)%" } ?? "--", color: Theme.wRingSleep),
+            ringBox(WRing(progress: Double(sleepScore ?? 0) / 100, value: sleepScore.map { "\($0)%" } ?? dash, color: Theme.wRingSleep),
                     "Sueño", .sleep(dayOffset)).frame(maxWidth: .infinity)
-            ringBox(WRing(progress: Double(rec ?? 0) / 100, value: rec.map { "\($0)%" } ?? "--",
+            ringBox(WRing(progress: Double(rec ?? 0) / 100, value: rec.map { "\($0)%" } ?? dash,
                           color: rec.map { Theme.wRecoveryColor($0) } ?? Theme.wRecoveryHigh),
                     "Recuperación", .recovery(dayOffset)).frame(maxWidth: .infinity).layoutPriority(1)
             ringBox(WRing(progress: (strain ?? 0) / 21, value: strain.map { Fmt.comma($0) } ?? "--", color: Theme.strainBlue),
@@ -366,16 +371,16 @@ struct HomeView: View {
     }
 
     private var stickyHeader: some View {
-        let sleepScore = day?.sleepScore ?? 0
-        let rec = day?.recovery
-        let strain = day?.strain ?? 0
+        let sleepScore = pending ? 0 : (day?.sleepScore ?? 0)
+        let rec = pending ? nil : day?.recovery
+        let strain = pending ? 0 : (day?.strain ?? 0)
         return HStack {
             miniRing(WRing(progress: Double(sleepScore) / 100, value: "", color: Theme.wRingSleep, size: 26, strokeRatio: 0.14),
-                     day?.sleepScore.map { "\($0)%" } ?? "--", .sleep(dayOffset))
+                     pending ? "--" : (day?.sleepScore.map { "\($0)%" } ?? "--"), .sleep(dayOffset))
             miniRing(WRing(progress: Double(rec ?? 0) / 100, value: "", color: rec.map { Theme.wRecoveryColor($0) } ?? Theme.wRecoveryHigh,
                            size: 26, strokeRatio: 0.14), rec.map { "\($0)%" } ?? "--", .recovery(dayOffset))
             miniRing(WRing(progress: strain / 21, value: "", color: Theme.strainBlue, size: 26, strokeRatio: 0.14),
-                     day?.strain.map { Fmt.comma($0) } ?? "--", .strain(dayOffset))
+                     pending ? "--" : (day?.strain.map { Fmt.comma($0) } ?? "--"), .strain(dayOffset))
         }
         .padding(.horizontal, 16).padding(.vertical, 10)
         .frame(maxWidth: .infinity)
@@ -391,6 +396,53 @@ struct HomeView: View {
         }
         .buttonStyle(.plain)
         .frame(maxWidth: .infinity)
+    }
+
+    // MARK: - Sueño detectado (11/11, como WHOOP)
+
+    private func processSleep() {
+        guard let d = data else { return }
+        SleepPending.markProcessed(d.date)
+        refresh(force: true)
+    }
+
+    private var sleepDetectedCard: some View {
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Sueño detectado").font(Theme.text(19)).foregroundColor(Theme.textPrimary)
+                WBody(text: "¿Estás listo para ver tus estadísticas de sueño? Procesa tu sueño ahora o nos ocuparemos de ello automáticamente.", size: 15)
+                Button(action: processSleep) {
+                    HStack(spacing: 8) {
+                        WTitle(text: "Fin del sueño", size: 15).foregroundColor(Theme.wRingSleep)
+                        Image(systemName: "arrow.right").font(.system(size: 15, weight: .semibold)).foregroundColor(Theme.wRingSleep)
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Image(systemName: "moon.stars.fill").font(.system(size: 52)).foregroundColor(Theme.wRingSleep)
+        }
+        .padding(20)
+        .background(Theme.wCard)
+        .cornerRadius(16)
+    }
+
+    private var sleepDetectedRow: some View {
+        HStack(spacing: 18) {
+            Image(systemName: "moon.fill").font(.system(size: 22)).foregroundColor(Theme.textPrimary)
+                .frame(width: 112).frame(maxHeight: .infinity)
+                .background(Theme.background).cornerRadius(10)
+            WTitle(text: "Sueño detectado", size: 16).frame(maxWidth: .infinity, alignment: .leading)
+            Button(action: processSleep) {
+                WTitle(text: "Proceso", size: 14)
+                    .padding(.horizontal, 16).padding(.vertical, 12)
+                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.textPrimary, lineWidth: 2))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(8).padding(.trailing, 4)
+        .frame(height: 66)
+        .background(Theme.wRow).cornerRadius(12)
     }
 
     // MARK: - Monitores
@@ -549,7 +601,9 @@ struct HomeView: View {
         let hasSleep = d?.day.sleepMinutes != nil && d?.sleepFromMillis != nil && d?.sleepToMillis != nil
         let sessions = d?.sessions ?? []
         VStack(spacing: 10) {
-            if let dd = d, hasSleep {
+            if pending {
+                sleepDetectedRow
+            } else if let dd = d, hasSleep {
                 Button(action: { path.append(.sleep(dayOffset)) }) {
                     ActivityRowView(color: Theme.wRingSleep, icon: "moon.fill", value: Fmt.hm(dd.day.sleepMinutes!), name: "Sueño",
                                     start: WText.time(dd.sleepFromMillis!), end: WText.time(dd.sleepToMillis!))

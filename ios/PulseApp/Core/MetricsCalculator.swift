@@ -7,7 +7,8 @@ struct MetricsCalculator {
 
     private var hrMax: Double { return Formulas.hrMax(ageYears: ageYears) }
 
-    func analyze(hrLog: HrLog, motionFile: URL = AppPaths.file(MotionTracker.fileName), now: Int64 = TimeUtil.nowMillis()) -> DailySummary {
+    func analyze(hrLog: HrLog, motionFile: URL = AppPaths.file(MotionTracker.fileName), now: Int64 = TimeUtil.nowMillis(),
+                 activities: [(Int64, Int64)] = []) -> DailySummary {
         // Solo hace falta lo reciente: la noche (últimas 30 h) y el ciclo del día
         let readings = hrLog.readings(from: now - 36 * 3_600_000, to: now + 3_600_000)
         if readings.isEmpty { return DailySummary.empty() }
@@ -54,7 +55,8 @@ struct MetricsCalculator {
         if let r = restingHr, r > 0 { vo2Max = 15.3 * (hrMax / Double(r)) }
         // 2/11: el esfuerzo del día usa la FC en reposo de referencia (la de las zonas, como WHOOP), no la de anoche
         let strain = Formulas.strainOf(readings: cycleReadings.map { ($0.timeMillis, $0.bpm) },
-                                       restingHr: Formulas.zoneRestingHr(), hrMax: hrMax, male: male, sleepWindow: window)
+                                       restingHr: Formulas.zoneRestingHr(), hrMax: hrMax, male: male, sleepWindow: window,
+                                       activities: activities)
 
         let respiratoryRate: Double? = sleepReadings.isEmpty ? nil : RespiratoryRateCalculator.estimate(sleepReadings.flatMap { $0.rr })
 

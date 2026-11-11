@@ -563,7 +563,7 @@ object Formulas {
      */
     fun strainOf(
         readings: List<Pair<Long, Int>>, restingHr: Int?, hrMax: Double, male: Boolean = true, maxGapMinutes: Double = 5.0,
-        sleepWindow: Pair<Long, Long>? = null
+        sleepWindow: Pair<Long, Long>? = null, activities: List<Pair<Long, Long>> = emptyList()
     ): Double {
         if (readings.size < 2) return 0.0
         val rhr = restingHr ?: DEFAULT_RESTING_HR
@@ -571,8 +571,11 @@ object Formulas {
         for (i in 1 until readings.size) {
             val dt = (readings[i].first - readings[i - 1].first) / 60000.0
             if (dt <= 0 || dt > maxGapMinutes) continue
-            val asleep = sleepWindow != null && readings[i].first in sleepWindow.first..sleepWindow.second
-            total += trimp(dt, readings[i].second, rhr, hrMax, male, withBase = false, floor = if (asleep) SLEEP_STRAIN_FLOOR else 0.0)
+            val t = readings[i].first
+            val asleep = sleepWindow != null && t in sleepWindow.first..sleepWindow.second
+            val inAct = activities.any { t in it.first..it.second }
+            val floor = if (inAct) 0.0 else if (asleep) SLEEP_STRAIN_FLOOR else DAY_STRAIN_FLOOR
+            total += trimp(dt, readings[i].second, rhr, hrMax, male, withBase = false, floor = floor)
         }
         return strainFromTrimp(total)
     }
@@ -583,6 +586,14 @@ object Formulas {
      * empeora (quitarlo también de día bajaba el día de descanso 25/10 de 4,3 a 2,5 con WHOOP 4,1 → solo dormido).
      */
     const val SLEEP_STRAIN_FLOOR = 0.05
+
+    /**
+     * 11/11: despierto y FUERA de las actividades, el pulso que pasa menos del 3 % de la reserva sobre la FCR no suma esfuerzo
+     * (dentro de las actividades no se toca). 20 ciclos de WHOOP 20/10→10/11 (check/n30/Z9b.kt, FCR 59, ventanas de WHOOP):
+     * error medio 0,77 → 0,52; octubre 0,38 → 0,26 y noviembre 1,16 → 0,77 (mejoran las dos mitades por separado); días de descanso
+     * 25/10 +0,5 → −0,6 y 1/11 +0,9 → −0,1. 10/11: 12,0 → 11,7 (WHOOP 10,9). Sigue sin explicar el 2/11 (+2,7).
+     */
+    const val DAY_STRAIN_FLOOR = 0.03
 
     // ---------- Recuperación ----------
 
