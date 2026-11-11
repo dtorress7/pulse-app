@@ -894,6 +894,15 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
     Lo mismo a las 07:24:21 del 10/11 (versión vieja). Ahora (Android + iOS) la de hoy sigue siendo la próxima hasta 2 min DESPUÉS de su hora
     (`t <= now − 120`), así no se toca mientras suena; luego se pone la de mañana. `nextAlarmUnix` (iOS, ya sin uso) borrado.
 
+- **10/11→11/11 (26.ª referencia, martes tranquilo, acostarse 00:19)**: WHOOP 00:19–08:19, 27/265/95/94, 94 %, VFC 108,59, FCR 57, recuperación 95.
+  PulseApp iPhone: 00:19–08:20, 31/272/94/84, VFC 106, FCR 58, recuperación 85. Código real (check/n11/N.kt) = app (VFC 106,4). 26 noches MAE
+  D/L/P/R 8,7/24,2/12,0/18,4, VFC 1,51, FCR 0,65. Con la VFC/FCR EXACTAS de WHOOP la fórmula da 87 (−8) → de los −10, −8 son la fórmula y −2 los datos.
+  Tercera vez con −8 en lo alto (31/10, 10/11, 11/11). Sesgo con WHOOP real 80–100: −2,8. Calibrar el tramo alto (scratchpad rec30/hi.py) en línea
+  3,53 → 3,58 (no mejora) → NO se cambia; revisar con más noches altas.
+  **Batería (band_battery_1.csv 5/11→11/11)**: carga ~0,65 %/min (14 → 85 % en ~1 h 15 min). Desde 9/11 13:22 (ahorro de verdad) día sin movimiento
+  0,39/0,49 %/h; noches con movimiento 0,80/1,12 %/h, pero antes (con más batería) 0,41–0,62 → el % baja más rápido con poca batería (no lineal),
+  no se puede separar el efecto del movimiento. 85 % → 11 % en 5,3 días (~6 días por carga; WHOOP dice ~14 días sin PulseApp).
+
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
 esfuerzo 11,5, 271 kcal, FC media 127 (la media aritmética de esos segundos es 133: WHOOP no usa la media simple), máx 170,
