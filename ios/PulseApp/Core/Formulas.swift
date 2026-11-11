@@ -423,7 +423,13 @@ enum Formulas {
 
     /// Minutos de actividades que llevan la base por minuto en el esfuerzo del día (todas menos las siestas).
     static func activityLoadMinutes(_ type: String?, _ minutes: Double) -> Double {
-        (minutes <= 0 || type == napType) ? 0 : minutes
+        (minutes <= 0 || type == napType || isWalk(type)) ? 0 : minutes
+    }
+
+    /// 11/11 (igual que Android): carga muscular de una actividad en el esfuerzo del DÍA; los paseos no suman nada aparte de su pulso.
+    /// 20 ciclos de WHOOP: 0,52 → 0,43 (8/11 5,55 → 3,98, WHOOP 4,04).
+    static func dayMuscleMinutes(_ type: String?, _ startMillis: Int64, _ endMillis: Int64) -> Double {
+        isWalk(type) ? 0 : sessionMuscleMinutes(type, startMillis, endMillis)
     }
 
     /// [readings] = (hora en ms, pulso), en orden. Esfuerzo del DÍA (27/10): sin la base por minuto (24 h en reposo sumaban

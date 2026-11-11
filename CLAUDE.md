@@ -912,6 +912,12 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
     entreno y día" (0,96), suma suave (1,30). Sigue sin explicar el 2/11 (pesas, WHOOP 4,68, nosotros +2,7). `strainOf(..., activities)`;
     MetricsCalculator.analyze recibe las actividades (HomeData). `night_recalc_v18` / iOS 18.
     Mañana 11/11: PulseApp hasta 08:23 0,20–0,22 = WHOOP 0,18 (la API no se actualizó desde las 08:23) → a la misma hora cuadra.
+  - **IA de WHOOP (11/11 mañana)**: el esfuerzo del día usa el pulso de todo el día (a pulso bajo casi no suma, sin umbral publicado); un paseo no
+    detectado igualmente cuenta por su pulso y "añadirlo no suma esfuerzo por duplicado"; detección = pulso + movimiento + esfuerzo (≥ 12 min,
+    ≥ 0,1), sin mínimo de pulso/pasos publicado; "Fin del sueño" no fija la hora de pulsar (WHOOP delimita con el sensor); sin plazo fijo para
+    procesar solo (en segundo plano si sincroniza). **Comprobado y aplicado (Android + iOS `Formulas.dayMuscleMinutes` y `activityLoadMinutes`)**:
+    en el esfuerzo del DÍA los paseos no suman carga muscular ni base por minuto (solo su pulso, sin el suelo del 3 %). 20 ciclos (check/n30/Z11.kt,
+    Z12.kt código real): 0,52 → 0,43; 8/11 5,55 → 3,98 (W 4,04), 24/10 18,92 → 18,72 (18,75), 7/11 19,47 → 19,31 (19,27). `night_recalc_v19` / iOS 19.
   - **"Sueño detectado" como WHOOP (Android `SleepPending.kt` + iOS `Core/SleepPending.swift`)**: al despertar WHOOP deja los anillos en "--%" con la
     tarjeta "Sueño detectado … FIN DEL SUEÑO →" y la fila "SUEÑO DETECTADO · PROCESO" hasta que lo procesas (11/11: seguía pendiente a las 08:23,
     1 h después de despertar; la API creó el sueño justo a esa hora). PulseApp: pendiente desde 5 min después del fin de la noche hasta que pulsas o

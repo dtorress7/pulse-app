@@ -555,7 +555,15 @@ object Formulas {
     }
 
     /** Minutos de actividades que llevan la base por minuto en el esfuerzo del día (todas menos las siestas). */
-    fun activityLoadMinutes(type: String?, minutes: Double): Double = if (minutes <= 0 || type == NAP_TYPE) 0.0 else minutes
+    fun activityLoadMinutes(type: String?, minutes: Double): Double = if (minutes <= 0 || type == NAP_TYPE || isWalk(type)) 0.0 else minutes
+
+    /**
+     * 11/11: carga muscular de una actividad en el esfuerzo del DÍA. Los paseos no suman nada aparte de su pulso (IA de WHOOP: "añadir el paseo
+     * no supone sumar esfuerzo por duplicado"). 20 ciclos de WHOOP (check/n30/Z11.kt, código real): 0,52 → 0,43; los 3 días con paseos de
+     * WHOOP mejoran (8/11 5,55 → 3,98 con WHOOP 4,04; 24/10 18,92 → 18,72 / 18,75; 7/11 19,47 → 19,31 / 19,27). El esfuerzo del propio paseo no cambia.
+     */
+    fun dayMuscleMinutes(type: String?, startMillis: Long, endMillis: Long): Double =
+        if (isWalk(type)) 0.0 else sessionMuscleMinutes(type, startMillis, endMillis)
 
     /**
      * Esfuerzo del DÍA (27/10): sin la base por minuto. Con ella, 24 h de pulso en reposo sumaban 2,5–3 puntos que WHOOP no da

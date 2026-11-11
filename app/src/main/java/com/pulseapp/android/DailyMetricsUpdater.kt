@@ -18,7 +18,7 @@ class DailyMetricsUpdater {
         private const val REST_GRACE_MINUTES = 20
         private const val REST_MIN_DURATION_MINUTES = 90
         private const val DISCONNECT_GAP_MINUTES = 3
-        const val RECALC_FLAG = "night_recalc_v18"   // v18 (11/11): esfuerzo del día sin el pulso casi en reposo fuera de las actividades; v17 (10/11): fin de la noche sin cortar al dormitar con el pulso alto ni con un despertar de 3 min; v16 (9/11 tarde): temperatura de la piel de cada noche; v15 (9/11): fin de la noche antes del rato despierto tumbado e inquieto; v14 (7/11): inicio/fin de la noche despierto en la cama; v13 (5/11): fases con segunda pasada sobre la noche recortada; v12 (4/11): VFC sin los tramos de pulso alto; v11 (3/11): fin de la noche con 40 pasos y pesas con su carga; v10 (2/11): esfuerzo con la FCR de referencia; v9 (1/11): VFC por profundo + ligero; v8 (1/11): fin de la noche sin el rato remoloneando; v7 (30/10): esfuerzo sin el pulso bajo dormido; v6 (27/10): esfuerzo del día sin la base fuera de las actividades; v5 (26/10): modelo de fases con 11 noches (v4: VFC mezcla, esfuerzo v4, cambio de hora)
+        const val RECALC_FLAG = "night_recalc_v19"   // v19 (11/11): los paseos no suman carga aparte de su pulso al esfuerzo del día; v18 (11/11): esfuerzo del día sin el pulso casi en reposo fuera de las actividades; v17 (10/11): fin de la noche sin cortar al dormitar con el pulso alto ni con un despertar de 3 min; v16 (9/11 tarde): temperatura de la piel de cada noche; v15 (9/11): fin de la noche antes del rato despierto tumbado e inquieto; v14 (7/11): inicio/fin de la noche despierto en la cama; v13 (5/11): fases con segunda pasada sobre la noche recortada; v12 (4/11): VFC sin los tramos de pulso alto; v11 (3/11): fin de la noche con 40 pasos y pesas con su carga; v10 (2/11): esfuerzo con la FCR de referencia; v9 (1/11): VFC por profundo + ligero; v8 (1/11): fin de la noche sin el rato remoloneando; v7 (30/10): esfuerzo sin el pulso bajo dormido; v6 (27/10): esfuerzo del día sin la base fuera de las actividades; v5 (26/10): modelo de fases con 11 noches (v4: VFC mezcla, esfuerzo v4, cambio de hora)
     }
 
     private val dayFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
@@ -112,7 +112,7 @@ class DailyMetricsUpdater {
         // 2/11: FCR de referencia; 11/11: fuera de las actividades el pulso casi en reposo no suma (DAY_STRAIN_FLOOR)
         val strainHr = Formulas.strainOf(dayReadings.map { it.timeMillis to it.bpm }, Formulas.zoneRestingHr(), hrMax, sex != "F", sleepWindow = window,
             activities = allSessionsForDay.filter { it.type != Formulas.NAP_TYPE }.map { it.startMillis to it.endMillis })
-        val strengthMin = daySessions.sumOf { Formulas.sessionMuscleMinutes(it.type, it.startMillis, it.endMillis) }
+        val strengthMin = daySessions.sumOf { Formulas.dayMuscleMinutes(it.type, it.startMillis, it.endMillis) }
         // 27/10: la base por minuto solo en las actividades (el pulso del día va sin ella)
         val activityMin = daySessions.sumOf { Formulas.activityLoadMinutes(it.type, (it.endMillis - it.startMillis) / 60000.0) }
         val strain = Formulas.addStrength(strainHr, strengthMin, activityMin)
