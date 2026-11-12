@@ -258,17 +258,47 @@ object Formulas {
     const val BAND_TRIM_IDLE_STEPS = 5
     const val BAND_TRIM_START_STEPS = 10
     const val BAND_TRIM_MIN_IDLE = 5
-    fun trimStartByBandSteps(s: Long, e: Long, band: BandSteps.Data): Long {
+    fun trimStartByBandSteps(s: Long, e: Long, band: BandSteps.Data, coreStart: Long? = null): Long {
         if (band.perMinute.isEmpty()) return s
         var m = s
         while (m <= e - 12) {
-            if (!band.covers(m * 60 + 30)) return s
+            if (!band.covers(m * 60 + 30)) return trimByIdleBeforeCore(s, band, coreStart)
             val st = band.perMinute[m] ?: 0
-            if (st >= BAND_TRIM_START_STEPS) return if (m - s >= BAND_TRIM_MIN_IDLE) m else s
-            if (st > BAND_TRIM_IDLE_STEPS) return s
+            if (st >= BAND_TRIM_START_STEPS) return if (m - s >= BAND_TRIM_MIN_IDLE) m else trimByIdleBeforeCore(s, band, coreStart)
+            if (st > BAND_TRIM_IDLE_STEPS) return trimByIdleBeforeCore(s, band, coreStart)
             m++
         }
         return s
+    }
+
+    /**
+     * 12/11: fútbol 11/11 PulseApp 21:20 vs WHOOP 21:38. Al principio hubo pasos sueltos (5–15/min, calentar), un paseo corto (21:28–29) y luego
+     * 8 min parado (0 pasos) hasta las 21:38, cuando empieza el partido; la regla de arriba solo miraba el principio. Ahora: el último tramo de
+     * ≥ 5 min seguidos con ≤ 5 pasos/min que acaba ANTES del primer minuto de núcleo (≥ 50 % de reserva) → el entreno empieza en el primer
+     * minuto con ≥ 10 pasos después de él. Pasos de la pulsera 31/10→11/11 (check/act25): 11/11 → 21:38 (W 21:38); 31/10 18:16 y 3/11 21:11 iguales
+     * que antes (W 18:15 / 21:11); 5/11, 6/11 y 7/11 sin cambios (sin tramo parado). Solo para entrenos (las suaves no tienen núcleo).
+     */
+    private fun trimByIdleBeforeCore(s: Long, band: BandSteps.Data, coreStart: Long?): Long {
+        if (coreStart == null || coreStart <= s) return s
+        var lastRunEnd = -1L
+        var m = s
+        while (m < coreStart) {
+            if (band.covers(m * 60 + 30) && (band.perMinute[m] ?: 0) <= BAND_TRIM_IDLE_STEPS) {
+                val a = m
+                while (m < coreStart && band.covers(m * 60 + 30) && (band.perMinute[m] ?: 0) <= BAND_TRIM_IDLE_STEPS) m++
+                if (m - a >= BAND_TRIM_MIN_IDLE) lastRunEnd = m
+            } else m++
+        }
+        if (lastRunEnd < 0) return s
+        var n = lastRunEnd
+        while (n < coreStart && (band.perMinute[n] ?: 0) < BAND_TRIM_START_STEPS) n++
+        return n
+    }
+
+    /** Primer minuto de [s]..[e] con pulso de núcleo (≥ 50 % de la reserva), o null. */
+    fun firstCoreMinute(s: Long, e: Long, minutes: List<Pair<Long, Double>>, hrMax: Double, rhr: Int = zoneRestingHr()): Long? {
+        val core = rhr + ACT_CORE_HRR * (hrMax - rhr)
+        return minutes.firstOrNull { it.first in s..e && it.second >= core }?.first
     }
 
     /** ¿Una suave [s]..[e] (minutos) queda pegada a otra actividad de [taken]? */

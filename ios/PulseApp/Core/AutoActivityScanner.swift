@@ -23,7 +23,7 @@ enum AutoActivityScanner {
         // 28/10 (2): repasa 10 días para añadir las actividades suaves (funcional 22/10, fútbol 26/10)
         let rescan = UserDefaults.standard.integer(forKey: "pulseapp_act_rescan") < 2
         // 4/11 (igual que Android): una vez, se miran 10 días SOLO para borrar las suaves pegadas a un entreno (no se añade nada viejo)
-        let softClean = UserDefaults.standard.integer(forKey: "pulseapp_act_soft_clean") < 2   // 2 (4/11): también recorta el inicio por los pasos
+        let softClean = UserDefaults.standard.integer(forKey: "pulseapp_act_soft_clean") < 3   // 3 (12/11): rato parado antes del núcleo; 2 (4/11): también recorta el inicio por los pasos
         let windowMs: Int64 = (rescan || softClean) ? 10 * 86_400_000 : 36 * 3_600_000
 
         let readings = hrLog.readings(from: now - windowMs, to: now)
@@ -51,7 +51,11 @@ enum AutoActivityScanner {
         // 4/11: el inicio de los entrenos y las suaves se recorta por los pasos de la pulsera (Formulas.trimStartByBandSteps)
         let band = BandSteps.read()
         var rawStart = [Int64: Int64]()
-        let trimmedActs: [(Int64, Int64, String)] = (acts + soft).map { a in
+        // 12/11: en los entrenos también cuenta un rato parado justo antes del núcleo (Formulas.trimByIdleBeforeCore)
+        let trimmedActs: [(Int64, Int64, String)] = acts.map { a in
+            let t = Formulas.trimStartByBandSteps(a.0, a.1, band, coreStart: Formulas.firstCoreMinute(a.0, a.1, minutes, hrMax: hrMax))
+            rawStart[t] = a.0; return (t, a.1, "Sin clasificar")
+        } + soft.map { a in
             let t = Formulas.trimStartByBandSteps(a.0, a.1, band); rawStart[t] = a.0; return (t, a.1, "Sin clasificar")
         }
         let found: [(Int64, Int64, String)] = trimmedActs
@@ -140,7 +144,7 @@ enum AutoActivityScanner {
             saved += 1
         }
         if rescan { UserDefaults.standard.set(2, forKey: "pulseapp_act_rescan") }
-        if softClean { UserDefaults.standard.set(2, forKey: "pulseapp_act_soft_clean") }
+        if softClean { UserDefaults.standard.set(3, forKey: "pulseapp_act_soft_clean") }
         // 29/10 (una vez): las automáticas "Sin clasificar" de los últimos 30 días reciben deporte si se parecen claramente a las tuyas
         if UserDefaults.standard.integer(forKey: "pulseapp_act_classify") < 1 {
             let all = store.allSessions()

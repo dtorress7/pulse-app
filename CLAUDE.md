@@ -945,6 +945,17 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
     error medio 3,57 → 3,39 (20/10+ 3,92 → 3,71), no arregla los −8 → no compensa pedírsela a diario. Pedida captura de "Hoy vs. últimos 30 días"
     de WHOOP (sus medias de referencia) + preguntas a su IA sobre la línea base.
 
+  - **Inicio del fútbol por los pasos de la pulsera (12/11, Android + iOS `Formulas.trimByIdleBeforeCore` + `firstCoreMinute`)**: band_steps 11/11:
+    21:20–21:27 5–15 pasos/min, 21:28–29 110/43 (andar), 21:30–21:37 0, 21:38 16, 21:39+ 69–133. Nuevo: si la regla de antes no recorta, el último
+    tramo de ≥ 5 min con ≤ 5 pasos/min que acaba antes del 1.er minuto de núcleo (≥ 50 % de reserva) → empieza en el 1.er minuto con ≥ 10 pasos.
+    Código real 31/10→11/11 (check/act25/D7.kt, OJO: BandSteps.read recibe la CARPETA): 11/11 21:20 → 21:38 (W 21:38); 31/10 18:16 y 3/11 21:11 igual;
+    5, 6 y 7/11 sin cambios. Solo entrenos (las suaves no). Esfuerzo del partido 15,19 → 15,15 (W 14,89). `act_soft_clean` 3 / iOS 3.
+  - **Recuperación con la referencia que describe la IA de WHOOP ("28 días con más peso a los 7 últimos")** (scratchpad rec30/w28.py, 206 noches,
+    coeficientes reajustados): 28 d con los 7 últimos ×6: validación cruzada 3,93 → 3,85, en línea 3,65 → 3,52, desde 20/10 3,88 → 3,54; PERO
+    ajustar con la 1.ª mitad y probar en la 2.ª 3,83 → 3,79 y al revés 3,95 → 4,03 (peor). Pesos ×1–×30, 5/10/14 últimos, 21–42 días: lo mejor
+    ×6–×30 con 7 días. Ninguna variante arregla 10, 11 y 12/11 (84/90, 88/95, 52/59). Mejora pequeña y no en todas las pruebas → NO se cambia aún.
+    Sus medias simples 13/10→11/11 (IA): VFC 90,8, FCR 57,9 (las nuestras con la API: 89,7 / 58,1).
+
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
 esfuerzo 11,5, 271 kcal, FC media 127 (la media aritmética de esos segundos es 133: WHOOP no usa la media simple), máx 170,

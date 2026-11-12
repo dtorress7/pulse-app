@@ -219,17 +219,43 @@ enum Formulas {
     static let bandTrimIdleSteps = 5
     static let bandTrimStartSteps = 10
     static let bandTrimMinIdle: Int64 = 5
-    static func trimStartByBandSteps(_ s: Int64, _ e: Int64, _ band: BandSteps.Data) -> Int64 {
+    static func trimStartByBandSteps(_ s: Int64, _ e: Int64, _ band: BandSteps.Data, coreStart: Int64? = nil) -> Int64 {
         if band.perMinute.isEmpty { return s }
         var m = s
         while m <= e - 12 {
-            if !band.covers(m * 60 + 30) { return s }
+            if !band.covers(m * 60 + 30) { return trimByIdleBeforeCore(s, band, coreStart) }
             let st = band.perMinute[m] ?? 0
-            if st >= bandTrimStartSteps { return m - s >= bandTrimMinIdle ? m : s }
-            if st > bandTrimIdleSteps { return s }
+            if st >= bandTrimStartSteps { return m - s >= bandTrimMinIdle ? m : trimByIdleBeforeCore(s, band, coreStart) }
+            if st > bandTrimIdleSteps { return trimByIdleBeforeCore(s, band, coreStart) }
             m += 1
         }
         return s
+    }
+
+    /// 12/11 (igual que Android): el último tramo de ≥ 5 min con ≤ 5 pasos/min que acaba antes del primer minuto de núcleo → el entreno
+    /// empieza en el primer minuto con ≥ 10 pasos después (fútbol 11/11: 21:20 → 21:38 = WHOOP). Solo entrenos.
+    private static func trimByIdleBeforeCore(_ s: Int64, _ band: BandSteps.Data, _ coreStart: Int64?) -> Int64 {
+        guard let core = coreStart, core > s else { return s }
+        var lastRunEnd: Int64 = -1
+        var m = s
+        while m < core {
+            if band.covers(m * 60 + 30) && (band.perMinute[m] ?? 0) <= bandTrimIdleSteps {
+                let a = m
+                while m < core && band.covers(m * 60 + 30) && (band.perMinute[m] ?? 0) <= bandTrimIdleSteps { m += 1 }
+                if m - a >= bandTrimMinIdle { lastRunEnd = m }
+            } else { m += 1 }
+        }
+        if lastRunEnd < 0 { return s }
+        var n = lastRunEnd
+        while n < core && (band.perMinute[n] ?? 0) < bandTrimStartSteps { n += 1 }
+        return n
+    }
+
+    /// Primer minuto de [s]..[e] con pulso de núcleo (≥ 50 % de la reserva), o nil.
+    static func firstCoreMinute(_ s: Int64, _ e: Int64, _ minutes: [(Int64, Double)], hrMax: Double, rhr: Int? = nil) -> Int64? {
+        let r = Double(rhr ?? zoneRestingHr())
+        let core = r + 0.50 * (hrMax - r)   // = núcleo de detectActivities (Android ACT_CORE_HRR)
+        return minutes.first { $0.0 >= s && $0.0 <= e && $0.1 >= core }?.0
     }
 
     /// 4/11 (igual que Android): el pulso sigue alto después de un entreno (cenando tras el fútbol, 31/10 tras el partido) y antes

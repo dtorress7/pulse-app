@@ -62,7 +62,7 @@ object AutoActivityScanner {
         val rescan = sp.getInt("act_rescan", 0) < 2
         // 4/11 (act_soft_clean 2): una vez, se miran 10 días SOLO para borrar las suaves pegadas a un entreno y recortar el inicio
         // de las automáticas por los pasos de la pulsera (no se añade nada viejo)
-        val softClean = sp.getInt("act_soft_clean", 0) < 2
+        val softClean = sp.getInt("act_soft_clean", 0) < 3   // 3 (12/11): rato parado antes del núcleo
         val windowMs = if (rescan || softClean) 10 * 86_400_000L else 36 * 3_600_000L
         val db = AppDatabase.getInstance(context)
         val profile = db.userProfileDao().getOnce() ?: return 0
@@ -90,10 +90,13 @@ object AutoActivityScanner {
         val soft = Formulas.detectSoftActivities(minutes, hrMax, taken = acts + walks)
         // 4/11: el inicio de los entrenos y las suaves se recorta por los pasos de la pulsera (ver Formulas.trimStartByBandSteps)
         val band = BandSteps.read(csvFile.parentFile)
-        val found = (acts + soft).map { Triple(Formulas.trimStartByBandSteps(it.first, it.second, band), it.second, "Sin clasificar") } +
+        // 12/11: en los entrenos también cuenta un rato parado justo antes del núcleo (Formulas.trimByIdleBeforeCore)
+        val trimmed = acts.map { Formulas.trimStartByBandSteps(it.first, it.second, band, Formulas.firstCoreMinute(it.first, it.second, minutes, hrMax)) to it } +
+            soft.map { Formulas.trimStartByBandSteps(it.first, it.second, band) to it }
+        val found = trimmed.map { Triple(it.first, it.second.second, "Sin clasificar") } +
             walks.map { Triple(it.first, it.second, Formulas.WALK_TYPE) } +
             naps.map { Triple(it.first, it.second, Formulas.NAP_TYPE) }
-        val rawStart = (acts + soft).associate { Formulas.trimStartByBandSteps(it.first, it.second, band) to it.first }
+        val rawStart = trimmed.associate { it.first to it.second.first }
 
         val manual = ActivityState.manualStart(context)
         val existing = db.activitySessionDao().getAll().toMutableList()
@@ -175,7 +178,7 @@ object AutoActivityScanner {
             saved++
         }
         if (rescan) sp.edit().putInt("act_rescan", 2).apply()
-        if (softClean) sp.edit().putInt("act_soft_clean", 2).apply()
+        if (softClean) sp.edit().putInt("act_soft_clean", 3).apply()
         // 29/10 (una vez): las automáticas "Sin clasificar" de los últimos 30 días reciben deporte si se parecen claramente a las tuyas
         if (sp.getInt("act_classify", 0) < 1) {
             val all = db.activitySessionDao().getAll()
