@@ -65,8 +65,10 @@ object SleepStager {
     private const val MIN_WINDOW_MINUTES = 90
     /** La noche empieza en el primer tramo de al menos estos minutos sin despertar (24/10: 15 → 10). */
     private const val ONSET_RUN = 10
-    /** Tramo quieto antes de un cambio de postura que adelanta el inicio (24/10: 15 → 10; la noche 23→24 empezaba 15 min tarde). */
-    private const val ONSET_STILL = 10
+    /** Tramo quieto antes de un cambio de postura que adelanta el inicio (24/10: 15 → 10; la noche 23→24 empezaba 15 min tarde).
+     *  12/11: 10 → 9. Noche 11→12: quieto 23:31–23:39 (9 min), giro con 9 pasos a las 23:40, y PulseApp empezaba a las 23:42 (WHOOP 23:31).
+     *  27 noches (check/n12, código real): solo cambia esa → 23:31, VFC 86,0 → 84,4 (W 82,1); con 8 sale igual. */
+    private const val ONSET_STILL = 9
     private const val MIN_MOTION_COVERAGE = 0.6
 
     class Result(val startMinute: Long, val stages: IntArray) {

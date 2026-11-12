@@ -923,6 +923,17 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
     1 h después de despertar; la API creó el sueño justo a esa hora). PulseApp: pendiente desde 5 min después del fin de la noche hasta que pulsas o
     2 h después (PROVISIONAL: pregunta a la IA de WHOOP). Procesar solo enseña lo calculado (prefs `pulseapp_sleep_processed`).
 
+- **11/11→12/11 (27.ª referencia, fútbol 21:38–22:40 la víspera, WHOOP 14,9)**: WHOOP (API) 22:30:58Z–06:36:18Z (23:31–07:36), dormido 7:41,
+  24/290/102/71, 7 despertares, 95 %, VFC 82,06, FCR 60, resp 13,4, calificación 84 (regularidad 82), recuperación 59. Capturas del hipnograma en
+  check/n12/z. Código real (check/n12/N.kt, hr_log_4 + motion_minutes): 23:42–07:38, 31/274/95/77, VFC 86,0, FCR 59 → recuperación 57.
+  - **Inicio (12/11, Android + iOS `ONSET_STILL` 10 → 9)**: quieto 23:31–23:39 (9 min), giro con 9 pasos 23:40, y el inicio quedaba en 23:42. Con 9 (u 8)
+    solo cambia esta noche de las 27 → 23:31 (W 23:31), VFC 84,4 → recuperación 55. `night_recalc_v20` / iOS 20.
+  - Recuperación: con la VFC/FCR EXACTAS de WHOOP la fórmula da 51 (−8). Con la línea base toda de WHOOP (scratchpad rec30, api.txt hasta 12/11):
+    sesgo últimas 10 noches −3,3, 20 −2,6, 60 −0,3 (10, 11 y 12/11 −8 los tres). Corregir con el error de las noches anteriores mejoraría (k 7–14),
+    pero en la app NO se sabe la recuperación de WHOOP → no se puede usar. Sin cambio; vigilar si el sesgo sigue.
+  - Esfuerzo: 11/11 día PulseApp (ventanas de WHOOP) 15,43 vs 14,94. Noche 12/11 hasta 07:38: WHOOP 1,72 (máx 123 lpm en el ciclo, que NO está en
+    nuestro pulso de esa ventana: máx 107 a las 23:30) vs PulseApp 0,44 (sin suelo 1,35) → sin explicar con un solo caso; 22 ciclos MAE 0,47.
+
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
 esfuerzo 11,5, 271 kcal, FC media 127 (la media aritmética de esos segundos es 133: WHOOP no usa la media simple), máx 170,

@@ -112,7 +112,7 @@ enum SleepStager {
             if byMin[b] == nil || m - b > 5 || steps > 12 { break }
             var q = b
             while still(byMin[q]) { q -= 1 }
-            if b - q >= 10 { onset = q + 1 }   // 24/10: 15 → 10
+            if b - q >= 9 { onset = q + 1 }   // 24/10: 15 → 10; 12/11: 10 → 9 (igual que Android ONSET_STILL)
             if b == q { break }
             m = q
         }
