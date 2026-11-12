@@ -11,7 +11,8 @@ import android.content.Context
  */
 object SleepPending {
     private const val PREFS = "pulseapp_sleep_processed"
-    const val MIN_AWAKE_MS = 5 * 60_000L
+    /** 12/11: 5 min → 0. Al abrir la app nada más despertar (fin de la noche hace < 5 min) salían los números y luego la tarjeta. */
+    const val MIN_AWAKE_MS = 0L
     const val AUTO_MS = 120 * 60_000L
 
     private fun p(ctx: Context) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)

@@ -3,7 +3,8 @@ import Foundation
 /// 11/11 (igual que Android SleepPending): "Sueño detectado" como WHOOP. Tras despertar (≥ 5 min sin dormir) los anillos quedan en
 /// "--" hasta que pulsas "FIN DEL SUEÑO" / "PROCESO", o solos a las 2 h (PROVISIONAL). Procesar no cambia las cuentas.
 enum SleepPending {
-    static let minAwakeMs: Int64 = 5 * 60_000
+    /// 12/11: 5 min → 0 (al abrir la app nada más despertar salían los números y luego la tarjeta).
+    static let minAwakeMs: Int64 = 0
     static let autoMs: Int64 = 120 * 60_000
     private static func key(_ date: String) -> String { "pulseapp_sleep_processed_" + date }
 

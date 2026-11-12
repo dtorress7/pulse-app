@@ -934,6 +934,17 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   - Esfuerzo: 11/11 día PulseApp (ventanas de WHOOP) 15,43 vs 14,94. Noche 12/11 hasta 07:38: WHOOP 1,72 (máx 123 lpm en el ciclo, que NO está en
     nuestro pulso de esa ventana: máx 107 a las 23:30) vs PulseApp 0,44 (sin suelo 1,35) → sin explicar con un solo caso; 22 ciclos MAE 0,47.
 
+  - 12/11 (usuario): la alarma SÍ vibró (arreglo de `SleepAlarm.next` confirmado). "Sueño detectado" al principio no salía y luego sí → al abrir la app
+    nada más despertar faltaban los 5 min de `MIN_AWAKE` → ahora 0 (Android + iOS `SleepPending`).
+  - **Fútbol 11/11**: PulseApp 21:20–22:38 vs WHOOP 21:38–22:40. De 21:20 a 21:37 pulso 92–100 (~29 % de reserva) con 9–17 pasos/min del móvil
+    (calentamiento / espera) y a las 21:38–39 sube a 102 → 121. Mismo caso que 31/10 (−14) y 3/11 (−12), que se arreglaron con los pasos de la pulsera.
+    Probado recortar solo por pulso (primer minuto ≥ zona 1): rompe 21/10 func, 26/10, 29/10 y 30/10 (empiezan por debajo de 112) → NO. Pedido
+    band_steps.csv para ver si los pasos de la pulsera marcan el inicio (trimStartByBandSteps exige ≤ 5 pasos/min al principio).
+  - Recuperación (pregunta del usuario: "VFC y FCR casi iguales y cambia mucho"): hoy VFC 82 (base EWMA14 90,9, media 30 d 89,7), FCR 60 (base 58,1)
+    → fórmula 51 / WHOOP 59. El usuario ofrece pasar la recuperación de WHOOP: la corrección con el error de las 7 noches anteriores ×0,3 bajaría el
+    error medio 3,57 → 3,39 (20/10+ 3,92 → 3,71), no arregla los −8 → no compensa pedírsela a diario. Pedida captura de "Hoy vs. últimos 30 días"
+    de WHOOP (sus medias de referencia) + preguntas a su IA sobre la línea base.
+
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
 esfuerzo 11,5, 271 kcal, FC media 127 (la media aritmética de esos segundos es 133: WHOOP no usa la media simple), máx 170,
