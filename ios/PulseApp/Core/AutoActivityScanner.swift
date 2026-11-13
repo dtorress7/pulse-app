@@ -9,10 +9,10 @@ enum AutoActivityScanner {
     private static var lastRun: Int64 = 0
     private static let keyRecalc = "pulseapp_act_recalc"
 
-    @discardableResult
     /// 13/11: margen al principio de la ventana del escáner (lo que empieza ahí puede estar cortado).
     static let edgeMarginMs: Int64 = 3 * 3_600_000
 
+    @discardableResult
     static func scan(store: AppStore, hrLog: HrLog, force: Bool = false) -> Int {
         let now = TimeUtil.nowMillis()
         lock.lock()
