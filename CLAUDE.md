@@ -965,6 +965,15 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   (26/10+ 4,05 → 3,3–4,2 pero empeora sep–oct y no prevé el salto), 28 d con los 7 últimos ×6 (últimas igual). Temperatura, SpO2, respiración,
   sueño: |r| ≤ 0,3. Ajuste solo con 26/10+ da pendiente de VFC 57 (vs 41). Plan: si 2–3 noches más siguen en −6/−8 con los valores de WHOOP,
   es un cambio de WHOOP → recalibrar con las noches desde el 10/11 (escalón).
+  **App de WHOOP (captura del App Store 13/11)**: 5.78.0 "hace 3 días" (≈ 10/11, el mismo día del salto), 5.77.0 hace 1 semana; notas genéricas.
+  La IA de WHOOP no confirma ni niega cambios del 8–10/11. Coincidencia a vigilar (la recuperación se calcula en su nube).
+- **Avisos falsos "Actividad completada" (13/11, sentado en la oficina)**: 09:35 y 10:20. Causa (check/n13/w: W.kt detección con la ventana
+  deslizante de 36 h, S.kt simula guardar/avisar): el borde de la ventana cortaba el fútbol del 11/11 (21:38–22:38) → a las 09:35 se veía
+  21:35–22:38 (sin el rato parado de antes, el recorte por pasos no actúa) y adelantaba el inicio; a las 10:20 un trozo "suave" 22:20–22:43
+  alargaba el final; cada cambio contaba como detectada. **Arreglo (Android + iOS `AutoActivityScanner`)**: no se toca nada que empiece en las
+  3 primeras horas de la ventana (`EDGE_MARGIN_MS` / `edgeMarginMs`) y solo avisan las actividades NUEVAS (alargar/recortar/clasificar no).
+  Simulación 12/11 08:00 → 13/11 10:40: antes 4 avisos (= el registro) y fútbol 11/11 21:35–22:43; ahora 2 (18:19–18:44 y 20:52–22:01, los de verdad)
+  y el fútbol se queda en 21:38–22:38. En el móvil del usuario el fútbol 11/11 ya quedó 21:35–22:43 (se puede editar a mano).
 
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,

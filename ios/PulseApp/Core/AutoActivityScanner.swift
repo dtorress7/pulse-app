@@ -10,6 +10,9 @@ enum AutoActivityScanner {
     private static let keyRecalc = "pulseapp_act_recalc"
 
     @discardableResult
+    /// 13/11: margen al principio de la ventana del escáner (lo que empieza ahí puede estar cortado).
+    static let edgeMarginMs: Int64 = 3 * 3_600_000
+
     static func scan(store: AppStore, hrLog: HrLog, force: Bool = false) -> Int {
         let now = TimeUtil.nowMillis()
         lock.lock()
@@ -65,7 +68,7 @@ enum AutoActivityScanner {
         let manual = ActivityState.manualStart()
         var existing = store.allSessions()
         let rhr = BaselineProvider.compute(store: store).map { Int($0.avgRestingHr) }
-        var saved = 0
+        var saved = 0   // solo actividades NUEVAS (es lo que avisa "Actividad detectada")
         if rescan {
             for old in existing where old.autoDetected && old.type == Formulas.napType && old.startMillis >= now - windowMs {
                 if !naps.contains(where: { $0.0 * 60_000 <= old.endMillis && $0.1 * 60_000 + 59_999 >= old.startMillis }) {
@@ -95,6 +98,9 @@ enum AutoActivityScanner {
         for (m0, m1, type) in found {
             let start = m0 * 60_000, end = m1 * 60_000 + 59_999
             if now - end < 10 * 60_000 { continue }                       // aún puede seguir
+            // 13/11 (igual que Android): lo que empieza cerca del principio de la ventana puede estar cortado por ella (fútbol 11/11
+            // visto a las 09:35 del 13/11 como 21:35–22:38 y a las 10:20 como 22:20–22:43 → se movía la guardada y avisaba). No se toca.
+            if start < now - windowMs + edgeMarginMs { continue }
             let raw0 = (type == Formulas.napType || type == Formulas.walkType) ? m0 : (rawStart[m0] ?? m0)
             let trimmed = m0 > raw0
             let isOld = end < now - 36 * 3_600_000
@@ -122,8 +128,7 @@ enum AutoActivityScanner {
                 existing.removeAll { e in overlap.contains { $0.id == e.id } }
                 existing.append(fresh)
                 Formulas.updateObservedHrMax(fresh.maxHr)
-                saved += 1
-                continue
+                continue                                                  // 13/11: alargar/recortar una guardada no avisa
             }
             if isOld && !rescan { continue }                              // el repaso solo recorta, no crea
             let nap = type == Formulas.napType
@@ -155,7 +160,6 @@ enum AutoActivityScanner {
                                                        type: g, autoDetected: true, restingHr: rhr) ?? old
                 fresh.type = g; fresh.id = old.id
                 store.updateSession(fresh)
-                saved += 1
             }
             UserDefaults.standard.set(1, forKey: "pulseapp_act_classify")
         }

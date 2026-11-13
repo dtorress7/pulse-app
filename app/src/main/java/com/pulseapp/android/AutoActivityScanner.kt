@@ -13,6 +13,8 @@ import java.io.File
  * Se llama desde el servicio de la pulsera y al abrir Inicio, como mucho cada 5 min.
  */
 object AutoActivityScanner {
+    /** 13/11: margen al principio de la ventana del escáner (lo que empieza ahí puede estar cortado). */
+    private const val EDGE_MARGIN_MS = 3 * 3_600_000L
     @Volatile private var lastRun = 0L
 
     suspend fun scan(context: Context, csvFile: File, force: Boolean = false): Int = withContext(Dispatchers.IO) {
@@ -101,7 +103,7 @@ object AutoActivityScanner {
         val manual = ActivityState.manualStart(context)
         val existing = db.activitySessionDao().getAll().toMutableList()
         val rhr = BaselineProvider().compute(db)?.avgRestingHr?.toInt()
-        var saved = 0
+        var saved = 0   // solo actividades NUEVAS (es lo que avisa "Actividad detectada")
         if (rescan) {
             // "Siestas" automáticas que la detección nueva ya no da (final de la noche): fuera
             for (old in existing.filter { it.autoDetected && it.type == Formulas.NAP_TYPE && it.startMillis >= now - windowMs }) {
@@ -129,6 +131,10 @@ object AutoActivityScanner {
             val start = m0 * 60_000L
             val end = m1 * 60_000L + 59_999L
             if (now - end < 10 * 60_000L) continue                       // aún puede seguir
+            // 13/11: lo que empieza cerca del principio de la ventana puede estar cortado por ella (fútbol 11/11 21:38–22:38 visto
+            // a las 09:35 del 13/11 como 21:35–22:38 y a las 10:20 como 22:20–22:43 → se movía la guardada y avisaba). Ya se
+            // repasó entero en los escaneos de antes: no se toca.
+            if (start < now - windowMs + EDGE_MARGIN_MS) continue
             val raw0 = if (type == Formulas.NAP_TYPE || type == Formulas.WALK_TYPE) m0 else rawStart[m0] ?: m0
             val trimmed = m0 > raw0
             val old = end < now - 36 * 3_600_000L
@@ -155,8 +161,7 @@ object AutoActivityScanner {
                 for (o in overlap.drop(1)) db.activitySessionDao().delete(o)
                 existing.removeAll(overlap); existing.add(fresh.copy(id = keep.id))
                 Formulas.updateObservedHrMax(context, fresh.maxHr)
-                saved++
-                continue
+                continue                                                  // 13/11: alargar/recortar una guardada no avisa
             }
             if (old && !rescan) continue                                  // el repaso solo recorta, no crea
             var session = ActivityRecorder().summarize(
@@ -187,7 +192,6 @@ object AutoActivityScanner {
                 val fresh = ActivityRecorder().summarize(csvFile, old.startMillis, old.endMillis, ageYears = profile.ageYears(),
                     weightKg = profile.weightKg, sex = profile.sex, type = g, autoDetected = true, restingHr = rhr)
                 db.activitySessionDao().update((fresh ?: old.copy(type = g)).copy(id = old.id))
-                saved++
             }
             sp.edit().putInt("act_classify", 1).apply()
         }
