@@ -956,6 +956,16 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
     ×6–×30 con 7 días. Ninguna variante arregla 10, 11 y 12/11 (84/90, 88/95, 52/59). Mejora pequeña y no en todas las pruebas → NO se cambia aún.
     Sus medias simples 13/10→11/11 (IA): VFC 90,8, FCR 57,9 (las nuestras con la API: 89,7 / 58,1).
 
+- **12→13/11 (28.ª referencia)**: WHOOP (API) 22:38:08Z–06:59:16Z (23:38–07:59), 41/281/123/57, 12 despertares, 94 %, VFC 86,30, FCR 60, resp 13,7,
+  calificación 88, recuperación 64. Código real (check/n13/k/N.kt, OJO: java con -Duser.timezone=Europe/Madrid): 23:24–07:56, 26/318/108/61, VFC 82,2,
+  FCR 60 → app ~53 (−11). Con la VFC/FCR EXACTAS de WHOOP la fórmula da 58 → −6 de la fórmula y −5 de nuestra VFC. Inicio −14 min.
+  **Recuperación: salto de WHOOP desde el 10/11** (fórmula con valores de WHOOP: 1–9/11 entre −5 y +4; 10/11 −8, 11/11 −8, 12/11 −8, 13/11 −6;
+  26/10→13/11 sesgo −3,3). Probado (scratchpad rec30: per.py, wf.py, sdw.py, bias.py, corr.py, w28.py) y NADA lo arregla de forma general: reajustes
+  con más peso a lo reciente o ventanas 60–120 d (peor), sd del percentil 60–365 d o fija (peor), corrección del sesgo de las últimas 7–28 noches
+  (26/10+ 4,05 → 3,3–4,2 pero empeora sep–oct y no prevé el salto), 28 d con los 7 últimos ×6 (últimas igual). Temperatura, SpO2, respiración,
+  sueño: |r| ≤ 0,3. Ajuste solo con 26/10+ da pendiente de VFC 57 (vs 41). Plan: si 2–3 noches más siguen en −6/−8 con los valores de WHOOP,
+  es un cambio de WHOOP → recalibrar con las noches desde el 10/11 (escalón).
+
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
 esfuerzo 11,5, 271 kcal, FC media 127 (la media aritmética de esos segundos es 133: WHOOP no usa la media simple), máx 170,
