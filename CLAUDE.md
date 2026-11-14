@@ -995,6 +995,11 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
     otro 5,3 → 3,7; igual que tú: se queda la general. CI de iOS "Comprobar la calibración de la recuperación" (ios/Tests/reccal, Swift = Kotlin).
   - **Deuda de sueño**: WHOOP usa (necesidad − dormido) × 0,50 unas noches y × 0,643 (= 0,5 × 9/7) otras; en el export (abr–oct) igual,
     sin patrón claro (más 0,64 en fin de semana, no por recuperación/calificación/regularidad). Del 11 al 14/11 todas 0,643. Pregunta para la IA.
+  - **Línea base para otras personas (14/11, Android + iOS `BaselineProvider.computeFrom`)**: la EWMA partía de 88 ms / 58,5 lpm (TU línea base
+    de WHOOP) → un amigo con VFC 46 sin importar su export salía en rojo 2–3 semanas (simulado: 16–31 en vez de 37–74). Ahora parte de la
+    MEDIANA de las noches de la ventana. Simulación "Nico" (tus noches con VFC ×0,5 y FCR +5, check/cmp/sim_*.csv): con 25 noches importadas
+    = tus mismas recuperaciones; sin importar, iguales a las tuyas desde la 3.ª noche (con 1–2 noches la base es ruidosa). Tu app 23/10→14/11
+    vs WHOOP 3,50 → 3,45 (solo cambia 7/11 64 → 63). Test reccal regenerado (CV del export 3,86 → 3,89).
   - Pendiente: VFC 14/11 +7,6 (noche de 10 h, REM 174 vs 133), fases (ligero ±27, REM ±21), paseos de FC ~90 sin detectar.
 
 ## Actividades como WHOOP (20/10, Android + iOS)

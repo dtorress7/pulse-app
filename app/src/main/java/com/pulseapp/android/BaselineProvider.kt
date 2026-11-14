@@ -63,14 +63,14 @@ class BaselineProvider {
 
         if (validHrv.isEmpty() || validRhr.isEmpty()) return null
         // getLastDays devuelve de más reciente a más antiguo: se invierte para la media ponderada.
-        // 23/10: la media empieza en tu línea base de WHOOP antes de usar PulseApp (88 ms / 58,5 lpm) y cada noche la mueve,
-        // como si tuviera tu historial. Antes empezaba en la 1.ª noche propia: con pocas noches la media quedaba baja
-        // (las dos primeras fueron 69 y 76) y la recuperación salía ~10–15 puntos alta. Con 9 noches: error medio 12,7 → 3,8.
+        // 14/11: la media empieza en la MEDIANA de las noches de la ventana (de cada persona) y cada noche la mueve.
+        // Antes (23/10) empezaba en 88 ms / 58,5 lpm (la línea base de WHOOP del primer usuario): para otra persona sin export
+        // importado (p. ej. VFC 46) la recuperación salía en rojo 2–3 semanas. Con 30 noches el punto de partida pesa < 2 %.
         val lnHrv = validHrv.map { ln(it) }
-        val lnHrvEwma = ewma(lnHrv.reversed(), ln(Formulas.FALLBACK_HRV))
+        val lnHrvEwma = ewma(lnHrv.reversed(), median(lnHrv))
         return PersonalBaseline(
             avgHrv = kotlin.math.exp(lnHrvEwma),
-            avgRestingHr = ewma(validRhr.reversed(), Formulas.FALLBACK_RHR),
+            avgRestingHr = ewma(validRhr.reversed(), median(validRhr)),
             daysUsed = minOf(validHrv.size, validRhr.size),
             lnHrvMean = lnHrvEwma,
             lnHrvSd = maxOf(sd(lnHrv), MIN_LN_HRV_SD),
@@ -85,6 +85,11 @@ class BaselineProvider {
         var m = prior
         for (v in oldestFirst) m += EWMA_ALPHA * (v - m)
         return m
+    }
+
+    private fun median(v: List<Double>): Double {
+        val s = v.sorted(); val n = s.size
+        return if (n % 2 == 1) s[n / 2] else (s[n / 2 - 1] + s[n / 2]) / 2
     }
 
     private fun sd(values: List<Double>): Double {

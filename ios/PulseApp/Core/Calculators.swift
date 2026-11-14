@@ -43,13 +43,14 @@ enum BaselineProvider {
         }
         if validHrv.isEmpty || validRhr.isEmpty { return nil }
         // lastDays viene de más reciente a más antiguo: se invierte para la media ponderada.
-        // 23/10: la media parte de tu línea base de WHOOP antes de PulseApp (88 ms / 58,5 lpm), igual que Android.
+        // 14/11: la media parte de la MEDIANA de las noches de la ventana (de cada persona), igual que Android.
+        // Antes partía de 88 ms / 58,5 lpm (el primer usuario): a otra persona sin export importado le daba rojo semanas.
         let lnHrv = validHrv.map { log($0) }
-        let lnEwma = ewma(Array(lnHrv.reversed()), prior: log(Formulas.fallbackHrv))
+        let lnEwma = ewma(Array(lnHrv.reversed()), prior: median(lnHrv))
         let respOk = validResp.count >= minDaysRequired
         return PersonalBaseline(
             avgHrv: exp(lnEwma),
-            avgRestingHr: ewma(Array(validRhr.reversed()), prior: Formulas.fallbackRhr),
+            avgRestingHr: ewma(Array(validRhr.reversed()), prior: median(validRhr)),
             daysUsed: min(validHrv.count, validRhr.count),
             lnHrvMean: lnEwma,
             lnHrvSd: max(sd(lnHrv), minLnHrvSd),
@@ -63,6 +64,11 @@ enum BaselineProvider {
         var m = prior
         for v in oldestFirst { m += ewmaAlpha * (v - m) }
         return m
+    }
+
+    private static func median(_ v: [Double]) -> Double {
+        let s = v.sorted(); let n = s.count
+        return n % 2 == 1 ? s[n / 2] : (s[n / 2 - 1] + s[n / 2]) / 2
     }
 
     private static func sd(_ values: [Double]) -> Double {
