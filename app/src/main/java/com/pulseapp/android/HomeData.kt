@@ -207,7 +207,7 @@ class HomeDataLoader(private val ctx: Context) {
             val baseline = BaselineProvider().computeFrom(before.reversed())
             // Días importados de WHOOP (23/10): se muestran las notas oficiales de WHOOP; si no, las calcula PulseApp
             val recovery = row.whoopRecovery ?: if (row.avgHrv != null || row.restingHr != null)
-                Formulas.recovery(row.avgHrv, row.restingHr, row.respiratoryRate, baseline).total else null
+                Formulas.recovery(row.avgHrv, row.restingHr, row.respiratoryRate, baseline, d.toString()).total else null
             val prevStrain = byDate[d.minusDays(1).format(iso)]?.strain
             val debtBefore = SleepPlanner.debtFrom(before.takeLast(14), base)
             val napAdj = Formulas.napNeedMinutes(Formulas.napsForNight(allSessions, d.format(iso), zone))

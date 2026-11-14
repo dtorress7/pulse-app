@@ -232,7 +232,7 @@ enum HomeDataLoader {
             if let w = row.whoopRecovery {
                 r.recovery = w
             } else if row.avgHrv != nil || row.restingHr != nil {
-                r.recovery = Formulas.recovery(hrv: row.avgHrv, restingHr: row.restingHr, respiratoryRate: row.respiratoryRate, baseline: baseline).total
+                r.recovery = Formulas.recovery(hrv: row.avgHrv, restingHr: row.restingHr, respiratoryRate: row.respiratoryRate, baseline: baseline, date: d).total
             }
             let prevStrain = byDate[Day.add(d, -1)]?.strain
             let debtBefore = SleepPlanner.debtFrom(Array(before.suffix(14)), base: base)

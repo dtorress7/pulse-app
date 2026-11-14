@@ -26,7 +26,7 @@ import java.util.zip.ZipInputStream
 object WhoopImport {
 
     data class Result(val days: Int, val sessions: Int, val naps: Int, val replacedDays: Int, val replacedSessions: Int,
-                      val from: String?, val until: String?, val backup: File?)
+                      val from: String?, val until: String?, val backup: File?, val calibration: RecoveryCalibration.Fit? = null)
 
     /** Lee un zip del export o un CSV suelto. Devuelve nombre de archivo (sin carpeta) → contenido. */
     fun readInput(input: InputStream, displayName: String?): Map<String, String> {
@@ -237,7 +237,10 @@ object WhoopImport {
         SkinTemp.saveAll(context.getExternalFilesDir(null), p.skin)
         val until = newDays.keys.maxOrNull()
         if (until != null) Formulas.setWhoopImportUntil(context, until)
+        // 14/11: calibración personal de la recuperación con tus noches de WHOOP (solo si mejora a la general; ver RecoveryCalibration)
+        val calib = runCatching { RecoveryCalibration.fit(dao.getLastDays(400)) }.getOrNull()
+        if (calib != null) Formulas.setPersonalRecovery(context, calib.coef)
         return Result(newDays.size, newSessions.size - naps, naps, replacedDays.size, replacedSessions.size,
-            newDays.keys.minOrNull(), until, backup)
+            newDays.keys.minOrNull(), until, backup, calib)
     }
 }

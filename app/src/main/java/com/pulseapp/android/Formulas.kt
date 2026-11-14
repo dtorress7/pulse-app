@@ -58,6 +58,8 @@ object Formulas {
         cachedBmr = sp.getFloat(KEY_BMR, 0f).toDouble()
         cachedBodyKg = sp.getFloat(KEY_BODY_KG, 70f).toDouble()
         cachedImportUntil = sp.getString(KEY_IMPORT_UNTIL, "") ?: ""
+        personalRecCoef = sp.getString(KEY_REC_PERSONAL, null)?.split(";")?.mapNotNull { it.toDoubleOrNull() }
+            ?.takeIf { it.size == 4 }?.toDoubleArray()
     }
 
     // ---------- Historial importado de WHOOP (23/10) ----------
@@ -672,15 +674,49 @@ object Formulas {
         val usedPersonalBaseline: Boolean
     )
 
-    fun recovery(hrv: Double?, restingHr: Int?, respiratoryRate: Double?, b: PersonalBaseline?): RecoveryResult {
+    /**
+     * 14/11: escalón de WHOOP desde el 10/11 (el día de su versión 5.78). Con la VFC/FCR EXACTAS de WHOOP la fórmula acertaba hasta el
+     * 9/11 (23/10–9/11: sesgo −0,9, 18 noches) y desde el 10/11 se queda corta SIEMPRE lo mismo: −8, −8, −8, −5, −8 (59 a 95, sin cambiar
+     * con el nivel). +7,4 a partir de esa fecha: esas 5 noches 7,4 → 1,2 de error (dejando cada una fuera), 23/10–14/11 4,13 → 2,78.
+     * Las noches de antes del 10/11 se calculan sin él (así salían en WHOOP).
+     */
+    const val REC_WHOOP_STEP = 7.4
+    const val REC_WHOOP_STEP_SINCE = "2026-11-10"
+    fun recoveryStep(date: String?): Double {
+        val d = date ?: java.time.LocalDate.now().toString()
+        return if (d >= REC_WHOOP_STEP_SINCE) REC_WHOOP_STEP else 0.0
+    }
+
+    /** Coeficientes de la recuperación [base, VFC, FCR, percentil]: los personales del export de WHOOP si mejoran a los generales. */
+    @Volatile private var personalRecCoef: DoubleArray? = null
+    private const val KEY_REC_PERSONAL = "rec_personal_coef"
+    fun recoveryCoefficients(): DoubleArray = personalRecCoef ?: doubleArrayOf(REC_BIAS, REC_K_HRV, REC_K_RHR, REC_K_PCT)
+    fun hasPersonalRecovery(): Boolean = personalRecCoef != null
+    fun setPersonalRecovery(context: Context, coef: DoubleArray?) {
+        personalRecCoef = coef
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putString(KEY_REC_PERSONAL, coef?.joinToString(";") { it.toString() }).apply()
+    }
+
+    /** Las 3 entradas de la fórmula: [Δ ln VFC frente a la EWMA, Δ FCR, percentil de la VFC entre tus 30 noches]. */
+    fun recoveryFeatures(hrv: Double?, restingHr: Int?, b: PersonalBaseline?): DoubleArray {
         val lnRef = b?.lnHrvMean ?: ln(FALLBACK_HRV)
         val delta = hrv?.takeIf { it > 0 }?.let { ln(it) - lnRef }
         val rhrDelta = if (restingHr != null) restingHr - (b?.avgRestingHr ?: FALLBACK_RHR) else null
         val lnToday = hrv?.takeIf { it > 0 }?.let { ln(it) } ?: (lnRef - 0.1)
         val mu = b?.lnHrvMean30 ?: lnRef
         val sdLn = if (b?.lnHrvMean30 != null) b.lnHrvSd else REC_LN_SD_DEFAULT
-        var score = REC_BIAS + REC_K_HRV * (delta ?: -0.1) - REC_K_RHR * (rhrDelta ?: 0.0) +
-            REC_K_PCT * normalCdf((lnToday - mu) / sdLn)
+        return doubleArrayOf(delta ?: -0.1, rhrDelta ?: 0.0, normalCdf((lnToday - mu) / sdLn))
+    }
+
+    /** [date] = día de la noche (yyyy-MM-dd); null = hoy. */
+    fun recovery(hrv: Double?, restingHr: Int?, respiratoryRate: Double?, b: PersonalBaseline?, date: String? = null): RecoveryResult {
+        val lnRef = b?.lnHrvMean ?: ln(FALLBACK_HRV)
+        val delta = hrv?.takeIf { it > 0 }?.let { ln(it) - lnRef }
+        val rhrDelta = if (restingHr != null) restingHr - (b?.avgRestingHr ?: FALLBACK_RHR) else null
+        val f = recoveryFeatures(hrv, restingHr, b)
+        val c = recoveryCoefficients()
+        var score = c[0] + c[1] * f[0] - c[2] * f[1] + c[3] * f[2] + recoveryStep(date)
         var penalty = false
         if (respiratoryRate != null && respiratoryRate in 8.0..25.0 && b?.respMean != null && b.respSd != null) {
             val z = (respiratoryRate - b.respMean) / b.respSd

@@ -16,11 +16,21 @@ enum WhoopImport {
     struct Result {
         var days = 0, sessions = 0, naps = 0, replacedDays = 0, replacedSessions = 0
         var from: String? = nil, until: String? = nil, backup: String? = nil
+        var calibration: RecoveryCalibration.Fit? = nil
         var text: String {
             if days == 0 && sessions == 0 { return "No he encontrado datos de WHOOP. Elige el zip del export o physiological_cycles.csv." }
             var t = "Importado de WHOOP:\n• \(days) días (\(from ?? "") → \(until ?? ""))\n• \(sessions) entrenos y \(naps) siestas"
             if replacedDays + replacedSessions > 0 {
                 t += "\n\nSustituidos \(replacedDays) días y \(replacedSessions) actividades de PulseApp (copia en \(backup ?? ""))."
+            }
+            if let c = calibration {
+                if c.cvPersonal == nil {
+                    t += "\n\nRecuperación: fórmula general (hacen falta \(RecoveryCalibration.minNights) noches con recuperación de WHOOP; hay \(c.n))."
+                } else if c.usePersonal {
+                    t += String(format: "\n\nRecuperación calibrada con tus %d noches: error %.1f (general %.1f).", c.n, c.cvPersonal ?? 0, c.cvGeneral ?? 0)
+                } else {
+                    t += String(format: "\n\nRecuperación: la fórmula general ya te encaja (error %.1f; calibrada %.1f con %d noches).", c.cvGeneral ?? 0, c.cvPersonal ?? 0, c.n)
+                }
             }
             return t
         }
@@ -262,6 +272,10 @@ enum WhoopImport {
 
         SkinTemp.saveAll(skinDays)
         if let until = newDays.keys.max() { UserDefaults.standard.set(until, forKey: keyUntil) }
+        // 14/11: calibración personal de la recuperación con tus noches de WHOOP (solo si mejora a la general)
+        let calib = RecoveryCalibration.fit(store.lastDays(400))
+        Formulas.setPersonalRecovery(calib.coef)
+        result.calibration = calib
 
         result.days = newDays.count
         result.sessions = newSessions.count - naps

@@ -516,7 +516,28 @@ enum Formulas {
         let usedPersonalBaseline: Bool
     }
 
-    static func recovery(hrv: Double?, restingHr: Int?, respiratoryRate: Double?, baseline b: PersonalBaseline?) -> RecoveryResult {
+    /// 14/11 (igual que Android): escalón de WHOOP desde el 10/11 (su versión 5.78). Con la VFC/FCR exactas de WHOOP la fórmula acertaba
+    /// hasta el 9/11 y desde el 10/11 se queda corta siempre lo mismo (−8, −8, −8, −5, −8) → +7,4 desde esa fecha.
+    static let recWhoopStep = 7.4
+    static let recWhoopStepSince = "2026-11-10"
+    static func recoveryStep(_ date: String?) -> Double {
+        let d = date ?? TimeUtil.dayKey(TimeUtil.nowMillis())
+        return d >= recWhoopStepSince ? recWhoopStep : 0
+    }
+
+    /// Coeficientes [base, VFC, FCR, percentil]: los personales del export de WHOOP si mejoran a los generales (RecoveryCalibration).
+    private static let keyRecPersonal = "pulseapp_rec_personal_coef"
+    static func recoveryCoefficients() -> [Double] {
+        if let c = UserDefaults.standard.array(forKey: keyRecPersonal) as? [Double], c.count == 4 { return c }
+        return [recBias, recKHrv, recKRhr, recKPct]
+    }
+    static func hasPersonalRecovery() -> Bool { (UserDefaults.standard.array(forKey: keyRecPersonal) as? [Double])?.count == 4 }
+    static func setPersonalRecovery(_ c: [Double]?) {
+        if let c = c { UserDefaults.standard.set(c, forKey: keyRecPersonal) } else { UserDefaults.standard.removeObject(forKey: keyRecPersonal) }
+    }
+
+    /// Las 3 entradas de la fórmula: [Δ ln VFC frente a la EWMA, Δ FCR, percentil de la VFC entre tus 30 noches].
+    static func recoveryFeatures(hrv: Double?, restingHr: Int?, baseline b: PersonalBaseline?) -> [Double] {
         let lnRef = b?.lnHrvMean ?? log(fallbackHrv)
         var delta: Double? = nil
         if let h = hrv, h > 0 { delta = log(h) - lnRef }
@@ -526,7 +547,19 @@ enum Formulas {
         if let h = hrv, h > 0 { lnToday = log(h) }
         let mu = b?.lnHrvMean30 ?? lnRef
         let sdLn = (b?.lnHrvMean30 != nil) ? (b?.lnHrvSd ?? recLnSdDefault) : recLnSdDefault
-        var score = recBias + recKHrv * (delta ?? -0.1) - recKRhr * (rhrDelta ?? 0.0) + recKPct * normalCdf((lnToday - mu) / sdLn)
+        return [delta ?? -0.1, rhrDelta ?? 0.0, normalCdf((lnToday - mu) / sdLn)]
+    }
+
+    /// [date] = día de la noche (yyyy-MM-dd); nil = hoy.
+    static func recovery(hrv: Double?, restingHr: Int?, respiratoryRate: Double?, baseline b: PersonalBaseline?, date: String? = nil) -> RecoveryResult {
+        let lnRef = b?.lnHrvMean ?? log(fallbackHrv)
+        var delta: Double? = nil
+        if let h = hrv, h > 0 { delta = log(h) - lnRef }
+        var rhrDelta: Double? = nil
+        if let r = restingHr { rhrDelta = Double(r) - (b?.avgRestingHr ?? fallbackRhr) }
+        let f = recoveryFeatures(hrv: hrv, restingHr: restingHr, baseline: b)
+        let c = recoveryCoefficients()
+        var score = c[0] + c[1] * f[0] - c[2] * f[1] + c[3] * f[2] + recoveryStep(date)
         var penalty = false
         if let rr = respiratoryRate, rr >= 8.0, rr <= 25.0, let bb = b, let m = bb.respMean, let sd = bb.respSd {
             let z = (rr - m) / sd

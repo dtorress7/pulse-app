@@ -975,6 +975,28 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   Simulación 12/11 08:00 → 13/11 10:40: antes 4 avisos (= el registro) y fútbol 11/11 21:35–22:43; ahora 2 (18:19–18:44 y 20:52–22:01, los de verdad)
   y el fútbol se queda en 21:38–22:38. En el móvil del usuario el fútbol 11/11 ya quedó 21:35–22:43 (se puede editar a mano).
 
+- **COMPARACIÓN COMPLETA PulseApp vs WHOOP 22/10→14/11 (14/11, código real; herramientas rehechas: /home/claude/check/kc.sh compila el núcleo
+  SIN Android con stubs propios (Maven está bloqueado), run.sh ejecuta arneses; cmp/whoop.py = datos de la API; cmp/Nights.kt, Day.kt, Rec.kt,
+  Cal.kt; sleep_cmp.py, day_cmp.py, sleepscore.py, calib.py)**. 23 noches (MAE / sesgo): inicio 1,8 min, fin 1,8, dormido 8,9, despierto 9,8 (+3),
+  ligero 26,8, profundo 14,1 (−8,5), REM 21,0 (+8,7), VFC 1,9 ms, FCR 0,5, respiración 0,36 (−0,25), eficiencia 2,2 (−1,8). Calificación del
+  sueño 1,8, horas vs necesidad 1,6, regularidad 3,4, necesidad 9,9 min (deuda −4,5). Recuperación de la app 4,1 (sesgo −1,2), con la VFC/FCR
+  de WHOOP 4,0. Esfuerzo del día 0,99 (sin los 2 entrenos no detectados ~0,4), calorías del día ±1–2 % (salvo el ciclo doble 30/10, noche 30→31
+  sin grabar), pasos con la pulsera ±0,3 %. Entrenos: 29 de 34 detectados (los 5 que no: funcional 29/10 y pesas 9 y 13/11 PUESTOS A MANO/con
+  el entrenador en WHOOP, paseos 31/10 y 8/11 de FC media 90–95), esfuerzo ±0,42, kcal ±24, inicio ±2,7 min, fin ±7,2; 1 paseo de más (10/11).
+  - **Escalón de WHOOP desde el 10/11 APLICADO (Android + iOS `Formulas.REC_WHOOP_STEP` 7,4 / `recoveryStep(fecha)`)**: con la VFC/FCR de
+    WHOOP la fórmula da −8, −8, −8, −5, −8 del 10 al 14/11 (antes, 23/10–9/11, sesgo −0,9) y la app de WHOOP se actualizó a la 5.78 ese día.
+    Constante de 59 a 95. Recuperación con datos WHOOP 4,13 → 2,70 (±5: 73 → 91 %); la de la app 4,14 → 3,50 (±5: 77 → 86 %).
+    `Formulas.recovery(…, date)`: HomeData pasa el día (los días antes del 10/11 sin escalón). 14/11: app 81 vs WHOOP 78 (VFC 101,8 vs 94,2).
+  - **Calibración personal con el export (Android `RecoveryCalibration.kt` + iOS `Core/RecoveryCalibration.swift`, al importar)**: ajusta los
+    4 números de la recuperación con las noches importadas (misma línea base que la app) y SOLO los usa si hay ≥ 90 noches y en validación
+    cruzada fallan ≥ 0,3 menos que la general (prefs `rec_personal_coef` / iOS `pulseapp_rec_personal_coef`; el mensaje del import lo dice).
+    Con tu export: 190 noches, calibrada 3,91 / general 3,86 → se queda la general (correcto). Ajustando SOLO con el export y probando
+    23/10–9/11: 30 noches 5,5 · 90 3,6 · 190 3,3 (general 3,2). Amigo simulado (mismo ruido, otra respuesta): general 8,2 → calibrada 4,1;
+    otro 5,3 → 3,7; igual que tú: se queda la general. CI de iOS "Comprobar la calibración de la recuperación" (ios/Tests/reccal, Swift = Kotlin).
+  - **Deuda de sueño**: WHOOP usa (necesidad − dormido) × 0,50 unas noches y × 0,643 (= 0,5 × 9/7) otras; en el export (abr–oct) igual,
+    sin patrón claro (más 0,64 en fin de semana, no por recuperación/calificación/regularidad). Del 11 al 14/11 todas 0,643. Pregunta para la IA.
+  - Pendiente: VFC 14/11 +7,6 (noche de 10 h, REM 174 vs 133), fases (ligero ±27, REM ±21), paseos de FC ~90 sin detectar.
+
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
 esfuerzo 11,5, 271 kcal, FC media 127 (la media aritmética de esos segundos es 133: WHOOP no usa la media simple), máx 170,

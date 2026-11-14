@@ -105,12 +105,19 @@ class MainActivity : AppCompatActivity() {
                 if (r.days == 0 && r.sessions == 0) "No he encontrado datos de WHOOP en ese archivo. Elige el zip del export o physiological_cycles.csv."
                 else "Importado de WHOOP:\n• ${r.days} días (${r.from} → ${r.until})\n• ${r.sessions} entrenos y ${r.naps} siestas" +
                     (if (r.replacedDays + r.replacedSessions > 0) "\n\nSustituidos ${r.replacedDays} días y ${r.replacedSessions} actividades de PulseApp " +
-                        "(copia en ${r.backup?.name})." else "")
+                        "(copia en ${r.backup?.name})." else "") + calibrationText(r.calibration)
             }, { e -> "No se pudo importar: ${e.message}" })
             androidx.appcompat.app.AlertDialog.Builder(this@MainActivity)
                 .setTitle("Historial de WHOOP").setMessage(msg).setPositiveButton("Cerrar", null).show()
             refresh()
         }
+    }
+
+    private fun calibrationText(c: RecoveryCalibration.Fit?): String = when {
+        c == null -> ""
+        c.cvPersonal == null -> "\n\nRecuperación: fórmula general (hacen falta ${RecoveryCalibration.MIN_NIGHTS} noches con recuperación de WHOOP; hay ${c.n})."
+        c.usePersonal -> "\n\nRecuperación calibrada con tus ${c.n} noches: error %.1f (general %.1f).".format(c.cvPersonal, c.cvGeneral)
+        else -> "\n\nRecuperación: la fórmula general ya te encaja (error %.1f; calibrada %.1f con ${c.n} noches).".format(c.cvGeneral, c.cvPersonal)
     }
 
     private val permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { _ ->
