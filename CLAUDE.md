@@ -1000,6 +1000,12 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
     MEDIANA de las noches de la ventana. Simulación "Nico" (tus noches con VFC ×0,5 y FCR +5, check/cmp/sim_*.csv): con 25 noches importadas
     = tus mismas recuperaciones; sin importar, iguales a las tuyas desde la 3.ª noche (con 1–2 noches la base es ruidosa). Tu app 23/10→14/11
     vs WHOOP 3,50 → 3,45 (solo cambia 7/11 64 → 63). Test reccal regenerado (CV del export 3,86 → 3,89).
+- **14→15/11 (29.ª referencia)**: WHOOP (API) 23:09:12Z–08:30:42Z (00:09–09:30), dormido 8:58, 23/378/92/68, 9 despertares, 96 %, VFC 91,27,
+  FCR 59, resp 13,7, recuperación 73. Código real (check/cmp/Nights.kt, hr_log_40 + motion_minutes_28): 00:19–09:50, 30/365/67/110, dormido 9:02,
+  VFC 90,4, FCR 59, resp 13,5 → recuperación 71 (con la VFC/FCR de WHOOP 72). Inicio +10 (despertar 00:18 con FC 70), fin +20 (09:30–09:50 quieto,
+  giro 1,4–15, FC 60–74; mismo caso que 26/10, una noche → no se toca). 14/11 con la versión nueva 88 (WHOOP 78): sin el escalón daba 81 porque
+  dos errores se compensaban (fórmula −8 y nuestra VFC 101,8 vs 94,2); con la VFC de WHOOP da 78 exacto. App 10–15/11: con escalón MAE 4,0
+  (91/90, 92/95, 62/59, 59/64, 88/78, 71/73), sin él 7,3.
   - Pendiente: VFC 14/11 +7,6 (noche de 10 h, REM 174 vs 133), fases (ligero ±27, REM ±21), paseos de FC ~90 sin detectar.
 
 ## Actividades como WHOOP (20/10, Android + iOS)
