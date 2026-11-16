@@ -377,11 +377,59 @@ struct WRing: View {
     var trackColor: Color = Theme.wTrack
     var labelColor: Color = Theme.textPrimary
 
+    @State private var shown: Double = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        let target = min(max(progress, 0), 1)
+        return WRingBody(p: shown, target: target, value: value, label: label, color: color, size: size, strokeRatio: strokeRatio,
+                         numberRatio: numberRatio, suffixRatio: suffixRatio, labelRatio: labelRatio, topText: topText, marker: marker,
+                         trackColor: trackColor, labelColor: labelColor)
+            .onAppear { animate(to: target) }
+            .onChange(of: progress) { v in animate(to: min(max(v, 0), 1)) }
+    }
+
+    private func animate(to target: Double) {
+        if reduceMotion || size < 40 { shown = target; return }
+        withAnimation(.easeOut(duration: 0.9)) { shown = target }
+    }
+}
+
+/// Dibujo del anillo en un punto de la animación: el trazo va por `p` y el número cuenta hasta su valor.
+private struct WRingBody: View, Animatable {
+    var p: Double
+    let target: Double
+    let value: String
+    let label: String
+    let color: Color
+    let size: Double
+    let strokeRatio: Double
+    let numberRatio: Double
+    let suffixRatio: Double
+    let labelRatio: Double
+    let topText: String
+    let marker: Double?
+    let trackColor: Color
+    let labelColor: Color
+
+    var animatableData: Double {
+        get { return p }
+        set { p = newValue }
+    }
+
+    /// Número mostrado mientras cuenta ("86" → 0…86, "2,2" → 0,0…2,2); si no es un número, se deja tal cual.
+    private func counted(_ number: String) -> String {
+        if target <= 0 || p >= target { return number }
+        guard let full = Double(number.replacingOccurrences(of: ",", with: ".")) else { return number }
+        let v = full * (p / target)
+        if number.contains(",") { return String(format: "%.1f", v).replacingOccurrences(of: ".", with: ",") }
+        return String(Int(v.rounded()))
+    }
+
     var body: some View {
         let stroke = size * strokeRatio
-        let p = min(max(progress, 0), 1)
         let hasSuffix = value.hasSuffix("%")
-        let number = hasSuffix ? String(value.dropLast()) : value
+        let number = counted(hasSuffix ? String(value.dropLast()) : value)
         let big = size * numberRatio
         return ZStack {
             Circle().stroke(trackColor, lineWidth: stroke).padding(stroke / 2)

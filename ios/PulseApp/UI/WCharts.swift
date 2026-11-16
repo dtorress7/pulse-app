@@ -350,6 +350,28 @@ struct WeekChart: View {
         return dates.map { DayLabel(weekday: WText.weekday($0), dayOfMonth: "\(Day.dayOfMonth($0))") }
     }
 
+    @State private var grow: Double = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        WeekChartCanvas(days: days, mode: mode, grow: grow)
+            .onAppear {
+                if reduceMotion { grow = 1 } else { withAnimation(.easeOut(duration: 0.7)) { grow = 1 } }
+            }
+    }
+}
+
+/// Dibujo de WeekChart; `grow` (0…1) hace crecer las barras al aparecer.
+private struct WeekChartCanvas: View, Animatable {
+    let days: [WeekChart.DayLabel]
+    let mode: WeekChart.Mode
+    var grow: Double
+
+    var animatableData: Double {
+        get { return grow }
+        set { grow = newValue }
+    }
+
     var body: some View {
         Canvas { ctx, size in
             let n = days.count
@@ -388,7 +410,7 @@ struct WeekChart: View {
                     let b = i < values.count ? values[i] : nil
                     var yy = bottom
                     for (v, c) in b ?? [] where v > 0 {
-                        let hgt = (bottom - top - 18) * (v / mx)
+                        let hgt = (bottom - top - 18) * (v / mx) * grow
                         ctx.fill(Path(CGRect(x: cx(i) - bw / 2, y: yy - hgt, width: bw, height: hgt)), with: .color(c))
                         yy -= hgt
                     }

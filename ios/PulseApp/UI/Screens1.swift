@@ -70,7 +70,7 @@ struct RootView: View {
             .cornerRadius(32)
             Button(action: { showCoach = true }) {
                 Image(systemName: "bubble.left.fill").font(.system(size: 22)).foregroundColor(Theme.onAccent)
-                    .frame(width: 64, height: 64).background(Theme.recoveryGreen).clipShape(Circle())
+                    .frame(width: 64, height: 64).background(Theme.logoGradient).clipShape(Circle())
             }
         }
         .padding(.horizontal, 14)
@@ -93,6 +93,8 @@ struct RootView: View {
             tab = t
         }) {
             VStack(spacing: 4) {
+                Capsule().fill(Theme.logoGradient).frame(width: 26, height: 3).opacity(active ? 1 : 0)
+                    .animation(.easeOut(duration: 0.2), value: active)
                 Image(systemName: active ? icon + ".fill" : icon).font(.system(size: 19))
                 Text(title).font(Theme.text(11, active ? .semibold : .medium))
             }

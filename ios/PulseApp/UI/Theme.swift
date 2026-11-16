@@ -14,7 +14,7 @@ enum Theme {
     static let alertRed = Color(hex: 0xF04C55)
     static let alertAmber = Color(hex: 0xF9C718)
     static let textPrimary = Color(hex: 0xF4F5F6)
-    static let textSecondary = Color(hex: 0x95999D)
+    static let textSecondary = Color(hex: 0xA9B4BA)
     static let onAccent = Color(hex: 0x0F1519)
     static let stageAwake = Color(hex: 0xDBE6F2)
     static let stageRem = Color(hex: 0xB1B0EF)
@@ -27,12 +27,12 @@ enum Theme {
     static let zone5 = Color(hex: 0xF04C55)
 
     // ---------- Aspecto WHOOP (17/10, los mismos colores w_* que Android) ----------
-    static let wBgTop = Color(hex: 0x283237)
-    static let wBgMid = Color(hex: 0x1C2327)
-    static let wBgBottom = Color(hex: 0x12171A)
-    static let wCard = Color(hex: 0x2A3237)
-    static let wRow = Color(hex: 0x3A4348)
-    static let wTrack = Color(hex: 0x3A4247)
+    static let wBgTop = Color(hex: 0x2A363D)
+    static let wBgMid = Color(hex: 0x161C20)
+    static let wBgBottom = Color(hex: 0x101518)
+    static let wCard = Color(hex: 0x1F282E)
+    static let wRow = Color(hex: 0x2C373E)
+    static let wTrack = Color(hex: 0x2E3A41)
     static let wRecoveryHigh = Color(hex: 0x16EC06)
     static let wRingSleep = Color(hex: 0x7BA1C3)
     static let wMint = Color(hex: 0x2CE5A3)
@@ -67,7 +67,13 @@ enum Theme {
 
     /// Fondo de pantalla de WHOOP: gris azulado arriba que se oscurece hacia abajo.
     static var wBackground: LinearGradient {
-        return LinearGradient(colors: [wBgTop, wBgMid, wBgBottom], startPoint: .top, endPoint: .bottom)
+        return LinearGradient(stops: [.init(color: wBgTop, location: 0), .init(color: wBgMid, location: 0.42), .init(color: wBgBottom, location: 1)],
+                              startPoint: .top, endPoint: .bottom)
+    }
+
+    /// Degradado del logo (azul → verde): marca, pestaña activa, botón Coach.
+    static var logoGradient: LinearGradient {
+        return LinearGradient(colors: [logoBlue, logoGreen], startPoint: .leading, endPoint: .trailing)
     }
 
     static func wRecoveryColor(_ score: Int) -> Color {
