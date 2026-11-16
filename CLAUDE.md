@@ -1007,6 +1007,11 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   dos errores se compensaban (fórmula −8 y nuestra VFC 101,8 vs 94,2); con la VFC de WHOOP da 78 exacto. App 10–15/11: con escalón MAE 4,0
   (91/90, 92/95, 62/59, 59/64, 88/78, 71/73), sin él 7,3.
   - Pendiente: VFC 14/11 +7,6 (noche de 10 h, REM 174 vs 133), fases (ligero ±27, REM ±21), paseos de FC ~90 sin detectar.
+- **15→16/11 (30.ª referencia, domingo tranquilo tras funcional/entreno de 14,0 el 15/11)**: WHOOP (API) 21:12:52Z–06:55:28Z (22:12–07:55), cama 9:42, dormido 9:16,
+  26/399/71/86, 8 despertares, 96 %, VFC 96,35, FCR 58, resp 13,2, calificación (rendimiento) 86, regularidad 70, recuperación 80. Código real (check/cmp/Nights.kt,
+  hr_log_41 + motion_minutes_29, datos hasta 10:16 = 2 h tras levantarse): 22:13–07:53, dormido 9:10, 31/367/98/85, 11 despertares, 94 %, VFC 93,7, FCR 58, resp 12,9 →
+  recuperación 76 (Rec.kt). Con la VFC/FCR EXACTAS de WHOOP la fórmula da 80 = WHOOP → los −4 son solo nuestra VFC (−2,6). Inicio/fin −1/−2 min. Fases: profundo +27,
+  ligero −32 (REM y despierto bien). El fin queda en 07:53 aunque haya datos de después (no repite el patrón de 26/10, 10/11 y 15/11). 30 noches; escalón +7,4 sigue cuadrando.
 
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
