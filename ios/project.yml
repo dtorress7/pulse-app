@@ -17,13 +17,13 @@ targets:
       - path: PulseApp
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.pulseapp.ios
+        PRODUCT_BUNDLE_IDENTIFIER: com.pulseapp.ios.beta
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: "1"
     info:
       path: Config/Info.plist
       properties:
-        CFBundleDisplayName: PulseApp
+        CFBundleDisplayName: Pulse Beta
         UILaunchScreen:
           UIColorName: LaunchBackground
           UIImageName: LaunchLogo

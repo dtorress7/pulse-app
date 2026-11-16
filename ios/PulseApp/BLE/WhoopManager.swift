@@ -24,7 +24,7 @@ final class WhoopManager: NSObject, ObservableObject, CBCentralManagerDelegate, 
     ]
     static let hrService = CBUUID(string: "180D")
     static let hrMeasurement = CBUUID(string: "2A37")
-    private static let restoreId = "com.pulseapp.ios.central"
+    private static let restoreId = "com.pulseapp.ios.beta.central"
     private static let offloadEvery: TimeInterval = 15 * 60
 
     // Estado que ven las pantallas
