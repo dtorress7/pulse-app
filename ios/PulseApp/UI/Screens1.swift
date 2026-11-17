@@ -5,6 +5,17 @@ import SwiftUI
 
 enum AppTab { case home, health, sleep, strain, community }
 
+/// 17/11: pantallas que necesitan toda la parte de abajo (entreno de fuerza: "Comenzar serie") esconden la barra de pestañas
+/// y el botón Coach mientras están abiertas. Cada pantalla se apunta con su propio identificador, así un onAppear repetido
+/// no deja la barra escondida para siempre.
+final class TabBarVisibility: ObservableObject {
+    static let shared = TabBarVisibility()
+    @Published private(set) var hiders = Set<UUID>()
+    var hidden: Bool { return !hiders.isEmpty }
+    func hide(_ id: UUID) { hiders.insert(id) }
+    func show(_ id: UUID) { hiders.remove(id) }
+}
+
 /// Pestañas con la barra flotante de WHOOP (Inicio · Salud · Sueño · Esfuerzo + botón Coach), igual que Android.
 struct RootView: View {
     @StateObject private var model = AppModel.shared
@@ -15,6 +26,7 @@ struct RootView: View {
     @State private var sleepPath = [Route]()
     @State private var strainPath = [Route]()
     @State private var showCoach = false
+    @ObservedObject private var bar = TabBarVisibility.shared
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -41,8 +53,11 @@ struct RootView: View {
                     CommunityView()
                 }
             }
-            tabBar
+            if !bar.hidden {
+                tabBar.transition(.move(edge: .bottom).combined(with: .opacity))
+            }
         }
+        .animation(.easeOut(duration: 0.2), value: bar.hidden)
         .preferredColorScheme(.dark)
         .sheet(isPresented: $showCoach) { CoachView() }
         .onAppear {
