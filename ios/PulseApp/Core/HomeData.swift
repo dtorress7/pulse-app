@@ -155,7 +155,8 @@ enum PanelKeys {
 enum HomeDataLoader {
 
     /// Calcula Inicio para hoy + [dayOffset] (0 = hoy, −1 = ayer…). Puede tardar: llamar fuera del hilo principal.
-    static func load(dayOffset: Int) -> HomeData {
+    /// [historyDays]: días anteriores con su registro completo en `records` (Inicio 40; tendencias, perfil y WHOOP Age hasta 400, 17/11).
+    static func load(dayOffset: Int, historyDays: Int = 40) -> HomeData {
         let store = AppStore.shared
         let hrLog = WhoopManager.shared.hrLog
         let profile = store.getProfile()
@@ -183,7 +184,7 @@ enum HomeDataLoader {
                                                      weightKg: profile?.weightKg ?? 75, sex: profile?.sex ?? "M")
         }
         // Días guardados (la fila D = noche que termina D + esfuerzo de D), de más antiguo a más reciente
-        let stored = store.lastDays(80).sorted { $0.date < $1.date }
+        let stored = store.lastDays(max(80, historyDays + 40)).sorted { $0.date < $1.date }
         var byDate = [String: DailyMetrics]()
         for d in stored { byDate[d.date] = d }
         if isToday { AutoActivityScanner.scan(store: store, hrLog: hrLog) }
@@ -348,9 +349,9 @@ enum HomeDataLoader {
             todayRecord = r
         }
 
-        // Registros de los 40 días anteriores + el día elegido
+        // Registros de los [historyDays] días anteriores (40 en Inicio) + el día elegido
         var records = [String: DayRecord]()
-        for i in stride(from: 40, through: 1, by: -1) {
+        for i in stride(from: historyDays, through: 1, by: -1) {
             let d = Day.add(date, -i)
             if let row = byDate[d] { records[d] = recordFromStored(d, row) }
         }

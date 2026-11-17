@@ -55,4 +55,10 @@ enum Route: Hashable {
     case strengthHome
     case strengthSession(String, Int64)
     case strengthSummary(Int64)
+    // 17/11: como WHOOP (vídeo del usuario)
+    case trends(String)
+    case healthspan
+    case levels
+    case streak
+    case aboutMe
 }

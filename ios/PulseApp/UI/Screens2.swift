@@ -107,6 +107,7 @@ struct EditSessionView: View {
 // MARK: - Perfil
 
 struct ProfileView: View {
+    @State private var name = ""
     @State private var weight = ""
     @State private var height = ""
     @State private var birthday = Date()
@@ -133,6 +134,10 @@ struct ProfileView: View {
 
             WTitle(text: "Tus datos").padding(.top, 26).padding(.bottom, 10)
             WCard(padding: 0) {
+                row("Nombre") {
+                    TextField("Tu nombre", text: $name).multilineTextAlignment(.trailing).foregroundColor(Theme.textPrimary)
+                }
+                WDivider()
                 row("Peso (kg)") { input($weight, "--") }
                 WDivider()
                 row("Estatura (cm)") { input($height, "--") }
@@ -247,6 +252,7 @@ struct ProfileView: View {
         }
         if let m = Formulas.observedHrMax() { hrMax = String(m) }
         if let z = Formulas.manualZoneRestingHr() { zoneRhr = String(z) }
+        name = ProfileName.get()
     }
 
     private func save() {
@@ -266,6 +272,7 @@ struct ProfileView: View {
             note = "Revisa la FC en reposo para zonas (35–100 lpm) o déjala vacía."
             return
         }
+        ProfileName.set(name)
         Formulas.setObservedHrMax(hm)
         Formulas.setManualZoneRestingHr(zr)
         let old = AppStore.shared.getProfile()

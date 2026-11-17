@@ -25,6 +25,7 @@ struct HomeView: View {
 
     // Hojas y diálogos
     @State private var showProfile = false
+    @State private var showHub = false
     @State private var showWhoop = false
     @State private var showAdd = false
     @State private var showWake = false
@@ -114,6 +115,7 @@ struct HomeView: View {
             }
         }
         .sheet(isPresented: $showProfile, onDismiss: { HomeStore.shared.invalidate() }) { ProfileView() }
+        .fullScreenCover(isPresented: $showHub, onDismiss: { HomeStore.shared.invalidate() }) { ProfileHubSheet() }
         .sheet(isPresented: $showWhoop) { WhoopView() }
         .sheet(isPresented: $showAdd) {
             AddActivitySheet(dayOffset: dayOffset) { start, end, type in saveSession(start, end, type) }
@@ -273,7 +275,7 @@ struct HomeView: View {
     private var header: some View {
         ZStack {
             HStack(spacing: 2) {
-                Button(action: { showProfile = true }) {
+                Button(action: { showHub = true }) {
                     Image(systemName: "person.fill").font(.system(size: 17)).foregroundColor(Theme.textPrimary)
                         .frame(width: 40, height: 40)
                         .overlay(Circle().stroke(Theme.textPrimary, lineWidth: 2))
@@ -713,7 +715,7 @@ struct HomeView: View {
                 } else if key == PanelKeys.strainRecovery {
                     strainRecoveryCard
                 } else if let r = rows[key] {
-                    PanelRowView(row: r)
+                    Button(action: { path.append(.trends(key)) }) { PanelRowView(row: r) }.buttonStyle(.plain)
                 }
             }
         }
@@ -952,6 +954,11 @@ struct RouteView: View {
         case .strengthHome: StrengthHomeView(path: $path)
         case .strengthSession(let m, let id): StrengthSessionView(mode: m, refId: id, path: $path)
         case .strengthSummary(let id): StrengthSummaryView(sessionId: id, path: $path)
+        case .trends(let k): TrendsView(initialKey: k, path: $path)
+        case .healthspan: HealthspanView(path: $path)
+        case .levels: LevelsView()
+        case .streak: StreakView()
+        case .aboutMe: ProfileView().toolbar(.hidden, for: .navigationBar)
         }
     }
 }
