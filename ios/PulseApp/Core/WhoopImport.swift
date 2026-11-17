@@ -14,12 +14,14 @@ enum WhoopImport {
     static func importedUntil() -> String { return UserDefaults.standard.string(forKey: keyUntil) ?? "" }
 
     struct Result {
-        var days = 0, sessions = 0, naps = 0, replacedDays = 0, replacedSessions = 0
+        var days = 0, sessions = 0, naps = 0, replacedDays = 0, replacedSessions = 0, journalDays = 0
         var from: String? = nil, until: String? = nil, backup: String? = nil
         var calibration: RecoveryCalibration.Fit? = nil
         var text: String {
-            if days == 0 && sessions == 0 { return "No he encontrado datos de WHOOP. Elige el zip del export o physiological_cycles.csv." }
+            if days == 0 && sessions == 0 && journalDays == 0 { return "No he encontrado datos de WHOOP. Elige el zip del export o physiological_cycles.csv." }
+            if days == 0 && sessions == 0 { return "Importado de WHOOP: \(journalDays) días del diario." }
             var t = "Importado de WHOOP:\n• \(days) días (\(from ?? "") → \(until ?? ""))\n• \(sessions) entrenos y \(naps) siestas"
+            if journalDays > 0 { t += "\n• \(journalDays) días del diario" }
             if replacedDays + replacedSessions > 0 {
                 t += "\n\nSustituidos \(replacedDays) días y \(replacedSessions) actividades de PulseApp (copia en \(backup ?? ""))."
             }
@@ -38,7 +40,7 @@ enum WhoopImport {
 
     /// ¿Estos archivos son del export de WHOOP?
     static func looksLikeWhoop(_ urls: [URL]) -> Bool {
-        let names = ["physiological_cycles.csv", "sueño.csv", "sleeps.csv", "entrenamientos.csv", "workouts.csv"]
+        let names = ["physiological_cycles.csv", "sueño.csv", "sleeps.csv", "entrenamientos.csv", "workouts.csv", "journal_entries.csv"]
         return urls.contains { u in
             u.pathExtension.lowercased() == "zip" || names.contains(u.lastPathComponent.lowercased().precomposedStringWithCanonicalMapping)
         }
@@ -277,6 +279,8 @@ enum WhoopImport {
         Formulas.setPersonalRecovery(calib.coef)
         result.calibration = calib
 
+        // 17/11: diario (journal_entries.csv) para "Información sobre comportamientos"
+        result.journalDays = JournalStore.importWhoop(find("journal_entries.csv"))
         result.days = newDays.count
         result.sessions = newSessions.count - naps
         result.naps = naps

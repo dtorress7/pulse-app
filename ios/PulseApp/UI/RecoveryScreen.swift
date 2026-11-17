@@ -7,6 +7,7 @@ import SwiftUI
 struct RecoveryDetailView: View {
     let dayOffset: Int
     var showBack: Bool = true
+    @Binding var path: [Route]
     @ObservedObject private var store = HomeStore.shared
     @ObservedObject private var app = AppModel.shared
     @State private var data: HomeData? = nil
@@ -64,6 +65,9 @@ struct RecoveryDetailView: View {
             .padding(.top, 12)
         }
         .padding(.top, 18)
+
+        // 17/11: comportamientos de ayer (diario + los que saca PulseApp), como WHOOP
+        BehaviorChipsCard(date: d.date, path: $path).padding(.top, 14)
 
         // ---------- Cómo se calcula ----------
         WHeading(text: "Cómo se calcula").padding(.top, 34)

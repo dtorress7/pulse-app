@@ -67,6 +67,9 @@ struct HomeView: View {
                         monitors.padding(.top, 28)
                         myDay
                         tonightCard
+                        // 17/11: Mi diario como WHOOP
+                        JournalCard(onOpen: { path.append(.journal($0)) }, onInsights: { path.append(.behaviors) })
+                            .id("\(store.version)-\(tick / 30)").padding(.top, 12)
                         panelSection
                         moreSection
                     }
@@ -946,7 +949,7 @@ struct RouteView: View {
         case .strain(let o): StrainDetailView(dayOffset: o, showBack: true, path: $path)
         case .health: HealthMonitorView(showBack: true, path: $path)
         case .stress: StressDetailView(initialOffset: 0, path: $path)
-        case .recovery(let o): RecoveryDetailView(dayOffset: o)
+        case .recovery(let o): RecoveryDetailView(dayOffset: o, path: $path)
         case .activity(let id): ActivityDetailView(sessionId: id, path: $path)
         case .editActivity(let id): EditSessionView(sessionId: id).toolbar(.visible, for: .navigationBar)
         case .stressDay(let o): StressDetailView(initialOffset: o, path: $path)
@@ -959,6 +962,9 @@ struct RouteView: View {
         case .levels: LevelsView()
         case .streak: StreakView()
         case .aboutMe: ProfileView().toolbar(.hidden, for: .navigationBar)
+        case .journal(let d): JournalView(initialDate: d)
+        case .behaviors: BehaviorInsightsView(path: $path)
+        case .behavior(let id): BehaviorDetailView(id: id)
         }
     }
 }

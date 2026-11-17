@@ -61,4 +61,7 @@ enum Route: Hashable {
     case levels
     case streak
     case aboutMe
+    case journal(String)
+    case behaviors
+    case behavior(String)
 }
