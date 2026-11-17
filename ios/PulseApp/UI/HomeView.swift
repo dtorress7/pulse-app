@@ -778,7 +778,7 @@ struct HomeView: View {
                 WDivider()
                 moreRow("list.bullet.rectangle", "Resumen detallado") { showSummary = true }
                 WDivider()
-                moreRow("square.and.arrow.down", importing ? "Importando… (puede tardar un poco)" : "Importar datos de Android") {
+                moreRow("square.and.arrow.down", importing ? "Importando… (puede tardar un poco)" : "Importar datos (Android u otro iPhone)") {
                     if !importing { showImporter = true }
                 }
                 WDivider()
