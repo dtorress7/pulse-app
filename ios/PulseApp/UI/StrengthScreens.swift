@@ -651,6 +651,7 @@ struct StrengthSessionView: View {
     @State private var exerciseMenu: Int? = nil
     @State private var setHr: [String: Int] = [:]
     @State private var message: String? = nil
+    @State private var barToken = UUID()
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     static func prepareLive(_ from: Strength.Workout?) {
@@ -674,8 +675,8 @@ struct StrengthSessionView: View {
                 .background(LinearGradient(colors: [Theme.wBgBottom.opacity(0), Theme.wBgBottom], startPoint: .top, endPoint: .center))
         }
         .toolbar(.hidden, for: .navigationBar)
-        .onAppear(perform: load)
-        .onDisappear { persist() }
+        .onAppear { TabBarVisibility.shared.hide(barToken); load() }
+        .onDisappear { TabBarVisibility.shared.show(barToken); persist() }
         .onReceive(timer) { _ in if mode == "live" { now = TimeUtil.nowMillis() } }
         .sheet(isPresented: $showPicker) {
             ExercisePickerView { ids, superset in addExercises(ids, superset) }
