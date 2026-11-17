@@ -52,7 +52,7 @@ struct HomeView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
                         header
-                        Text("PULSE").font(Theme.medium(24)).tracking(24 * 0.32).foregroundColor(Theme.textPrimary)
+                        Text("PULSE").font(Theme.medium(24)).tracking(24 * 0.32).foregroundStyle(Theme.logoGradient)
                             .frame(maxWidth: .infinity).padding(.top, 18)
                         if let note = connectionNote {
                             Text(note).font(Theme.text(12)).foregroundColor(Theme.textSecondary)
@@ -62,8 +62,9 @@ struct HomeView: View {
                             .background(GeometryReader { g in
                                 Color.clear.preference(key: RingsBottomKey.self, value: g.frame(in: .named("homeScroll")).maxY)
                             })
-                        if pending { sleepDetectedCard.padding(.top, 28) }
-                        monitors.padding(.top, 28)
+                        if dayOffset == 0 { LivePulseCard().padding(.top, 24) }
+                        if pending { sleepDetectedCard.padding(.top, 20) }
+                        monitors.padding(.top, 12)
                         myDay
                         tonightCard
                         panelSection
@@ -274,9 +275,9 @@ struct HomeView: View {
         ZStack {
             HStack(spacing: 2) {
                 Button(action: { showProfile = true }) {
-                    Image(systemName: "person.fill").font(.system(size: 17)).foregroundColor(Theme.textPrimary)
+                    Image(systemName: "person.fill").font(.system(size: 17, weight: .semibold)).foregroundColor(RD.ink)
                         .frame(width: 40, height: 40)
-                        .overlay(Circle().stroke(Theme.textPrimary, lineWidth: 2))
+                        .background(Circle().fill(Theme.logoGradient))
                 }
                 Button(action: { message = "Días seguidos llevando la pulsera"; showMessage = true }) {
                     HStack(spacing: 8) {
@@ -288,22 +289,23 @@ struct HomeView: View {
                 }
                 Spacer()
                 Button(action: { showWhoop = true }) {
-                    HStack(spacing: 2) {
-                        // Batería de la pulsera como WHOOP ("34 %"), con un rayo si está cargando (31/10)
+                    // 17/11 rediseño: píldora con el punto de conexión y la batería de la pulsera (rayo si está cargando)
+                    HStack(spacing: 7) {
+                        Circle().fill(bandDotColor).frame(width: 8, height: 8)
                         if let pct = BandBattery.percent {
                             if BandBattery.isCharging {
                                 Image(systemName: "bolt.fill").font(.system(size: 11, weight: .bold)).foregroundColor(Theme.wMint)
                             }
-                            Text("\(pct) %").font(.system(size: 15, weight: .semibold))
-                                .foregroundColor(pct < 20 && !BandBattery.isCharging ? Color(red: 0.94, green: 0.30, blue: 0.33) : Theme.textSecondary)
-                        }
-                        ZStack(alignment: .topTrailing) {
-                            Image(systemName: "applewatch.side.right").font(.system(size: 24)).foregroundColor(Theme.textPrimary)
-                                .frame(width: 44, height: 44)
-                            Circle().fill(bandDotColor).frame(width: 11, height: 11).padding(.top, 5).padding(.trailing, 6)
+                            Text("\(pct) %").font(Theme.number(17))
+                                .foregroundColor(pct < 20 && !BandBattery.isCharging ? Color(red: 0.94, green: 0.30, blue: 0.33) : Theme.textPrimary)
+                        } else {
+                            Image(systemName: "applewatch.side.right").font(.system(size: 18)).foregroundColor(Theme.textPrimary)
                         }
                     }
+                    .padding(.horizontal, 12).frame(height: 40)
+                    .background(Color.white.opacity(0.08)).cornerRadius(20)
                 }
+                .accessibilityLabel("Mi WHOOP")
             }
             HStack(spacing: 0) {
                 Button(action: { changeDay(-1) }) {
@@ -345,13 +347,16 @@ struct HomeView: View {
         let rec = pending ? nil : day?.recovery
         let strain = pending ? nil : day?.strain
         let dash = pending ? "--%" : "--"
-        return HStack(alignment: .top, spacing: 0) {
-            ringBox(WRing(progress: Double(sleepScore ?? 0) / 100, value: sleepScore.map { "\($0)%" } ?? dash, color: Theme.wRingSleep),
+        // 17/11 rediseño: la recuperación, grande en el centro; sueño y esfuerzo a los lados
+        return HStack(alignment: .bottom, spacing: 0) {
+            ringBox(WRing(progress: Double(sleepScore ?? 0) / 100, value: sleepScore.map { "\($0)%" } ?? dash, color: Theme.wRingSleep,
+                          size: 96, strokeRatio: 0.08),
                     "Sueño", .sleep(dayOffset)).frame(maxWidth: .infinity)
             ringBox(WRing(progress: Double(rec ?? 0) / 100, value: rec.map { "\($0)%" } ?? dash,
-                          color: rec.map { Theme.wRecoveryColor($0) } ?? Theme.wRecoveryHigh),
+                          color: rec.map { Theme.wRecoveryColor($0) } ?? Theme.wRecoveryHigh, size: 136, strokeRatio: 0.075, numberRatio: 0.32),
                     "Recuperación", .recovery(dayOffset)).frame(maxWidth: .infinity).layoutPriority(1)
-            ringBox(WRing(progress: (strain ?? 0) / 21, value: strain.map { Fmt.comma($0) } ?? "--", color: Theme.strainBlue),
+            ringBox(WRing(progress: (strain ?? 0) / 21, value: strain.map { Fmt.comma($0) } ?? "--", color: Theme.strainBlue,
+                          size: 96, strokeRatio: 0.08),
                     "Esfuerzo", .strain(dayOffset)).frame(maxWidth: .infinity)
         }
         .padding(.top, 22)
@@ -469,13 +474,23 @@ struct HomeView: View {
             status = "FUERA\nDEL RANGO"; color = Theme.alertAmber; icon = "info"; iconColor = Theme.alertAmber
             box = Theme.wStressHighDim; count = "\(ok)/\(total) métricas"
         }
+        let dots = (data?.vitals ?? []).compactMap { $0.ok }
         return monitorCard(title: "Monitor de salud") {
-            HStack(spacing: 14) {
-                Image(systemName: icon).font(.system(size: 16, weight: .bold)).foregroundColor(iconColor)
-                    .frame(width: 40, height: 40).background(box).cornerRadius(8)
-                VStack(alignment: .leading, spacing: 4) {
-                    WTitle(text: status, color: color)
-                    Text(count).font(Theme.text(14)).foregroundColor(Theme.textSecondary)
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 14) {
+                    Image(systemName: icon).font(.system(size: 16, weight: .bold)).foregroundColor(iconColor)
+                        .frame(width: 40, height: 40).background(box).cornerRadius(8)
+                    VStack(alignment: .leading, spacing: 4) {
+                        WTitle(text: status, color: color)
+                        Text(count).font(Theme.text(14)).foregroundColor(Theme.textSecondary)
+                    }
+                }
+                if !dots.isEmpty {
+                    HStack(spacing: 5) {
+                        ForEach(dots.indices, id: \.self) { i in
+                            Capsule().fill(dots[i] ? Theme.wMint : Theme.wTrendAmber).frame(height: 5)
+                        }
+                    }
                 }
             }
         }
@@ -494,6 +509,23 @@ struct HomeView: View {
                     WTitle(text: score != nil ? level : "SIN DATOS", color: score != nil ? c : Theme.textSecondary)
                     Text(data?.stressMinute.map { Fmt.clock(minuteOfDay: $0) } ?? "").font(Theme.text(14)).foregroundColor(Theme.textSecondary)
                 }
+            }
+            if let s = score {
+                GeometryReader { g in
+                    let w = Double(g.size.width)
+                    ZStack(alignment: .leading) {
+                        HStack(spacing: 3) {
+                            Capsule().fill(Theme.wStressColor("BAJO"))
+                            Capsule().fill(Theme.wStressColor("MEDIO"))
+                            Capsule().fill(Theme.wStressColor("ALTO"))
+                        }
+                        .frame(height: 5)
+                        RoundedRectangle(cornerRadius: 2).fill(Color.white).frame(width: 4, height: 13)
+                            .offset(x: min(max(Double(s) / 3 * w - 2, 0), w - 4))
+                    }
+                    .frame(height: 13)
+                }
+                .frame(height: 13).padding(.top, 10)
             }
         }
     }
@@ -696,7 +728,7 @@ struct HomeView: View {
         let keys = PanelKeys.all.map { $0.0 }.filter { !hidden.contains($0) }
         return VStack(alignment: .leading, spacing: 12) {
             HStack {
-                WHeading(text: "Mi panel de control")
+                WHeading(text: "Tendencias")
                 Spacer()
                 Button(action: { showPersonalize = true }) {
                     HStack(spacing: 6) {
@@ -713,11 +745,43 @@ struct HomeView: View {
                 } else if key == PanelKeys.strainRecovery {
                     strainRecoveryCard
                 } else if let r = rows[key] {
-                    PanelRowView(row: r)
+                    TrendRowView(row: r, series: panelSeries(key), color: panelColor(key))
                 }
             }
         }
         .id(store.version)
+    }
+
+    /// 17/11 rediseño: los 7 últimos días de cada fila de Tendencias (minigráfica).
+    private func panelSeries(_ key: String) -> [Double?] {
+        guard let d = data else { return [] }
+        var byDate = [String: DayRecord]()
+        for r in d.records { byDate[r.date] = r }
+        let dates = (0..<7).reversed().map { Day.add(d.date, -$0) }
+        let pick: (DayRecord) -> Double?
+        switch key {
+        case PanelKeys.hrv: pick = { $0.hrv }
+        case PanelKeys.rhr: pick = { $0.rhr.map { Double($0) } }
+        case PanelKeys.steps: pick = { $0.steps.map { Double($0) } }
+        case PanelKeys.vo2: pick = { $0.vo2 }
+        case PanelKeys.kcal: pick = { $0.kcal }
+        case PanelKeys.regularity: pick = { $0.consistency.map { Double($0) } }
+        case PanelKeys.need: pick = { $0.needTonight.map { Double($0) } }
+        case PanelKeys.strain: pick = { $0.strain }
+        case PanelKeys.efficiency: pick = { $0.efficiency.map { Double($0) } }
+        case PanelKeys.sleepScore: pick = { $0.sleepScore.map { Double($0) } }
+        case PanelKeys.debt: pick = { $0.debt.map { Double($0) } }
+        default: return []
+        }
+        return dates.map { byDate[$0].flatMap(pick) }
+    }
+
+    private func panelColor(_ key: String) -> Color {
+        switch key {
+        case PanelKeys.hrv, PanelKeys.rhr, PanelKeys.vo2: return Theme.wMint
+        case PanelKeys.regularity, PanelKeys.need, PanelKeys.efficiency, PanelKeys.sleepScore, PanelKeys.debt: return Theme.wRingSleep
+        default: return Theme.strainBlue
+        }
     }
 
     private var stressChartCard: some View {

@@ -133,6 +133,9 @@ struct SleepDetailView: View {
 
         // ---------- Tendencias semanales ----------
         WHeading(text: "Tendencias semanales").padding(.top, 34)
+        // 17/11 rediseño: horas de sueño de la semana o del mes, con el dedo para ver cada noche
+        RecordTrendCard(title: "Horas de sueño", records: d.records, endDate: d.date, pick: { $0.sleepMinutes.map { Double($0) } },
+                        format: { Fmt.hm(Int($0.rounded())) }).padding(.top, 14)
         weeklyCharts(d)
     }
 

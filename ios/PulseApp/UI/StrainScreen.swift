@@ -66,6 +66,9 @@ struct StrainDetailView: View {
         }
 
         WHeading(text: "Tendencias semanales").padding(.top, 28)
+        // 17/11 rediseño: esfuerzo de la semana o del mes, con el dedo para ver cada día
+        RecordTrendCard(title: "Esfuerzo del día", records: d.records, endDate: d.date, pick: { $0.strain },
+                        format: { Fmt.comma($0) }).padding(.top, 14)
         weeklyCharts(d)
 
         let all = Array(AppStore.shared.allSessions().prefix(30))

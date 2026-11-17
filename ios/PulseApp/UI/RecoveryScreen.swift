@@ -10,6 +10,7 @@ struct RecoveryDetailView: View {
     @ObservedObject private var store = HomeStore.shared
     @ObservedObject private var app = AppModel.shared
     @State private var data: HomeData? = nil
+    @State private var metric = "hrv"
 
     var body: some View {
         WScreen {
@@ -38,32 +39,28 @@ struct RecoveryDetailView: View {
               strokeRatio: 0.055, numberRatio: 0.26, suffixRatio: 0.5, labelRatio: 0.052, topText: "PULSE")
             .frame(maxWidth: .infinity).padding(.top, 14)
 
-        WCard {
-            metricRow("waveform.path.ecg", "Variabilidad de la\nfrecuencia cardíaca", day.hrv.map { Fmt.int($0) }, hrvAvg.map { Fmt.int($0) },
-                      WTrend.of(day.hrv, hrvAvg, tol: 1), good: true)
-            WDivider()
-            metricRow("heart", "Frecuencia cardíaca\nen reposo", day.rhr.map { "\($0)" }, rhrAvg.map { Fmt.int($0) },
-                      WTrend.of(day.rhr.map { Double($0) }, rhrAvg, tol: 0.5), good: false)
-            WDivider()
-            metricRow("lungs", "Frecuencia\nrespiratoria", day.resp.map { Fmt.comma($0) }, respAvg.map { Fmt.comma($0) },
-                      WTrend.of(day.resp, respAvg, tol: 0.05), good: false)
-            WDivider()
-            metricRow("moon", "Calificación\ndel sueño", day.sleepScore.map { "\($0) %" }, scoreAvg.map { String(format: "%.0f %%", $0) },
-                      WTrend.of(day.sleepScore.map { Double($0) }, scoreAvg, tol: 0.5), good: true)
-            HStack(spacing: 8) {
-                HStack(spacing: 1) {
-                    Image(systemName: "arrowtriangle.up.fill").font(.system(size: 9)).foregroundColor(Theme.wMint)
-                    Image(systemName: "arrowtriangle.down.fill").font(.system(size: 9)).foregroundColor(Theme.wTrendAmber)
-                }
-                Text(dayOffset == 0 ? "Hoy vs. los últimos 30 días" : "Este día vs. los 30 días anteriores")
-                    .font(Theme.text(14.5)).foregroundColor(Theme.textPrimary)
-                Spacer()
-            }
-            .padding(.horizontal, 16).padding(.vertical, 12)
-            .background(Theme.background).cornerRadius(8)
-            .padding(.top, 12)
+        // 17/11 rediseño: qué dice tu recuperación y el esfuerzo que te sienta bien hoy
+        if let r = rec {
+            Text(RecoveryDetailView.advice(r)).font(Theme.text(15)).foregroundColor(Color(hex: 0xD5DDE2))
+                .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity).padding(.horizontal, 24).padding(.top, 14)
         }
-        .padding(.top, 18)
+
+        // ---------- Qué la explica: hoy frente a tu rango habitual de 30 días; tocar una fila cambia la gráfica ----------
+        WHeading(text: "Qué la explica").padding(.top, 30)
+        Text(dayOffset == 0 ? "Hoy frente a tus últimos 30 días. Toca una fila para ver su tendencia."
+                            : "Este día frente a los 30 días anteriores. Toca una fila para ver su tendencia.")
+            .font(Theme.text(13)).foregroundColor(RD.text2).padding(.top, 4)
+        VStack(spacing: 8) {
+            ForEach(RecoveryDetailView.order, id: \.self) { key in
+                if let v = d.vitals.first(where: { $0.key == key }) {
+                    vitalRow(v, avg: key == "hrv" ? hrvAvg : (key == "rhr" ? rhrAvg : (key == "resp" ? respAvg : nil)))
+                }
+            }
+        }
+        .padding(.top, 12)
+
+        trendCard(d).padding(.top, 12)
 
         // ---------- Cómo se calcula ----------
         WHeading(text: "Cómo se calcula").padding(.top, 34)
@@ -96,6 +93,85 @@ struct RecoveryDetailView: View {
                 labels: recs.map { v in v.map { WeekChart.BarLabel(text: "\($0) %", color: Theme.wRecoveryColor($0)) } }, max: 100))
         }
         .padding(.top, 14).padding(.bottom, 30)
+    }
+
+    static let order = ["hrv", "rhr", "resp", "temp"]
+
+    static func advice(_ r: Int) -> String {
+        if r >= 67 { return "Recuperación alta: tu cuerpo está listo. Hoy te sienta bien un esfuerzo de unos 16." }
+        if r >= 34 { return "Recuperación media: un esfuerzo moderado, de unos 12, es buena idea." }
+        return "Recuperación baja: prioriza descansar. Un esfuerzo de unos 8 como mucho."
+    }
+
+    private func fmtVital(_ v: VitalStatus, _ x: Double) -> String {
+        return v.decimals > 0 ? Fmt.comma(x, v.decimals) : Fmt.int(x)
+    }
+
+    /// Fila como la maqueta: nombre, diferencia con tu media, valor, barra con tu rango habitual y una frase.
+    private func vitalRow(_ v: VitalStatus, avg: Double?) -> some View {
+        let selectable = v.key != "temp"
+        let on = selectable && metric == v.key
+        let name: String = v.key == "hrv" ? "VFC" : (v.key == "rhr" ? "FC en reposo" : (v.key == "resp" ? "Respiración" : "Temperatura de la piel"))
+        let unit = v.key == "resp" ? "rpm" : v.unit
+        var delta = ""
+        if let x = v.value, let a = avg {
+            let dd = x - a
+            delta = (dd >= 0 ? "+" : "−") + fmtVital(v, abs(dd))
+        }
+        let markColor: Color = v.ok == nil ? RD.text2 : (v.ok! ? Theme.wMint : Theme.wTrendAmber)
+        var note = "Aún sin rango: hacen falta más noches."
+        if let lo = v.lo, let hi = v.hi, let x = v.value {
+            let range = fmtVital(v, lo) + " a " + fmtVital(v, hi) + " " + unit
+            if x < lo { note = "Por debajo de tu rango habitual, " + range }
+            else if x > hi { note = "Por encima de tu rango habitual, " + range }
+            else { note = "Dentro de tu rango habitual, " + range }
+        }
+        var sLo = (v.lo ?? (v.value ?? 0) - 1), sHi = (v.hi ?? (v.value ?? 0) + 1)
+        let span = max(sHi - sLo, 0.2)
+        sLo -= span * 0.8; sHi += span * 0.8
+        if let x = v.value { sLo = min(sLo, x - span * 0.1); sHi = max(sHi, x + span * 0.1) }
+        let scaleLo = sLo, scaleHi = sHi
+        return Button(action: { if selectable { withAnimation(.easeOut(duration: 0.2)) { metric = v.key } } }) {
+            VStack(alignment: .leading, spacing: 9) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(name).font(Theme.text(15, .semibold)).foregroundColor(Theme.textPrimary)
+                    Spacer()
+                    if !delta.isEmpty {
+                        WNumber(text: delta + (v.key == "temp" ? "" : " frente a tu media"), size: 14, color: markColor)
+                    }
+                    WNumber(text: v.value.map { fmtVital(v, $0) + (v.key == "temp" ? " °C" : "") } ?? "--", size: 24)
+                    if v.key != "temp" { Text(unit).font(Theme.number(13)).foregroundColor(RD.text2) }
+                }
+                RangeBar(value: v.value, lo: v.lo, hi: v.hi, scaleLo: scaleLo, scaleHi: scaleHi, color: markColor)
+                Text(note).font(Theme.text(12)).foregroundColor(RD.text2)
+            }
+            .padding(.horizontal, 14).padding(.vertical, 12)
+            .background(on ? RD.cardOn : RD.card)
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(on ? Theme.logoBlue : Color.clear, lineWidth: 2))
+            .cornerRadius(16)
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(on ? .isSelected : [])
+    }
+
+    /// Tendencia de la métrica elegida (Semana / Mes) con tu rango habitual sombreado.
+    @ViewBuilder private func trendCard(_ d: HomeData) -> some View {
+        let v = d.vitals.first { $0.key == metric }
+        let band: ClosedRange<Double>? = {
+            guard let lo = v?.lo, let hi = v?.hi, hi > lo else { return nil }
+            return lo...hi
+        }()
+        switch metric {
+        case "rhr":
+            RecordTrendCard(title: "Tendencia de FC en reposo", records: d.records, endDate: d.date, pick: { $0.rhr.map { Double($0) } },
+                            format: { Fmt.int($0) }, unit: "lpm", band: band).id("rhr")
+        case "resp":
+            RecordTrendCard(title: "Tendencia de respiración", records: d.records, endDate: d.date, pick: { $0.resp },
+                            format: { Fmt.comma($0) }, unit: "rpm", band: band).id("resp")
+        default:
+            RecordTrendCard(title: "Tendencia de VFC", records: d.records, endDate: d.date, pick: { $0.hrv },
+                            format: { Fmt.int($0) }, unit: "ms", band: band).id("hrv")
+        }
     }
 
     /// Media de los 30 días anteriores al día mostrado.
