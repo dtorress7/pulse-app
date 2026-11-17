@@ -117,9 +117,15 @@ enum Healthspan {
     }
 
     /// WHOOP Age con las medias de [days] días que acaban en [end]; nil con menos de 4 datos.
+    /// IA de WHOOP (17/11): WHOOP Age se desbloquea (y se sigue actualizando) con 21 recuperaciones en 31 días.
+    static let unlockRecoveries = 21
+    private static func unlocked(_ end: String, _ recs: [String: DayRecord]) -> Bool {
+        return (0..<31).filter { recs[Day.add(end, -$0)]?.recovery != nil }.count >= unlockRecoveries
+    }
+
     private static func ageWith(end: String, days: Int, _ recs: [String: DayRecord], _ sess: [String: [ActivitySession]],
                                 _ profile: UserProfile?) -> Double? {
-        guard let chrono = ageAt(end, profile) else { return nil }
+        guard unlocked(end, recs), let chrono = ageAt(end, profile) else { return nil }
         let male = profile?.sex != "F"
         let ys = defs.compactMap { years($0.key, mean($0.key, end: end, days: days, recs, sess), male: male, age: chrono) }
         guard ys.count >= 4 else { return nil }
@@ -150,7 +156,10 @@ enum Healthspan {
         // (centro hace ~15 días) frente a la de 6 meses (centro hace ~91 días): 1,0x = al ritmo del calendario.
         var pace: Double? = nil
         if let a6 = whoopAge, let a30 = ageWith(end: dataEnd, days: 30, recs, sess, profile) {
-            pace = min(max(1 + (a30 - a6) / (76.0 / 365.25), -1), 3)
+            // IA de WHOOP (17/11): compara tus datos de los últimos 30 días con tu referencia de 6 meses y proyecta cómo cambiaría
+            // tu WHOOP Age si los mantienes: 1,0x = sube al ritmo del calendario, 0,0x = estable, negativo = baja. Aquí: en un año
+            // la media de 6 meses pasaría a ser la de 30 días → cambio por año = 1 + (edad con 30 días − edad con 6 meses).
+            pace = min(max(1 + (a30 - a6), -1), 3)
         }
         var history = [(String, Double, Double)]()
         for k in stride(from: 25, through: 0, by: -1) {

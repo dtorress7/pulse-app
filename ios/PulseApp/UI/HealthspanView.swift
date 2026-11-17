@@ -87,7 +87,7 @@ struct HealthspanView: View {
             }
         }
         .alert("WHOOP Age en PulseApp", isPresented: $showInfo, actions: { Button("Cerrar", action: {}) }, message: {
-            Text("WHOOP no publica cómo calcula tu WHOOP Age. PulseApp la estima con los mismos datos que enseña WHOOP (medias de 6 meses de sueño, actividad y forma física): cada uno suma o resta años según lo lejos que esté de un valor de referencia. Está ajustada para que con tus medias del 16/11 salgan los mismos años que daba WHOOP, pero puede no coincidir con la suya. Se actualiza cada domingo.")
+            Text("WHOOP no publica su fórmula (pesos, curvas ni límites de cada dato). PulseApp la estima con los mismos 8 datos que usa WHOOP (medias de 6 meses de sueño, actividad y forma física; la masa magra solo si la hay): cada uno suma o resta años según lo lejos que esté de un valor de referencia. Está ajustada para que con tus medias del 15/11 salgan los mismos años que daba WHOOP, pero puede no coincidir con la suya. Se desbloquea con 21 recuperaciones en 31 días y se actualiza cada domingo. Por debajo de 18 se muestra \"<18,0\", como WHOOP.")
         })
     }
 
@@ -105,7 +105,7 @@ struct HealthspanView: View {
         }()
         AgeBlob(text: AgeBlob.text(r.whoopAge), size: 240, subtitle: younger).frame(maxWidth: .infinity).padding(.top, 20)
         if r.whoopAge == nil {
-            WBody(text: "Aún faltan datos: hacen falta al menos 4 de los 8 datos con 5 días o más en los últimos 6 meses.", size: 13)
+            WBody(text: "Aún no está disponible: como en WHOOP, hacen falta 21 recuperaciones en los últimos 31 días (y al menos 4 de los 8 datos).", size: 13)
                 .multilineTextAlignment(.center).frame(maxWidth: .infinity).padding(.top, 10)
         }
 
