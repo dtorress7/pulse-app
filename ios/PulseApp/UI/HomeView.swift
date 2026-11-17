@@ -945,7 +945,7 @@ struct RouteView: View {
     @Binding var path: [Route]
     var body: some View {
         switch route {
-        case .sleep(let o): SleepDetailView(dayOffset: o, showBack: true)
+        case .sleep(let o): SleepDetailView(dayOffset: o, showBack: true, path: $path)
         case .strain(let o): StrainDetailView(dayOffset: o, showBack: true, path: $path)
         case .health: HealthMonitorView(showBack: true, path: $path)
         case .stress: StressDetailView(initialOffset: 0, path: $path)

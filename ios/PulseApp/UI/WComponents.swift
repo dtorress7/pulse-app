@@ -214,14 +214,24 @@ struct ChartCard<Chart: View>: View {
     let title: String
     var legend: [(String, Color)] = []
     var height: Double = 250
+    /// 17/11: como WHOOP, tocar la tarjeta abre su Vista de tendencias.
+    var action: (() -> Void)? = nil
     let chart: Chart
-    init(_ title: String, legend: [(String, Color)] = [], height: Double = 250, @ViewBuilder chart: () -> Chart) {
+    init(_ title: String, action: (() -> Void)? = nil, legend: [(String, Color)] = [], height: Double = 250, @ViewBuilder chart: () -> Chart) {
         self.title = title
+        self.action = action
         self.legend = legend
         self.height = height
         self.chart = chart()
     }
     var body: some View {
+        if let a = action {
+            Button(action: a) { card }.buttonStyle(.plain)
+        } else {
+            card
+        }
+    }
+    private var card: some View {
         WCard {
             HStack {
                 WTitle(text: title)

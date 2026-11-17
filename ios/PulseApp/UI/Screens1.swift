@@ -41,7 +41,7 @@ struct RootView: View {
                     }
                 case .sleep:
                     NavigationStack(path: $sleepPath) {
-                        SleepDetailView(dayOffset: 0, showBack: false)
+                        SleepDetailView(dayOffset: 0, showBack: false, path: $sleepPath)
                             .navigationDestination(for: Route.self) { r in RouteView(route: r, path: $sleepPath) }
                     }
                 case .strain:

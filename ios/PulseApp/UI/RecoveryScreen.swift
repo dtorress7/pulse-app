@@ -94,10 +94,38 @@ struct RecoveryDetailView: View {
         let week = (0...6).reversed().map { Day.add(d.date, -$0) }
         let recs: [Int?] = week.map { date in d.records.first { $0.date == date }?.recovery }
         WHeading(text: "Tendencias semanales").padding(.top, 34)
-        ChartCard("Recuperación") {
+        ChartCard("Recuperación", action: { path.append(.trends("recovery")) }) {
             WeekChart(days: WeekChart.days(week), mode: .bars(
                 values: recs.map { v in v.map { [(Double($0), Theme.wRecoveryColor($0))] } },
                 labels: recs.map { v in v.map { WeekChart.BarLabel(text: "\($0) %", color: Theme.wRecoveryColor($0)) } }, max: 100))
+        }
+        .padding(.top, 14)
+        let wrecs: [DayRecord?] = week.map { date in d.records.first { $0.date == date } }
+        ChartCard("Variabilidad de la frecuencia cardíaca", action: { path.append(.trends(PanelKeys.hrv)) }) {
+            WeekChart(days: WeekChart.days(week), mode: .lines(series: [
+                WeekChart.Series(values: wrecs.map { $0?.hrv }, color: Theme.strainBlue,
+                                 labels: wrecs.map { $0?.hrv.map { Fmt.int($0) } }, labelsBelow: false)
+            ]))
+        }
+        .padding(.top, 14)
+        ChartCard("Frecuencia cardíaca en reposo", action: { path.append(.trends(PanelKeys.rhr)) }) {
+            WeekChart(days: WeekChart.days(week), mode: .lines(series: [
+                WeekChart.Series(values: wrecs.map { $0?.rhr.map { Double($0) } }, color: Theme.strainBlue,
+                                 labels: wrecs.map { $0?.rhr.map { "\($0)" } }, labelsBelow: false)
+            ]))
+        }
+        .padding(.top, 14)
+        ChartCard("Frecuencia respiratoria", action: { path.append(.trends("resp")) }) {
+            WeekChart(days: WeekChart.days(week), mode: .lines(series: [
+                WeekChart.Series(values: wrecs.map { $0?.resp }, color: Theme.strainBlue,
+                                 labels: wrecs.map { $0?.resp.map { Fmt.comma($0) } }, labelsBelow: false)
+            ]))
+        }
+        .padding(.top, 14)
+        ChartCard("Calificación del sueño", action: { path.append(.trends(PanelKeys.sleepScore)) }) {
+            WeekChart(days: WeekChart.days(week), mode: .bars(
+                values: wrecs.map { r in r?.sleepScore.map { [(Double($0), Theme.wRingSleep)] } },
+                labels: wrecs.map { r in r?.sleepScore.map { WeekChart.BarLabel(text: "\($0) %", color: Theme.wRingSleep) } }, max: 100))
         }
         .padding(.top, 14).padding(.bottom, 30)
     }

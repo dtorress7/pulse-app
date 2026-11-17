@@ -152,29 +152,29 @@ struct StrainDetailView: View {
         let white = Theme.textPrimary
         let z = Theme.wZoneBar
         VStack(spacing: 14) {
-            ChartCard("Esfuerzo") {
+            ChartCard("Esfuerzo", action: { path.append(.trends(PanelKeys.strain)) }) {
                 WeekChart(days: days, mode: .bars(values: recs.map { r in r?.strain.map { [($0, blue)] } },
                                                   labels: recs.map { r in r?.strain.map { WeekChart.BarLabel(text: Fmt.comma($0), color: blue) } }, max: 21))
             }
-            ChartCard("Zonas de FC 1-3", legend: [("Zona 1", z[0]), ("Zona 2", z[1]), ("Zona 3", z[2])]) {
+            ChartCard("Zonas de FC 1-3", action: { path.append(.trends(PanelKeys.z13)) }, legend: [("Zona 1", z[0]), ("Zona 2", z[1]), ("Zona 3", z[2])]) {
                 WeekChart(days: days, mode: .bars(
                     values: recs.map { r in r?.zones.map { [(Double($0.z1) / 60, z[0]), (Double($0.z2) / 60, z[1]), (Double($0.z3) / 60, z[2])] } },
                     labels: recs.map { r in r?.zones.map { WeekChart.BarLabel(text: Fmt.hm($0.z13Seconds / 60), color: white) } }, max: nil))
             }
-            ChartCard("Zonas de FC 4-5", legend: [("Zona 4", z[3]), ("Zona 5", z[4])]) {
+            ChartCard("Zonas de FC 4-5", action: { path.append(.trends(PanelKeys.z45)) }, legend: [("Zona 4", z[3]), ("Zona 5", z[4])]) {
                 WeekChart(days: days, mode: .bars(
                     values: recs.map { r in r?.zones.map { [(Double($0.z4) / 60, z[3]), (Double($0.z5) / 60, z[4])] } },
                     labels: recs.map { r in r?.zones.map { WeekChart.BarLabel(text: Fmt.hm($0.z45Seconds / 60), color: white) } }, max: 30))
             }
-            ChartCard("Pasos") {
+            ChartCard("Pasos", action: { path.append(.trends(PanelKeys.steps)) }) {
                 WeekChart(days: days, mode: .bars(values: recs.map { r in r?.steps.map { [(Double($0), blue)] } },
                                                   labels: recs.map { r in r?.steps.map { WeekChart.BarLabel(text: Fmt.thousands(Int64($0)), color: blue) } }, max: nil))
             }
-            ChartCard("Calorías") {
+            ChartCard("Calorías", action: { path.append(.trends(PanelKeys.kcal)) }) {
                 WeekChart(days: days, mode: .bars(values: recs.map { r in r?.kcal.map { [($0, blue)] } },
                                                   labels: recs.map { r in r?.kcal.map { WeekChart.BarLabel(text: Fmt.thousands(Int64($0.rounded())), color: blue) } }, max: nil))
             }
-            ChartCard("Tiempo de actividad de fuerza") {
+            ChartCard("Tiempo de actividad de fuerza", action: { path.append(.trends(PanelKeys.strength)) }) {
                 WeekChart(days: days, mode: .bars(values: recs.map { r in [(Double(r?.strengthMinutes ?? 0), blue)] },
                                                   labels: recs.map { r in WeekChart.BarLabel(text: Fmt.hm(r?.strengthMinutes ?? 0), color: white) }, max: 30))
             }

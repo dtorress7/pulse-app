@@ -7,6 +7,7 @@ import SwiftUI
 struct SleepDetailView: View {
     let dayOffset: Int
     var showBack: Bool = true
+    @Binding var path: [Route]
     @ObservedObject private var store = HomeStore.shared
     @State private var data: HomeData? = nil
     @State private var nightStress = [String: [StressPoint]]()
@@ -438,8 +439,8 @@ struct SleepDetailView: View {
                                               labels: values.map { v in v.map { WeekChart.BarLabel(text: fmt($0), color: blue) } }, max: nil))
         }
         VStack(spacing: 14) {
-            ChartCard("Calificación del sueño") { bars(recs.map { $0?.sleepScore }) { "\($0) %" } }
-            ChartCard("Horas vs. lo necesario (horas)", legend: [("Horas de sueño", blue), ("Sueño necesario", mint)]) {
+            ChartCard("Calificación del sueño", action: { path.append(.trends(PanelKeys.sleepScore)) }) { bars(recs.map { $0?.sleepScore }) { "\($0) %" } }
+            ChartCard("Horas vs. lo necesario (horas)", action: { path.append(.trends("sleep_hours")) }, legend: [("Horas de sueño", blue), ("Sueño necesario", mint)]) {
                 WeekChart(days: days, mode: .lines(series: [
                     WeekChart.Series(values: recs.map { $0?.sleepMinutes.map { Double($0) } }, color: blue,
                                      labels: recs.map { $0?.sleepMinutes.map { Fmt.hm($0) } }, labelsBelow: true),
@@ -447,8 +448,8 @@ struct SleepDetailView: View {
                                      labels: recs.map { $0?.needLastNight.map { Fmt.hm($0) } }, labelsBelow: false)
                 ]))
             }
-            ChartCard("Horas vs. lo necesario (%)") { bars(recs.map { $0?.hoursVsNeedPct }) { "\($0) %" } }
-            ChartCard("Sueño reparador (horas)", legend: [("Sueño profundo", Theme.wStageDeep), ("Sueño REM", Theme.wStageRem)]) {
+            ChartCard("Horas vs. lo necesario (%)", action: { path.append(.trends("hours_vs_need")) }) { bars(recs.map { $0?.hoursVsNeedPct }) { "\($0) %" } }
+            ChartCard("Sueño reparador (horas)", action: { path.append(.trends("restorative")) }, legend: [("Sueño profundo", Theme.wStageDeep), ("Sueño REM", Theme.wStageRem)]) {
                 WeekChart(days: days, mode: .bars(
                     values: recs.map { r -> [(Double, Color)]? in
                         guard let deep = r?.deep, let rem = r?.rem else { return nil }
@@ -456,21 +457,21 @@ struct SleepDetailView: View {
                     },
                     labels: recs.map { r in r?.restorative.map { WeekChart.BarLabel(text: Fmt.hm($0), color: Theme.textPrimary) } }, max: nil))
             }
-            ChartCard("Regularidad del sueño") { bars(recs.map { $0?.consistency }) { "\($0) %" } }
-            ChartCard("Tiempo en cama") {
+            ChartCard("Regularidad del sueño", action: { path.append(.trends(PanelKeys.regularity)) }) { bars(recs.map { $0?.consistency }) { "\($0) %" } }
+            ChartCard("Tiempo en cama", action: { path.append(.trends("in_bed")) }) {
                 WeekChart(days: days, mode: .ranges(ranges: recs.map { r -> WeekChart.Range? in
                     guard let s = r?.sleepStartMinute, let e = r?.sleepEndMinute else { return nil }
                     return WeekChart.Range(start: nightAxis(s), end: nightAxis(e), startLabel: Fmt.clock(minuteOfDay: s), endLabel: Fmt.clock(minuteOfDay: e))
                 }, color: blue, dimPrevious: false, yLabels: [], optimal: []))
             }
-            ChartCard("Eficiencia del sueño") {
+            ChartCard("Eficiencia del sueño", action: { path.append(.trends(PanelKeys.efficiency)) }) {
                 WeekChart(days: days, mode: .lines(series: [
                     WeekChart.Series(values: recs.map { $0?.efficiency.map { Double($0) } }, color: blue,
                                      labels: recs.map { $0?.efficiency.map { "\($0) %" } }, labelsBelow: false)
                 ]))
             }
-            ChartCard("Deuda de sueño") { bars(recs.map { $0?.debt }) { Fmt.hm($0) } }
-            ChartCard("Estrés del sueño", legend: [("Alto", Theme.alertAmber), ("Medio", mint), ("Bajo", Theme.wLowBlue)]) {
+            ChartCard("Deuda de sueño", action: { path.append(.trends(PanelKeys.debt)) }) { bars(recs.map { $0?.debt }) { Fmt.hm($0) } }
+            ChartCard("Estrés del sueño", action: { path.append(.stressTrends(2, 0)) }, legend: [("Alto", Theme.alertAmber), ("Medio", mint), ("Bajo", Theme.wLowBlue)]) {
                 let ws = week.map { stressMins($0) }
                 WeekChart(days: days, mode: .bars(
                     values: ws.map { m in m.map { [(Double($0.low), Theme.wLowBlue), (Double($0.mid), mint), (Double($0.high), Theme.alertAmber)] } },
