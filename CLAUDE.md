@@ -1013,6 +1013,13 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   recuperación 76 (Rec.kt). Con la VFC/FCR EXACTAS de WHOOP la fórmula da 80 = WHOOP → los −4 son solo nuestra VFC (−2,6). Inicio/fin −1/−2 min. Fases: profundo +27,
   ligero −32 (REM y despierto bien). El fin queda en 07:53 aunque haya datos de después (no repite el patrón de 26/10, 10/11 y 15/11). 30 noches; escalón +7,4 sigue cuadrando.
 
+- **17/11 (iOS, rama ios-whoop-ui)**: letra como WHOOP (WHOOP = Proxima Nova, no libre): Figtree (texto y etiquetas en mayúsculas,
+  `Theme.text/label/medium`, etiquetas al 82 % y espaciado 0,11) + Sofia Sans Condensed ExtraBold (números, `Theme.number` ×1,04), comparadas
+  sobre una captura de WHOOP (scratchpad fonts/cmp*.png). Vuelven paleta, anillos animados, degradado del logo (PULSE, pestaña, Coach) y barras
+  que crecen de Pulse Beta (cherry-pick 1fef259). Diario como WHOOP (vídeo 2): `Core/JournalCatalog.swift` (~290 comportamientos, 10 categorías,
+  personalizados en UserDefaults), `BehaviorPickerView`, `JournalView` nuevo, "Registro inteligente" escrito/hablado (`SmartLog`, `SpeechInput`;
+  permisos de micrófono y voz en project.yml). Pendiente: Android.
+
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
 esfuerzo 11,5, 271 kcal, FC media 127 (la media aritmética de esos segundos es 133: WHOOP no usa la media simple), máx 170,
