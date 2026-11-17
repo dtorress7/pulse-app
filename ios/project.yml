@@ -28,6 +28,8 @@ targets:
           UIColorName: LaunchBackground
           UIImageName: LaunchLogo
         UIUserInterfaceStyle: Dark
+        NSMicrophoneUsageDescription: "PulseApp usa el micrófono solo cuando pulsas Hablar en el diario, para pasar lo que dices a texto."
+        NSSpeechRecognitionUsageDescription: "PulseApp pasa a texto lo que dices en el diario para marcar tus comportamientos."
         NSBluetoothAlwaysUsageDescription: "PulseApp se conecta por Bluetooth a tu WHOOP para leer tu pulso y tu historial."
         UIBackgroundModes: [bluetooth-central]
         UIFileSharingEnabled: true
@@ -39,3 +41,8 @@ targets:
           - BarlowCondensed-Bold.ttf
           - BarlowCondensed-SemiBold.ttf
           - BarlowCondensed-Medium.ttf
+          - Figtree-Regular.ttf
+          - Figtree-Medium.ttf
+          - Figtree-SemiBold.ttf
+          - Figtree-Bold.ttf
+          - SofiaSansCondensed-ExtraBold.ttf

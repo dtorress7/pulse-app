@@ -10,49 +10,18 @@ enum JournalStore {
     private static let questionsKey = "pulseapp_journal_questions"
     private static let lock = NSLock()
 
-    /// Preguntas conocidas → nombre del comportamiento (como lo muestra WHOOP).
-    static let catalog: [(q: String, name: String)] = [
-        ("¿Dormiste en la misma cama de siempre?", "Dormir en cama propia"),
-        ("¿Compartiste tu cama?", "Cama compartida"),
-        ("¿Te hidrataste lo suficiente?", "Hidratación"),
-        ("¿Tomas bebidas alcohólicas?", "Alcohol"),
-        ("¿Desayunaste?", "Desayuno"),
-        ("¿Almorzaste?", "Almuerzo"),
-        ("¿Cenaste?", "Cena"),
-        ("¿Comiste un snack por la tarde?", "Snack de la tarde"),
-        ("¿Comiste algo cerca de la hora de dormir?", "Comida tardía"),
-        ("¿Comiste antes de entrenar?", "Comer antes de entrenar"),
-        ("¿Comiste en un restaurante?", "Restaurante"),
-        ("¿Comiste comida casera?", "Cocinado en casa"),
-        ("¿Consumiste proteína?", "Proteína"),
-        ("¿Consumiste lácteos?", "Lácteos"),
-        ("¿Consumiste frutas o verduras?", "Frutas y verduras"),
-        ("¿Tomaste creatina?", "Creatina"),
-        ("¿Tomaste un suplemento de magnesio?", "Suplemento de magnesio"),
-        ("¿Consumiste magnesio?", "Suplemento de magnesio"),
-        ("¿Tomaste un suplemento de omega 3?", "Omega 3"),
-        ("¿Tomaste medicamento para la alergia?", "Medicamento para la alergia"),
-        ("¿Has experimentado antojos de comida?", "Antojos de comida"),
-        ("¿Has notado adelgazamiento o pérdida del cabello?", "Pérdida de cabello"),
-        ("¿Te masturbaste?", "Masturbación"),
-        ("¿Tuviste relaciones sexuales?", "Actividad sexual"),
-        ("¿Lees (sin pantalla) mientras estás en la cama?", "Leer en la cama"),
-        ("¿Usaste pantallas en la cama?", "Pantallas en la cama"),
-        ("¿Tomaste cafeína por la tarde?", "Cafeína tardía"),
-        ("¿Tienes una lesión o herida?", "Lesión"),
-        ("¿Fuiste al trabajo?", "Desplazamiento al trabajo"),
-        ("¿Pasaste tiempo en videollamadas de trabajo?", "Videollamadas de trabajo"),
-        ("¿Tomaste un día de vacaciones?", "Vacaciones"),
-        ("¿Jugaste videojuegos?", "Videojuegos")
-    ]
-
     static let defaultQuestions = ["¿Tomas bebidas alcohólicas?", "¿Te hidrataste lo suficiente?", "¿Comiste algo cerca de la hora de dormir?",
-                                   "¿Dormiste en la misma cama de siempre?", "¿Tomaste cafeína por la tarde?", "¿Usaste pantallas en la cama?",
+                                   "¿Dormiste en la misma cama de siempre?", "¿Consumiste cafeína?", "¿Usaste un dispositivo con pantalla en la cama?",
                                    "¿Desayunaste?", "¿Cenaste?"]
 
-    static func behaviorName(_ q: String) -> String {
-        if let n = catalog.first(where: { $0.q == q })?.name { return n }
-        return q.trimmingCharacters(in: CharacterSet(charactersIn: "¿?"))
+    static func behaviorName(_ q: String) -> String { return JournalCatalog.name(q) }
+
+    /// 0 = nada respondido, 1 = parte de las preguntas, 2 = todas (los círculos de "Mi diario").
+    static func status(_ d: String, answers: [String: Bool]? = nil, questions qs: [String]? = nil) -> Int {
+        let a = answers ?? day(d)
+        if a.isEmpty { return 0 }
+        let q = qs ?? questions()
+        return q.allSatisfy { a[$0] != nil } ? 2 : 1
     }
 
     // MARK: Respuestas
@@ -90,8 +59,7 @@ enum JournalStore {
         var seen = [String]()
         for (_, a) in recent.sorted(by: { $0.key > $1.key }) { for q in a.keys where !seen.contains(q) { seen.append(q) } }
         if seen.isEmpty { return defaultQuestions }
-        let order = catalog.map { $0.q }
-        return seen.sorted { (order.firstIndex(of: $0) ?? 999) < (order.firstIndex(of: $1) ?? 999) }
+        return seen
     }
 
     static func setQuestions(_ q: [String]) { UserDefaults.standard.set(q, forKey: questionsKey) }

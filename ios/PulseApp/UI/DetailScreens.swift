@@ -380,7 +380,7 @@ struct StressDetailView: View {
                 WTitle(text: title, size: 15)
             }
             (Text(dateText).foregroundColor(Theme.textPrimary) + Text(vsText).foregroundColor(Theme.textSecondary))
-                .font(Theme.number(13.5)).tracking(13.5 * 0.14)
+                .font(Theme.label(13.5)).tracking(13.5 * 0.11)
                 .padding(.top, 22)
             WStackedBar(parts: [(Double(today.low), Theme.wLowBlue), (Double(today.mid), Theme.wMint), (Double(today.high), Theme.alertAmber)], height: 14)
                 .padding(.top, 20)

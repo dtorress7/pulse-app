@@ -27,7 +27,7 @@ struct CapsLabel: View {
     var body: some View {
         Text(text.uppercased())
             .font(Theme.label(size))
-            .tracking(size * 0.14)
+            .tracking(size * 0.11)
             .foregroundColor(color)
     }
 }

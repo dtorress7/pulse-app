@@ -95,6 +95,25 @@ enum BehaviorAnalysis {
 
 // MARK: - Tarjeta "Mi diario" de Inicio
 
+/// Círculo de estado de un día del diario, como WHOOP: verde con ✓ = todo respondido, aro verde = parte, gris = nada.
+struct JournalStatusDot: View {
+    let status: Int
+    var size: Double = 24
+    var body: some View {
+        Group {
+            if status == 2 {
+                Image(systemName: "checkmark").font(.system(size: size * 0.46, weight: .heavy)).foregroundColor(Theme.wBgBottom)
+                    .frame(width: size, height: size).background(Circle().fill(Theme.wMint))
+            } else if status == 1 {
+                Circle().stroke(Theme.wMint, lineWidth: 2).frame(width: size - 2, height: size - 2).frame(width: size, height: size)
+            } else {
+                Circle().stroke(Color.white.opacity(0.25), lineWidth: 2).frame(width: size - 2, height: size - 2).frame(width: size, height: size)
+            }
+        }
+        .accessibilityLabel(status == 2 ? "Completado" : (status == 1 ? "A medias" : "Sin registrar"))
+    }
+}
+
 struct JournalCard: View {
     let onOpen: (String) -> Void
     let onInsights: () -> Void
@@ -104,6 +123,7 @@ struct JournalCard: View {
         let today = Day.today()
         let days = (0..<7).reversed().map { Day.add(today, -$0) }
         let all = JournalStore.all()
+        let qs = JournalStore.questions()
         return VStack(alignment: .leading, spacing: 14) {
             Button(action: { onOpen(today) }) {
                 HStack {
@@ -118,12 +138,7 @@ struct JournalCard: View {
                     Button(action: { onOpen(d) }) {
                         VStack(spacing: 8) {
                             WTitle(text: wd[Day.weekdayIndex(d)], size: 10.5, color: d == today ? Theme.textPrimary : Theme.textSecondary)
-                            if all[d]?.isEmpty == false {
-                                Image(systemName: "checkmark").font(.system(size: 12, weight: .heavy)).foregroundColor(Theme.wBgBottom)
-                                    .frame(width: 26, height: 26).background(Circle().fill(Theme.wMint))
-                            } else {
-                                Circle().stroke(d == today ? Theme.wMint : Color.white.opacity(0.25), lineWidth: 2).frame(width: 26, height: 26)
-                            }
+                            JournalStatusDot(status: JournalStore.status(d, answers: all[d] ?? [:], questions: qs), size: 26)
                         }
                         .frame(maxWidth: .infinity)
                     }
@@ -146,6 +161,62 @@ struct JournalCard: View {
     }
 }
 
+// MARK: - Piezas comunes del diario
+
+private let journalBlue = Color(hex: 0x3D8BFD)
+
+/// Recuadro "Registro inteligente" / "Crear comportamientos personalizados" con TEXTO y HABLAR (como WHOOP).
+struct JournalSmartBox: View {
+    let title: String
+    let onText: () -> Void
+    let onSpeak: () -> Void
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Image(systemName: "sparkles").font(.system(size: 14, weight: .semibold)).foregroundColor(Color(hex: 0x8FA3FF))
+                Text(title).font(Theme.text(15, .medium)).foregroundColor(Theme.textPrimary)
+            }
+            HStack(spacing: 10) {
+                boxButton("keyboard", "Texto", Color.white.opacity(0.08), onText)
+                boxButton("mic.fill", "Hablar", Color(hex: 0x24346E), onSpeak)
+            }
+        }
+        .padding(14)
+        .background(LinearGradient(colors: [Color(hex: 0x252A4A), Color(hex: 0x1C2138)], startPoint: .topLeading, endPoint: .bottomTrailing))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color(hex: 0x4A55A0).opacity(0.55), lineWidth: 1))
+        .cornerRadius(16)
+    }
+
+    private func boxButton(_ icon: String, _ text: String, _ bg: Color, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: icon).font(.system(size: 13))
+                WTitle(text: text, size: 12)
+            }
+            .foregroundColor(Theme.textPrimary)
+            .frame(maxWidth: .infinity).frame(height: 40)
+            .background(bg).cornerRadius(10)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// Botón blanco de abajo ("FINALIZADO", "GUARDAR COMPORTAMIENTOS").
+struct JournalBottomButton: View {
+    let title: String
+    let action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            WTitle(text: title, size: 13, color: Theme.wBgBottom)
+                .frame(maxWidth: .infinity).frame(height: 50)
+                .background(Color.white).cornerRadius(12)
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 16).padding(.top, 10).padding(.bottom, 8)
+        .background(LinearGradient(colors: [Theme.wBgBottom.opacity(0), Theme.wBgBottom], startPoint: .top, endPoint: .center))
+    }
+}
+
 // MARK: - Diario de un día
 
 struct JournalView: View {
@@ -154,57 +225,62 @@ struct JournalView: View {
     @State private var date = ""
     @State private var answers = [String: Bool]()
     @State private var questions = [String]()
-    @State private var showEdit = false
+    @State private var showPicker = false
+    @State private var smart: SmartMode? = nil
+    @State private var lastLog: [(String, Bool)] = []
     private let monthNames = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
     private let wd = ["Lun.", "Mar.", "Mié.", "Jue.", "Vie.", "Sáb.", "Dom."]
+
+    enum SmartMode: String, Identifiable { case text, speak; var id: String { rawValue } }
 
     var body: some View {
         let today = Day.today()
         let d = date.isEmpty ? initialDate : date
-        return WScreen {
-            DetailHeader(title: "Diario", trailing: AnyView(
-                Button(action: { showEdit = true }) {
-                    Image(systemName: "pencil").font(.system(size: 18, weight: .semibold)).foregroundColor(Theme.textPrimary).frame(width: 44, height: 44)
-                }
-                .accessibilityLabel("Elegir preguntas")))
-            HStack(spacing: 6) {
-                ForEach((0..<7).reversed().map { Day.add(today, -$0) }, id: \.self) { x in
-                    Button(action: { select(x) }) {
-                        VStack(spacing: 6) {
-                            Text(wd[Day.weekdayIndex(x)]).font(Theme.text(11)).foregroundColor(Theme.textSecondary)
-                            WNumber(text: "\(Day.dayOfMonth(x))", size: 17, color: x == d ? Theme.wBgBottom : Theme.textPrimary)
-                            Image(systemName: JournalStore.day(x).isEmpty ? "circle" : "checkmark.circle.fill").font(.system(size: 13))
-                                .foregroundColor(x == d ? Theme.wBgBottom : (JournalStore.day(x).isEmpty ? Theme.textSecondary : Theme.wMint))
+        let sorted = questions.sorted { JournalCatalog.fold($0).trimmingCharacters(in: CharacterSet(charactersIn: "¿")) <
+                                        JournalCatalog.fold($1).trimmingCharacters(in: CharacterSet(charactersIn: "¿")) }
+        return ZStack(alignment: .bottom) {
+            Theme.wBackground.ignoresSafeArea()
+            VStack(spacing: 0) {
+                topBar(d, today)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        weekChips(d, today)
+                        Text(d == today ? "¿Qué pasa hoy, \(Day.dayOfMonth(d)) de \(monthNames[Day.month(d) - 1])?"
+                                        : "¿Qué pasó el \(Day.dayOfMonth(d)) de \(monthNames[Day.month(d) - 1])?")
+                            .font(Theme.text(23, .semibold)).foregroundColor(Theme.textPrimary).padding(.top, 20)
+                        JournalSmartBox(title: "Registro inteligente", onText: { smart = .text }, onSpeak: { smart = .speak })
+                            .padding(.top, 16)
+                        if !lastLog.isEmpty {
+                            WBody(text: "Registrado: " + lastLog.map { ($0.1 ? "✓ " : "✕ ") + $0.0 }.joined(separator: " · "), size: 13)
+                                .padding(.top, 8)
                         }
-                        .frame(maxWidth: .infinity).padding(.vertical, 8)
-                        .background(RoundedRectangle(cornerRadius: 12).fill(x == d ? Color.white : Theme.wCard))
+                        WTitle(text: "Comportamientos", size: 11, color: Theme.textSecondary).padding(.top, 22).padding(.bottom, 8)
+                        VStack(spacing: 8) {
+                            ForEach(sorted, id: \.self) { q in
+                                HStack(spacing: 8) {
+                                    Text(q).font(Theme.text(15.5, .medium)).foregroundColor(Theme.textPrimary)
+                                        .frame(maxWidth: .infinity, alignment: .leading).fixedSize(horizontal: false, vertical: true)
+                                    answerButton(q, false)
+                                    answerButton(q, true)
+                                }
+                                .padding(.leading, 14).padding(.trailing, 10).padding(.vertical, 14)
+                                .background(Theme.wCard).cornerRadius(12)
+                            }
+                        }
+                        Button(action: { showPicker = true }) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "plus").font(.system(size: 12, weight: .bold))
+                                WTitle(text: "Añadir comportamientos", size: 12)
+                            }
+                            .foregroundColor(Theme.textPrimary).frame(maxWidth: .infinity).frame(height: 44)
+                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.18), lineWidth: 1))
+                        }
+                        .buttonStyle(.plain).padding(.top, 10)
                     }
-                    .buttonStyle(.plain)
+                    .padding(.horizontal, 16).padding(.bottom, 110)
                 }
             }
-            .padding(.top, 12)
-            Text(d == today ? "¿Qué pasa hoy, \(Day.dayOfMonth(d)) de \(monthNames[Day.month(d) - 1])?"
-                            : "¿Qué pasó el \(Day.dayOfMonth(d)) de \(monthNames[Day.month(d) - 1])?")
-                .font(Theme.text(24, .semibold)).foregroundColor(Theme.textPrimary).padding(.top, 22)
-            WBody(text: "Responde por lo de ayer y anoche: cuenta para tu recuperación de este día.", size: 14).padding(.top, 6)
-            WTitle(text: "Comportamientos", size: 12, color: Theme.textSecondary).padding(.top, 22).padding(.bottom, 8)
-            VStack(spacing: 8) {
-                ForEach(questions, id: \.self) { q in
-                    HStack(spacing: 10) {
-                        Text(q).font(Theme.text(15)).foregroundColor(Theme.textPrimary).frame(maxWidth: .infinity, alignment: .leading)
-                        answerButton(q, false)
-                        answerButton(q, true)
-                    }
-                    .padding(.leading, 14).padding(.trailing, 8).padding(.vertical, 6)
-                    .background(Theme.wCard).cornerRadius(12)
-                }
-            }
-            Button(action: finish) {
-                WTitle(text: "Finalizado", size: 14, color: Theme.wBgBottom)
-                    .frame(maxWidth: .infinity).frame(height: 52)
-                    .background(Color.white).cornerRadius(14)
-            }
-            .buttonStyle(.plain).padding(.top, 24)
+            JournalBottomButton(title: "Finalizado", action: finish)
         }
         .toolbar(.hidden, for: .navigationBar)
         .onAppear {
@@ -212,13 +288,75 @@ struct JournalView: View {
             questions = JournalStore.questions()
             answers = JournalStore.day(date)
         }
-        .sheet(isPresented: $showEdit, onDismiss: { questions = JournalStore.questions() }) { JournalQuestionsSheet() }
+        .sheet(isPresented: $showPicker, onDismiss: { questions = JournalStore.questions() }) { BehaviorPickerView() }
+        .sheet(item: $smart) { m in
+            SmartTextSheet(title: "Registro inteligente",
+                           hint: "Cuéntame tu día: \"desayuné, tomé dos cafés, cené tarde y no bebí alcohol\".",
+                           speak: m == .speak, actionTitle: "Registrar") { text in
+                let r = SmartLog.parse(text, questions: questions)
+                withAnimation(.easeOut(duration: 0.2)) { for (q, v) in r { answers[q] = v } }
+                lastLog = r.map { (JournalCatalog.name($0.key), $0.value) }.sorted { $0.0 < $1.0 }
+                JournalStore.save(date, answers)
+            }
+        }
+    }
+
+    private func topBar(_ d: String, _ today: String) -> some View {
+        HStack {
+            Button(action: finish) {
+                Image(systemName: "xmark").font(.system(size: 17, weight: .semibold)).foregroundColor(Theme.textPrimary).frame(width: 44, height: 44)
+            }
+            .accessibilityLabel("Cerrar")
+            Spacer()
+            HStack(spacing: 14) {
+                Button(action: { select(Day.add(d, -1)) }) {
+                    Image(systemName: "chevron.left").font(.system(size: 13, weight: .bold)).foregroundColor(Theme.textPrimary).frame(width: 30, height: 36)
+                }
+                .accessibilityLabel("Día anterior")
+                WTitle(text: d == today ? "Hoy" : (d == Day.add(today, -1) ? "Ayer" : WText.dateShort(d)), size: 12.5)
+                Button(action: { if d < today { select(Day.add(d, 1)) } }) {
+                    Image(systemName: "chevron.right").font(.system(size: 13, weight: .bold))
+                        .foregroundColor(d < today ? Theme.textPrimary : Theme.textSecondary.opacity(0.4)).frame(width: 30, height: 36)
+                }
+                .disabled(d >= today)
+                .accessibilityLabel("Día siguiente")
+            }
+            Spacer()
+            Button(action: { showPicker = true }) {
+                Image(systemName: "pencil").font(.system(size: 17, weight: .semibold)).foregroundColor(Theme.textPrimary).frame(width: 44, height: 44)
+            }
+            .accessibilityLabel("Elegir comportamientos")
+        }
+        .padding(.horizontal, 6)
+    }
+
+    private func weekChips(_ d: String, _ today: String) -> some View {
+        // La semana que acaba en el día elegido (o hoy si es de esta semana)
+        let end = d > Day.add(today, -7) ? today : min(Day.add(d, 3), today)
+        return HStack(spacing: 6) {
+            ForEach((0..<7).reversed().map { Day.add(end, -$0) }, id: \.self) { x in
+                let st = x == d ? JournalStore.status(x, answers: answers, questions: questions) : JournalStore.status(x, questions: questions)
+                Button(action: { select(x) }) {
+                    VStack(spacing: 5) {
+                        Text(wd[Day.weekdayIndex(x)]).font(Theme.text(10.5)).foregroundColor(Theme.textSecondary)
+                        WNumber(text: "\(Day.dayOfMonth(x))", size: 17)
+                        JournalStatusDot(status: st, size: 18)
+                    }
+                    .frame(maxWidth: .infinity).padding(.vertical, 8)
+                    .background(RoundedRectangle(cornerRadius: 14).fill(x == d ? Color.white.opacity(0.07) : Color.clear))
+                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(x == d ? Color.white.opacity(0.85) : Color.clear, lineWidth: 1.5))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.top, 6)
     }
 
     private func select(_ x: String) {
         JournalStore.save(date, answers)
         date = x
         answers = JournalStore.day(x)
+        lastLog = []
     }
 
     private func answerButton(_ q: String, _ yes: Bool) -> some View {
@@ -226,10 +364,10 @@ struct JournalView: View {
         return Button(action: {
             withAnimation(.easeOut(duration: 0.15)) { if on { answers.removeValue(forKey: q) } else { answers[q] = yes } }
         }) {
-            Image(systemName: yes ? "checkmark" : "xmark").font(.system(size: 14, weight: .bold))
+            Image(systemName: yes ? "checkmark" : "xmark").font(.system(size: 12, weight: .bold))
                 .foregroundColor(on ? Theme.wBgBottom : Theme.textPrimary)
-                .frame(width: 44, height: 44)
-                .background(RoundedRectangle(cornerRadius: 10).fill(on ? (yes ? Theme.wMint : Color.white) : Color.white.opacity(0.08)))
+                .frame(width: 34, height: 34)
+                .background(RoundedRectangle(cornerRadius: 8).fill(on ? (yes ? Theme.wMint : Color.white) : Color.white.opacity(0.1)))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(yes ? "Sí" : "No")
@@ -242,39 +380,254 @@ struct JournalView: View {
     }
 }
 
-/// Elegir las preguntas del diario.
-struct JournalQuestionsSheet: View {
+// MARK: - Seleccionar comportamientos (como WHOOP)
+
+struct BehaviorPickerView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var chosen = Set<String>()
+    @State private var initial = Set<String>()
+    @State private var cat = ""
+    @State private var search = ""
+    @State private var create: JournalView.SmartMode? = nil
+    @State private var items = JournalCatalog.all()
 
     var body: some View {
-        let all = JournalStore.catalog.map { $0.q }.filter { $0 != "¿Consumiste magnesio?" }
-        return NavigationStack {
-            List {
-                ForEach(all, id: \.self) { q in
-                    Button(action: { if chosen.contains(q) { chosen.remove(q) } else { chosen.insert(q) } }) {
-                        HStack {
-                            Text(q).foregroundColor(Theme.textPrimary)
-                            Spacer()
-                            if chosen.contains(q) { Image(systemName: "checkmark").foregroundColor(Theme.wMint) }
-                        }
+        ZStack(alignment: .bottom) {
+            Theme.wBackground.ignoresSafeArea()
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 8) {
+                    Button(action: { dismiss() }) {
+                        Image(systemName: "xmark").font(.system(size: 17, weight: .semibold)).foregroundColor(Theme.textPrimary).frame(width: 44, height: 44)
+                    }
+                    .accessibilityLabel("Cerrar sin guardar")
+                    WTitle(text: "Seleccionar comportamientos", size: 13)
+                    Spacer()
+                }
+                .padding(.horizontal, 6).padding(.top, 8)
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass").font(.system(size: 14)).foregroundColor(Theme.textSecondary)
+                    TextField("", text: $search, prompt: Text("Buscar comportamientos").foregroundColor(Theme.textSecondary))
+                        .font(Theme.text(15)).foregroundColor(Theme.textPrimary).autocorrectionDisabled()
+                    if !search.isEmpty {
+                        Button(action: { search = "" }) { Image(systemName: "xmark.circle.fill").foregroundColor(Theme.textSecondary) }
                     }
                 }
+                .padding(.horizontal, 12).frame(height: 40)
+                .background(Color.white.opacity(0.07)).cornerRadius(10)
+                .padding(.horizontal, 16).padding(.top, 4)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(JournalCatalog.categories.indices, id: \.self) { i in
+                            let c = JournalCatalog.categories[i]
+                            Button(action: { withAnimation(.easeOut(duration: 0.15)) { cat = c.key } }) {
+                                Text(c.title).font(Theme.text(14, .medium))
+                                    .foregroundColor(cat == c.key ? Theme.wBgBottom : Theme.textPrimary)
+                                    .padding(.horizontal, 12).frame(height: 34)
+                                    .background(RoundedRectangle(cornerRadius: 9).fill(cat == c.key ? Color.white : Color.white.opacity(0.08)))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                }
+                .padding(.vertical, 12)
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 0) { list }
+                        .padding(.horizontal, 16).padding(.bottom, 110)
+                }
             }
-            .navigationTitle("Preguntas del diario")
+            JournalBottomButton(title: "Guardar comportamientos") {
+                let order = items.map { $0.q }
+                var qs = order.filter { chosen.contains($0) }
+                // Preguntas elegidas que no están en el catálogo (p. ej. importadas de WHOOP con otro texto) se conservan
+                qs += chosen.filter { !order.contains($0) }.sorted()
+                JournalStore.setQuestions(qs)
+                dismiss()
+            }
+        }
+        .preferredColorScheme(.dark)
+        .onAppear {
+            chosen = Set(JournalStore.questions())
+            initial = chosen
+        }
+        .sheet(item: $create) { m in
+            CustomBehaviorSheet(speak: m == .speak) { item in
+                items = JournalCatalog.all()
+                chosen.insert(item.q)
+                initial.insert(item.q)
+                cat = JournalCatalog.customCat
+            }
+        }
+    }
+
+    @ViewBuilder private var list: some View {
+        let f = JournalCatalog.fold(search.trimmingCharacters(in: .whitespaces))
+        let shown = items.filter { (cat.isEmpty || $0.cat == cat) && (f.isEmpty || JournalCatalog.fold($0.name).contains(f) || JournalCatalog.fold($0.q).contains(f)) }
+        let sel = shown.filter { initial.contains($0.q) }
+        let rest = shown.filter { !initial.contains($0.q) }
+        if search.isEmpty {
+            JournalSmartBox(title: "Crear comportamientos personalizados", onText: { create = .text }, onSpeak: { create = .speak })
+                .padding(.bottom, 18)
+        }
+        if cat == JournalCatalog.customCat && shown.isEmpty && search.isEmpty {
+            VStack(spacing: 10) {
+                Image(systemName: "book.closed.fill").font(.system(size: 34)).foregroundColor(Color(hex: 0x8FA3FF)).padding(.bottom, 4)
+                Text("Aún no hay comportamientos personalizados").font(Theme.text(18, .semibold)).foregroundColor(Theme.textPrimary)
+                    .multilineTextAlignment(.center)
+                WBody(text: "Crea comportamientos personalizados para hacer seguimiento de cómo tus rutinas influyen en tu Recuperación con el tiempo. Tus resultados aparecerán aquí.", size: 13.5)
+                    .multilineTextAlignment(.center)
+            }
+            .padding(22).frame(maxWidth: .infinity)
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.12), lineWidth: 1))
+        }
+        if shown.isEmpty && !search.isEmpty {
+            WBody(text: "No hay ningún comportamiento con \"\(search)\". Puedes crearlo tú en Comportamientos personalizados.", size: 14).padding(.top, 8)
+        }
+        if !sel.isEmpty {
+            WTitle(text: "Actualmente seleccionado", size: 10.5, color: Theme.textSecondary).padding(.bottom, 4)
+            ForEach(sel, id: \.self) { row($0) }
+        }
+        if !rest.isEmpty {
+            WTitle(text: "No seleccionado", size: 10.5, color: Theme.textSecondary).padding(.top, sel.isEmpty ? 0 : 14).padding(.bottom, 4)
+            ForEach(rest, id: \.self) { row($0) }
+        }
+    }
+
+    private func row(_ it: JournalCatalog.Item) -> some View {
+        let on = chosen.contains(it.q)
+        return Button(action: { if on { chosen.remove(it.q) } else { chosen.insert(it.q) } }) {
+            HStack(alignment: .center, spacing: 12) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(it.name).font(Theme.text(15.5, .semibold)).foregroundColor(Theme.textPrimary)
+                    Text(it.q).font(Theme.text(12.5)).foregroundColor(Theme.textSecondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading).fixedSize(horizontal: false, vertical: true)
+                ZStack {
+                    RoundedRectangle(cornerRadius: 6).fill(on ? journalBlue : Color.clear)
+                    RoundedRectangle(cornerRadius: 6).stroke(on ? journalBlue : Color.white.opacity(0.7), lineWidth: 1.6)
+                    if on { Image(systemName: "checkmark").font(.system(size: 13, weight: .bold)).foregroundColor(.white) }
+                }
+                .frame(width: 26, height: 26)
+            }
+            .padding(.vertical, 11).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(on ? .isSelected : [])
+    }
+}
+
+/// Crear un comportamiento propio: nombre y pregunta (escrito o hablado).
+struct CustomBehaviorSheet: View {
+    let speak: Bool
+    let onCreate: (JournalCatalog.Item) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var name = ""
+    @State private var question = ""
+    @StateObject private var mic = SpeechInput()
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Theme.wBackground.ignoresSafeArea()
+                VStack(alignment: .leading, spacing: 14) {
+                    WBody(text: "Ponle un nombre corto y la pregunta que responderás cada día con sí o no.", size: 14)
+                    field("Nombre (p. ej. Siesta corta)", $name)
+                    field("Pregunta (p. ej. ¿Dormiste una siesta corta?)", $question)
+                    MicButton(mic: mic)
+                    if let e = mic.error { WBody(text: e, size: 13, color: Theme.alertAmber) }
+                    Spacer()
+                }
+                .padding(16)
+            }
+            .navigationTitle("Comportamiento personalizado")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancelar") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) { Button("Cancelar") { mic.stop(); dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Guardar") {
-                        JournalStore.setQuestions(all.filter { chosen.contains($0) })
+                    Button("Crear") {
+                        mic.stop()
+                        if let it = JournalCatalog.addCustom(name: name, question: question) { onCreate(it) }
                         dismiss()
                     }
+                    .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }
         }
         .preferredColorScheme(.dark)
-        .onAppear { chosen = Set(JournalStore.questions()) }
+        .onAppear { if speak { mic.start() } }
+        .onChange(of: mic.text) { t in
+            // Lo dicho: "nombre" o "nombre, pregunta"
+            let parts = t.components(separatedBy: CharacterSet(charactersIn: ",.?¿")).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+            if let n = parts.first { name = n.prefix(1).uppercased() + n.dropFirst() }
+            if parts.count > 1 { question = "¿" + parts.dropFirst().joined(separator: " ") + "?" }
+        }
+    }
+
+    private func field(_ placeholder: String, _ text: Binding<String>) -> some View {
+        TextField("", text: text, prompt: Text(placeholder).foregroundColor(Theme.textSecondary))
+            .font(Theme.text(16)).foregroundColor(Theme.textPrimary)
+            .padding(.horizontal, 12).frame(height: 46)
+            .background(Color.white.opacity(0.07)).cornerRadius(10)
+    }
+}
+
+/// Escribir o dictar el día y marcar solo las respuestas.
+struct SmartTextSheet: View {
+    let title: String
+    let hint: String
+    let speak: Bool
+    let actionTitle: String
+    let onDone: (String) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var text = ""
+    @StateObject private var mic = SpeechInput()
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Theme.wBackground.ignoresSafeArea()
+                VStack(alignment: .leading, spacing: 14) {
+                    WBody(text: hint, size: 14)
+                    TextEditor(text: $text)
+                        .font(Theme.text(16)).foregroundColor(Theme.textPrimary)
+                        .scrollContentBackground(.hidden)
+                        .padding(8).frame(height: 160)
+                        .background(Color.white.opacity(0.07)).cornerRadius(12)
+                    MicButton(mic: mic)
+                    if let e = mic.error { WBody(text: e, size: 13, color: Theme.alertAmber) }
+                    WBody(text: "PulseApp busca en lo que escribas los comportamientos que tienes en el diario (\"no\", \"sin\" o \"nada\" en la misma frase lo marcan como no). Todo se queda en el móvil.", size: 12)
+                    Spacer()
+                }
+                .padding(16)
+            }
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancelar") { mic.stop(); dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(actionTitle) { mic.stop(); onDone(text); dismiss() }
+                        .disabled(text.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
+        .onAppear { if speak { mic.start() } }
+        .onChange(of: mic.text) { t in text = t }
+    }
+}
+
+struct MicButton: View {
+    @ObservedObject var mic: SpeechInput
+    var body: some View {
+        Button(action: { mic.listening ? mic.stop() : mic.start() }) {
+            HStack(spacing: 8) {
+                Image(systemName: mic.listening ? "stop.fill" : "mic.fill").font(.system(size: 14))
+                WTitle(text: mic.listening ? "Escuchando… toca para parar" : "Hablar", size: 12)
+            }
+            .foregroundColor(Theme.textPrimary).frame(maxWidth: .infinity).frame(height: 44)
+            .background(mic.listening ? Theme.alertRed.opacity(0.35) : Color(hex: 0x24346E)).cornerRadius(10)
+        }
+        .buttonStyle(.plain)
     }
 }
 

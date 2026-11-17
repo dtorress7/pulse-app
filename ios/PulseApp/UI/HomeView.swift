@@ -53,7 +53,7 @@ struct HomeView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
                         header
-                        Text("PULSE").font(Theme.medium(24)).tracking(24 * 0.32).foregroundColor(Theme.textPrimary)
+                        Text("PULSE").font(Theme.medium(24)).tracking(24 * 0.32).foregroundStyle(Theme.logoGradient)
                             .frame(maxWidth: .infinity).padding(.top, 18)
                         if let note = connectionNote {
                             Text(note).font(Theme.text(12)).foregroundColor(Theme.textSecondary)
@@ -316,7 +316,7 @@ struct HomeView: View {
                         .frame(width: 36, height: 36)
                 }
                 Button(action: { if dayOffset != 0 { dayOffset = 0; loadingOffset = nil; refresh(force: false) } }) {
-                    Text(dayLabel).font(Theme.number(15)).tracking(15 * 0.12).foregroundColor(Theme.textPrimary)
+                    Text(dayLabel).font(Theme.label(15)).tracking(15 * 0.11).foregroundColor(Theme.textPrimary)
                         .padding(.horizontal, 16).frame(minWidth: 76).frame(height: 36)
                         .background(Color.white.opacity(0.15)).cornerRadius(18)
                 }
