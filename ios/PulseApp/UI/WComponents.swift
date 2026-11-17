@@ -277,6 +277,7 @@ struct ValueRow: View {
             }
         }
         .padding(.vertical, 12)
+        .contentShape(Rectangle())
     }
 }
 

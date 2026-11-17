@@ -94,14 +94,17 @@ struct SleepDetailView: View {
             .frame(maxWidth: .infinity).padding(.top, 14)
 
         WCard {
-            componentRow("clock", "Horas vs. lo necesario", hvn.map { "\($0) %" } ?? "--", level(hvn, 85, 70))
+            Button(action: { path.append(.trends("hours_vs_need")) }) { componentRow("clock", "Horas vs. lo necesario", hvn.map { "\($0) %" } ?? "--", level(hvn, 85, 70)) }.buttonStyle(.plain)
             WDivider()
-            componentRow("clock.arrow.circlepath", "Regularidad del sueño", day.consistency.map { "\($0) %" } ?? "--", level(day.consistency, 80, 65))
+            Button(action: { path.append(.trends(PanelKeys.regularity)) }) { componentRow("clock.arrow.circlepath", "Regularidad del sueño", day.consistency.map { "\($0) %" } ?? "--", level(day.consistency, 80, 65)) }.buttonStyle(.plain)
             WDivider()
-            componentRow("chart.bar.fill", "Eficiencia del sueño", day.efficiency.map { "\($0) %" } ?? "--", level(day.efficiency, 90, 80))
+            Button(action: { path.append(.trends(PanelKeys.efficiency)) }) { componentRow("chart.bar.fill", "Eficiencia del sueño", day.efficiency.map { "\($0) %" } ?? "--", level(day.efficiency, 90, 80)) }.buttonStyle(.plain)
             WDivider()
-            componentRow("gauge", "Estrés del sueño alto", high.map { "\($0) %" } ?? "--",
-                         high == nil ? -1 : (high! == 0 ? 2 : (high! <= 5 ? 1 : 0)))
+            Button(action: { path.append(.stressTrends(2, 0)) }) {
+                componentRow("gauge", "Estrés del sueño alto", high.map { "\($0) %" } ?? "--",
+                             high == nil ? -1 : (high! == 0 ? 2 : (high! <= 5 ? 1 : 0)))
+            }
+            .buttonStyle(.plain)
             HStack(spacing: 0) {
                 ForEach(0..<3, id: \.self) { i in
                     let item: (String, Color) = [("Deficiente", Theme.wTrendAmber), ("Suficiente", Theme.textSecondary), ("Óptimo", Theme.wMint)][i]
@@ -146,6 +149,7 @@ struct SleepDetailView: View {
             WNumber(text: value, size: 23).frame(width: 64, alignment: .trailing)
         }
         .padding(.vertical, 16)
+        .contentShape(Rectangle())
     }
 
     // MARK: Tarjeta de la noche

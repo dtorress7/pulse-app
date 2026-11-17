@@ -40,17 +40,29 @@ struct RecoveryDetailView: View {
             .frame(maxWidth: .infinity).padding(.top, 14)
 
         WCard {
-            metricRow("waveform.path.ecg", "Variabilidad de la\nfrecuencia cardíaca", day.hrv.map { Fmt.int($0) }, hrvAvg.map { Fmt.int($0) },
+            Button(action: { path.append(.trends(PanelKeys.hrv)) }) {
+                metricRow("waveform.path.ecg", "Variabilidad de la\nfrecuencia cardíaca", day.hrv.map { Fmt.int($0) }, hrvAvg.map { Fmt.int($0) },
                       WTrend.of(day.hrv, hrvAvg, tol: 1), good: true)
+            }
+            .buttonStyle(.plain)
             WDivider()
-            metricRow("heart", "Frecuencia cardíaca\nen reposo", day.rhr.map { "\($0)" }, rhrAvg.map { Fmt.int($0) },
+            Button(action: { path.append(.trends(PanelKeys.rhr)) }) {
+                metricRow("heart", "Frecuencia cardíaca\nen reposo", day.rhr.map { "\($0)" }, rhrAvg.map { Fmt.int($0) },
                       WTrend.of(day.rhr.map { Double($0) }, rhrAvg, tol: 0.5), good: false)
+            }
+            .buttonStyle(.plain)
             WDivider()
-            metricRow("lungs", "Frecuencia\nrespiratoria", day.resp.map { Fmt.comma($0) }, respAvg.map { Fmt.comma($0) },
+            Button(action: { path.append(.trends("resp")) }) {
+                metricRow("lungs", "Frecuencia\nrespiratoria", day.resp.map { Fmt.comma($0) }, respAvg.map { Fmt.comma($0) },
                       WTrend.of(day.resp, respAvg, tol: 0.05), good: false)
+            }
+            .buttonStyle(.plain)
             WDivider()
-            metricRow("moon", "Calificación\ndel sueño", day.sleepScore.map { "\($0) %" }, scoreAvg.map { String(format: "%.0f %%", $0) },
+            Button(action: { path.append(.trends(PanelKeys.sleepScore)) }) {
+                metricRow("moon", "Calificación\ndel sueño", day.sleepScore.map { "\($0) %" }, scoreAvg.map { String(format: "%.0f %%", $0) },
                       WTrend.of(day.sleepScore.map { Double($0) }, scoreAvg, tol: 0.5), good: true)
+            }
+            .buttonStyle(.plain)
             HStack(spacing: 8) {
                 HStack(spacing: 1) {
                     Image(systemName: "arrowtriangle.up.fill").font(.system(size: 9)).foregroundColor(Theme.wMint)
@@ -152,6 +164,7 @@ struct RecoveryDetailView: View {
             }
         }
         .padding(.vertical, 16)
+        .contentShape(Rectangle())
     }
 
     private func valueLine(_ label: String, _ value: String?) -> some View {

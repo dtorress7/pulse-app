@@ -100,13 +100,13 @@ struct StrainDetailView: View {
                             avg: a.map { fmt(Int($0.rounded())) })
         }
         return WCard {
-            row("heart.circle", "Zonas de frecuencia cardíaca 1-3", z13, z13a) { Fmt.hm($0) }
+            Button(action: { path.append(.trends(PanelKeys.z13)) }) { row("heart.circle", "Zonas de frecuencia cardíaca 1-3", z13, z13a) { Fmt.hm($0) } }.buttonStyle(.plain)
             WDivider()
-            row("bolt.heart.fill", "Zonas de frecuencia cardíaca 4-5", z45, z45a) { Fmt.hm($0) }
+            Button(action: { path.append(.trends(PanelKeys.z45)) }) { row("bolt.heart.fill", "Zonas de frecuencia cardíaca 4-5", z45, z45a) { Fmt.hm($0) } }.buttonStyle(.plain)
             WDivider()
-            row("dumbbell.fill", "Tiempo de actividad de fuerza", str, stra) { Fmt.hm($0) }
+            Button(action: { path.append(.trends(PanelKeys.strength)) }) { row("dumbbell.fill", "Tiempo de actividad de fuerza", str, stra) { Fmt.hm($0) } }.buttonStyle(.plain)
             WDivider()
-            row("figure.walk", "Pasos", steps, stepsa) { Fmt.thousands(Int64($0)) }
+            Button(action: { path.append(.trends(PanelKeys.steps)) }) { row("figure.walk", "Pasos", steps, stepsa) { Fmt.thousands(Int64($0)) } }.buttonStyle(.plain)
             HStack(spacing: 2) {
                 Image(systemName: "arrowtriangle.up.fill").font(.system(size: 9)).foregroundColor(Theme.wMint)
                 Image(systemName: "arrowtriangle.down.fill").font(.system(size: 9)).foregroundColor(Theme.wTrendAmber)
