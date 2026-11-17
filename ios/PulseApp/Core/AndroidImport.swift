@@ -37,6 +37,15 @@ enum AndroidImport {
         for (u, k) in kinds where k == .motion { r.motionLines += mergeMotion(u) }
         for (u, k) in kinds where k == .hr { r.hrLines += WhoopManager.shared.hrLog.mergeImport(u) }
         for (u, k) in kinds where k == .unknown { r.unknown.append(u.lastPathComponent) }
+        // 17/11: con pulso nuevo, se calculan los días que faltan (el export de iPhone no lleva los días ya calculados)
+        if r.hrLines > 0 {
+            let store = AppStore.shared
+            let profile = store.getProfile()
+            r.days += DailyMetricsUpdater.rebuildMissingDays(store: store, hrLog: WhoopManager.shared.hrLog,
+                                                             motionFile: AppPaths.file(MotionTracker.fileName),
+                                                             ageYears: profile?.ageYears() ?? 30, weightKg: profile?.weightKg ?? 75,
+                                                             sex: profile?.sex ?? "M")
+        }
         return r
     }
 

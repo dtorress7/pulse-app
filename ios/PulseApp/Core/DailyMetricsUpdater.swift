@@ -27,6 +27,25 @@ enum DailyMetricsUpdater {
         UserDefaults.standard.set(20, forKey: recalcKey)
     }
 
+    /// 17/11: tras importar el pulso de otro móvil (p. ej. de PulseApp a Pulse Beta), calcula los días que aún no están guardados
+    /// (hasta 45 días atrás, sin tocar los importados de WHOOP ni hoy), de más antiguo a más reciente. Devuelve cuántos guardó.
+    static func rebuildMissingDays(store: AppStore, hrLog: HrLog, motionFile: URL, ageYears: Int, weightKg: Double, sex: String) -> Int {
+        let today = TimeUtil.dayKey(TimeUtil.nowMillis())
+        let importUntil = WhoopImport.importedUntil()
+        var saved = 0
+        for back in stride(from: 45, through: 1, by: -1) {
+            let key = Day.add(today, -back)
+            if !importUntil.isEmpty && key <= importUntil { continue }
+            if store.getDay(key) != nil { continue }
+            if let d = computeDay(store: store, hrLog: hrLog, motionFile: motionFile, key: key,
+                                  ageYears: ageYears, weightKg: weightKg, sex: sex) {
+                store.saveDay(d)
+                saved += 1
+            }
+        }
+        return saved
+    }
+
     /// 5/11: rehace UN día ya guardado (al registrar las series de un entreno de ese día). Hoy y los días de WHOOP no se tocan.
     static func recalcDay(store: AppStore, hrLog: HrLog, motionFile: URL, key: String, ageYears: Int, weightKg: Double, sex: String) {
         let today = TimeUtil.dayKey(TimeUtil.nowMillis())
