@@ -65,11 +65,16 @@ enum Healthspan {
     ]
 
     /// Valor de un dato en un día (las horas semanales, como minutos de ese día: la media × 7 / 60 da horas por semana).
+    /// Días con el contador de pasos de la pulsera ≥ 20 h (ver compute).
+    private static var fullStepDays: Set<String>? = nil
+
     private static func daily(_ key: String, _ r: DayRecord, _ s: [ActivitySession]) -> Double? {
         switch key {
         case "regularity": return r.consistency.map { Double($0) }
         case "sleep_hours": return r.sleepMinutes.map { Double($0) / 60.0 }
-        case "steps": return r.steps.map { Double($0) }
+        case "steps":
+            if let full = fullStepDays, !full.isEmpty, !full.contains(r.date) { return nil }
+            return r.steps.map { Double($0) }
         case "vo2": return r.vo2
         case "rhr": return r.rhr.map { Double($0) }
         case "strength":
@@ -135,6 +140,10 @@ enum Healthspan {
     static func compute(records: [DayRecord], sessions: [ActivitySession], profile: UserProfile?, today: String) -> Result {
         var recs = [String: DayRecord]()
         for r in records { recs[r.date] = r }
+        /* 18/11: la media de pasos solo con los días que tienen el contador de la pulsera casi entero (≥ 20 h). Antes entraban los días
+           del acelerómetro del móvil (sin pasos en los partidos con el móvil lejos, días a medias): 6 meses 7895 frente a 10 173 de WHOOP
+           (+0,0 años frente a −0,4). Con solo los días de la pulsera, 9454 (WHOOP en esos mismos días 9297). Sin ningún día así, todos. */
+        fullStepDays = Set(BandSteps.coveredHoursPerDay(BandSteps.read()).filter { $0.value >= 20 }.map { $0.key })
         var sess = [String: [ActivitySession]]()
         for s in sessions where s.type != Formulas.napType { sess[TimeUtil.dayKey(s.startMillis), default: []].append(s) }
 

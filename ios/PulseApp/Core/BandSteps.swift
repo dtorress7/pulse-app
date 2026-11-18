@@ -133,6 +133,20 @@ enum BandSteps {
         return out
     }
 
+    /// 18/11: horas de cada día (clave yyyy-MM-dd) con historial seguido del contador de la pulsera.
+    static func coveredHoursPerDay(_ band: Data) -> [String: Double] {
+        var out = [String: Double]()
+        for (a, b) in band.covered where b > a {
+            var t = a
+            while t < b {
+                let step = min(Int64(60), b - t)
+                out[TimeUtil.dayKey(t * 1000), default: 0] += Double(step) / 3600.0
+                t += step
+            }
+        }
+        return out
+    }
+
     static func hasData(_ band: Data, fromMs: Int64, toMs: Int64) -> Bool {
         return band.covered.contains { $0.0 * 1000 < toMs && $0.1 * 1000 >= fromMs }
     }

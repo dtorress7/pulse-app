@@ -1024,6 +1024,18 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
     efectivo de las series: 4/11 285 / 6844 · 9/11 302 / 5232 (app 6,49, W 7,35) · 16/11 1053 / 9838 (app 8,49, W 11,78; dominadas, fondos, copenhague 3×30).
     No sigue al volumen (ni separando peso externo / corporal, ni por repetición) → NO se cambia; pedidas capturas del registro de WHOOP de esas sesiones.
 
+- **WHOOP Age 18/11 (capturas de las dos apps, semana 15–21/11)**: WHOOP <18,0 / 0,0x; PulseApp 18,9 / −0,2x. Por dato (6 meses, años) W vs P:
+  regularidad 66 +0,5 / 65 +0,5 · horas 8:01 −0,2 / 8:01 −0,2 · Z1-3 4:38 −1,5 / 4:30 −1,4 · Z4-5 0:47 −0,2 / 0:46 −0,2 · fuerza 2:01 −1,6 / 2:06 −1,7 ·
+  pasos 10 173 −0,4 / 7895 +0,0 · VO₂ 56 −2,6 / 51 −1,5 · FCR 57 −0,3 / 57 −0,3 → la diferencia es VO₂ (1,1 años) y pasos (0,4).
+  **Pasos (iOS `Healthspan` + `BandSteps.coveredHoursPerDay`)**: la media solo con días con el contador de la pulsera ≥ 20 h (el export no trae pasos y los
+  días del acelerómetro del móvil salen bajos: 15/10–14/11 7895 = app; 1–14/11 con pulsera 9455, WHOOP mismos días 9297) → −0,3 años. VO₂: pedida la
+  tendencia de VO₂ de WHOOP (6M) antes de tocar la fórmula (15,3·FCmáx/FCR; con 56 a FCR 57 haría falta 16,4). IA de WHOOP: "<18" es solo lo que
+  se muestra; el ritmo se calcula igual (30 días frente a 6 meses), 0,0x = estable. Notificación: ritmo −0,3x → 0,0x; fuerza 2:11 → 2:33,
+  Z1-3 5:27 → 5:09, pasos 11 227 → 10 124 (30 días).
+- **Zonas de WHOOP actualizadas (16–17/11)**: 113/142/155/169/182 (antes 112/141/155/168/182) con la pantalla aún en FCR 59. Con nuestra fórmula
+  (ceil, 38,5/60/70/80/90 % de la reserva, FCmáx 195) solo salen con FCR 60,1–61,7 → poner 61. Segundo a segundo: funcional 17/11 con 61 1483/1506/105/25
+  (API 1482/1507/105/25), con 59 1391/1570/133; fútbol 15/11 cuadra con 59 (zonas viejas). Esfuerzo con 61: casi igual (func 11,29 → 11,24, W 11,28).
+
 - **17/11 (iOS, rama ios-whoop-ui)**: letra como WHOOP (WHOOP = Proxima Nova, no libre): Figtree (texto y etiquetas en mayúsculas,
   `Theme.text/label/medium`, etiquetas al 82 % y espaciado 0,11) + Sofia Sans Condensed ExtraBold (números, `Theme.number` ×1,04), comparadas
   sobre una captura de WHOOP (scratchpad fonts/cmp*.png). Vuelven paleta, anillos animados, degradado del logo (PULSE, pestaña, Coach) y barras
