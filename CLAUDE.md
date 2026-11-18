@@ -1013,6 +1013,17 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   recuperación 76 (Rec.kt). Con la VFC/FCR EXACTAS de WHOOP la fórmula da 80 = WHOOP → los −4 son solo nuestra VFC (−2,6). Inicio/fin −1/−2 min. Fases: profundo +27,
   ligero −32 (REM y despierto bien). El fin queda en 07:53 aunque haya datos de después (no repite el patrón de 26/10, 10/11 y 15/11). 30 noches; escalón +7,4 sigue cuadrando.
 
+- **17→18/11 (31.ª referencia, funcional 18:10–19:01 la víspera)**: WHOOP (API) 21:51:43Z–07:02:23Z (22:51–08:02), dormido 8:47, 24/291/108/128,
+  12 despertares, 96,4 %, VFC 102,96, FCR 55, resp 13,2, calificación 95 (horas 100 / regularidad 84 / eficiencia 96,4), recuperación 87.
+  Código real (check/cmp/Nights.kt, hr_log__3__1 + motion_minutes_3): 22:52–08:01, dormido 8:32, 38/343/84/85, 93 %, VFC 103,3, FCR 55 → recuperación 89
+  (con la VFC/FCR de WHOOP 88). Calificación ≈ 90 (100/81,5/93); con los 3 valores de WHOOP la fórmula da 91,4 (−3,6, la peor junto a 30/10 de 24 noches
+  de la API; MAE 1,67, reajustar no mejora: LOO 1,94). Fases mal esta noche (REM −43, profundo −24). 17/11: fin 07:52 vs 08:11 (−19).
+  - **Esfuerzo 17/11**: app 12,1 = arnés (Day.kt) 12,07 vs WHOOP 11,39. Funcional con la ventana de WHOOP 11,29 (W 11,28: la fórmula clava); detectado
+    18:08–19:05 → 11,70, y el resto del día suma 0,37 (WHOOP 0,11). Funcionales 10/11 10,93 (W 10,82), 12/11 11,23 (11,17) con su ventana.
+  - **Fuerza con series (check/str18/St.kt)**: carga muscular que hace falta para dar el esfuerzo de WHOOP (ventana de WHOOP, FCR 59) frente al volumen
+    efectivo de las series: 4/11 285 / 6844 · 9/11 302 / 5232 (app 6,49, W 7,35) · 16/11 1053 / 9838 (app 8,49, W 11,78; dominadas, fondos, copenhague 3×30).
+    No sigue al volumen (ni separando peso externo / corporal, ni por repetición) → NO se cambia; pedidas capturas del registro de WHOOP de esas sesiones.
+
 - **17/11 (iOS, rama ios-whoop-ui)**: letra como WHOOP (WHOOP = Proxima Nova, no libre): Figtree (texto y etiquetas en mayúsculas,
   `Theme.text/label/medium`, etiquetas al 82 % y espaciado 0,11) + Sofia Sans Condensed ExtraBold (números, `Theme.number` ×1,04), comparadas
   sobre una captura de WHOOP (scratchpad fonts/cmp*.png). Vuelven paleta, anillos animados, degradado del logo (PULSE, pestaña, Coach) y barras
