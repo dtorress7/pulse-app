@@ -274,7 +274,7 @@ class HomeDataLoader(private val ctx: Context) {
             }
             // VO2 máx estable: se recalcula solo los martes (o si nunca se ha calculado), como antes
             val isTuesday = Calendar.getInstance().get(Calendar.DAY_OF_WEEK) == Calendar.TUESDAY
-            val vo2 = if (profile != null && (isTuesday || profile.vo2Max == null) && summary.vo2Max != null) {
+            val vo2 = if (profile != null && (isTuesday || profile.vo2Max == null || (profile.vo2MaxUpdatedDate ?: "") < Formulas.VO2_SINCE) && summary.vo2Max != null) {
                 db.userProfileDao().save(profile.copy(vo2Max = summary.vo2Max, vo2MaxUpdatedDate = date.format(iso)))
                 summary.vo2Max
             } else profile?.vo2Max ?: summary.vo2Max

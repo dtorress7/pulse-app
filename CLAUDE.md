@@ -1032,6 +1032,12 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   tendencia de VO₂ de WHOOP (6M) antes de tocar la fórmula (15,3·FCmáx/FCR; con 56 a FCR 57 haría falta 16,4). IA de WHOOP: "<18" es solo lo que
   se muestra; el ritmo se calcula igual (30 días frente a 6 meses), 0,0x = estable. Notificación: ritmo −0,3x → 0,0x; fuerza 2:11 → 2:33,
   Z1-3 5:27 → 5:09, pasos 11 227 → 10 124 (30 días).
+- **VO₂ máx (18/11, Android + iOS `Formulas.vo2Max` / `VO2_UTH_K` 16,45, antes 15,3)**: tendencia de WHOOP 6M jun 56 · jul 55 · ago 55 · sep 56 · oct 57 ·
+  nov 57 (media 56, hoy 57). Con la FCR media de cada mes (export + API) y FCmáx 195: K 15,3 → 51–53 (error 4,1); K 16,45 → error 1,15. WHOOP no sigue
+  1/FCR (oct–nov FCR más alta y VO₂ más alto: usa más cosas). El perfil se rehace si su VO₂ es de antes del 18/11 (`VO2_SINCE`); `night_recalc_v21` / iOS 21
+  rehace el VO₂ guardado de cada día. WHOOP Age esperada: VO₂ −1,5 → −2,3, pasos +0,0 → −0,3 → 18,9 → ~17,8 ("<18,0" como WHOOP). Calibrado con UNA persona.
+  IA de WHOOP sobre las zonas (18/11): actualizadas HOY con FCmáx 195, no da la FCR exacta; dice 113–140 / 141–154 / 155–168 / 169–181 / 182–195 (la pantalla
+  dice 113–141 / 142–154: los segundos del funcional 17/11 cuadran con 142).
 - **Zonas de WHOOP actualizadas (16–17/11)**: 113/142/155/169/182 (antes 112/141/155/168/182) con la pantalla aún en FCR 59. Con nuestra fórmula
   (ceil, 38,5/60/70/80/90 % de la reserva, FCmáx 195) solo salen con FCR 60,1–61,7 → poner 61. Segundo a segundo: funcional 17/11 con 61 1483/1506/105/25
   (API 1482/1507/105/25), con 59 1391/1570/133; fútbol 15/11 cuadra con 59 (zonas viejas). Esfuerzo con 61: casi igual (func 11,29 → 11,24, W 11,28).

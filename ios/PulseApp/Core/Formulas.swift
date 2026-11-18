@@ -44,6 +44,13 @@ enum Formulas {
     // WHOOP (rangos del 19/10: 112/141/155/168/182) usa % de la RESERVA de FC: FCR + p·(FCmáx − FCR), p = 40/60/70/80/90 %.
     // Igual que Android (Formulas.kt). FCR = media de tus noches (se guarda al calcular Inicio).
     // Confirmado con "Ajustes de FC" de WHOOP (20/10): FCR 59, FCmáx 195 → 112/141/155/168/182.
+    /* 18/11: VO₂ máx = K · FCmáx / FC en reposo (Uth). Con el 15,3 de la fórmula original salía 51–53 mientras WHOOP da 55–57 (tendencia
+       de 6 meses del usuario: jun 56, jul 55, ago 55, sep 56, oct 57, nov 57). Con la FCR media de cada mes (export + API), K = 16,45 da
+       56,5/56,7/54,8/57,3/55,6/55,2 → error medio 1,15 (con 15,3: 4,1). Pesa 1,1 años en la WHOOP Age. Calibrado con UNA persona. */
+    static let vo2UthK = 16.45
+    static let vo2Since = "2026-11-18"
+    static func vo2Max(hrMax: Double, restingHr: Double) -> Double { return vo2UthK * hrMax / restingHr }
+
     static let zoneHrr: [Double] = [0.385, 0.60, 0.70, 0.80, 0.90]
     private static let keyRhrZone = "pulseapp_rhr_zone"
     private static let keyBmr = "pulseapp_bmr_kcal"

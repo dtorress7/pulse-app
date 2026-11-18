@@ -52,7 +52,7 @@ struct MetricsCalculator {
         // VFC: con fases, la de los tramos de sueño profundo (como WHOOP)
         let avgHrv: Double? = sleepReadings.isEmpty ? nil : NightMetrics.hrv(sleepReadings, staged: staged)
         var vo2Max: Double? = nil
-        if let r = restingHr, r > 0 { vo2Max = 15.3 * (hrMax / Double(r)) }
+        if let r = restingHr, r > 0 { vo2Max = Formulas.vo2Max(hrMax: hrMax, restingHr: Double(r)) }
         // 2/11: el esfuerzo del día usa la FC en reposo de referencia (la de las zonas, como WHOOP), no la de anoche
         let strain = Formulas.strainOf(readings: cycleReadings.map { ($0.timeMillis, $0.bpm) },
                                        restingHr: Formulas.zoneRestingHr(), hrMax: hrMax, male: male, sleepWindow: window,

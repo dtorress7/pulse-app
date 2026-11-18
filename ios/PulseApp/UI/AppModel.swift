@@ -85,7 +85,7 @@ final class AppModel: ObservableObject {
         let now = TimeUtil.nowMillis()
         let isTuesday = TimeUtil.parts(now).weekday == 2
         let todayKey = TimeUtil.dayKey(now)
-        if var p = profile, (isTuesday || p.vo2Max == nil), let v = summary.vo2Max {
+        if var p = profile, (isTuesday || p.vo2Max == nil || (p.vo2MaxUpdatedDate ?? "") < Formulas.vo2Since), let v = summary.vo2Max {
             p.vo2Max = v
             p.vo2MaxUpdatedDate = todayKey
             store.saveProfile(p)

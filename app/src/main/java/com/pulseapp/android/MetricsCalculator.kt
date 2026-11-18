@@ -86,7 +86,7 @@ class MetricsCalculator(ageYears: Int, private val male: Boolean = true) {
         val restingHr = if (sleepReadings.isNotEmpty()) findRestingHr(sleepReadings) else null
         // VFC: con fases, la de los tramos de sueño profundo (como WHOOP); ver NightMetrics
         val avgHrv = if (sleepReadings.isNotEmpty()) NightMetrics.hrv(sleepReadings.map { it.timeMillis to it.rr }, staged, sleepReadings.map { it.bpm }) else null
-        val vo2Max = restingHr?.let { 15.3 * (hrMax / it) }
+        val vo2Max = restingHr?.let { Formulas.vo2Max(hrMax, it) }
         val strain = computeStrain(cycleReadings, restingHr, window, activities)
 
         val calStart = window?.first?.let { java.util.Calendar.getInstance().apply { timeInMillis = it } }

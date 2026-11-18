@@ -316,7 +316,7 @@ enum HomeDataLoader {
             r.debt = debtAfter
             // VO2 máx estable: se recalcula solo los martes (o si nunca se ha calculado)
             let isTuesday = TimeUtil.parts(now).weekday == 2
-            if var p = profile, (isTuesday || p.vo2Max == nil), let v = s.vo2Max {
+            if var p = profile, (isTuesday || p.vo2Max == nil || (p.vo2MaxUpdatedDate ?? "") < Formulas.vo2Since), let v = s.vo2Max {
                 p.vo2Max = v
                 p.vo2MaxUpdatedDate = date
                 store.saveProfile(p)
