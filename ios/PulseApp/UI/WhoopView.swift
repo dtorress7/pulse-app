@@ -144,7 +144,9 @@ struct WhoopView: View {
     }
 
     private var exportCard: some View {
-        let names = [AppPaths.hrLog, AppPaths.motion, ImuTestRecorder.fileName, AppPaths.historyRaw, AppPaths.bioLog, AppPaths.serviceLog, BandSteps.fileName, BandBattery.historyFile,
+        // 19/11: también las copias "_anterior" (lo que había antes de que el archivo se llenara: p. ej. la noche de ayer en el historial bruto)
+        let names = [AppPaths.hrLog, AppPaths.motion, ImuTestRecorder.fileName, AppPaths.historyRaw, "whoop_history_raw_anterior.txt", AppPaths.bioLog,
+                     "whoop_bio_log_anterior.csv", AppPaths.serviceLog, "whoop_service_log_anterior.txt", BandSteps.fileName, BandBattery.historyFile,
                      "strength_logs.tsv", "strength_templates.tsv"]
         let existing = names.filter { FileManager.default.fileExists(atPath: AppPaths.file($0).path) }
         return Card {
