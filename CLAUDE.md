@@ -1050,6 +1050,12 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   los de WHOOP 102–112 (24/10 ×2, 7/11 ×2). Con todo el pulso desde el 14/10 (check/n19/k/Wk.kt) quedan solo los 4 de WHOOP. No detectados (como antes):
   31/10 y 8/11 (WHOOP, ~90 lpm). Una vez al instalar (`walk_clean` 1 / iOS `pulseapp_walk_clean`) se borran los paseos automáticos sin editar de
   10 días que ya no salen. Final del fútbol 18/11 (ducha + coche 21:57–22:34, pulso 95–126 moviéndose): sin regla general, se deja.
+- **VFC con los latidos del HISTORIAL de la pulsera (19/11, check/rawrr: parse.py lee los v18 del whoop_history_raw, Nights.kt con el hr_log cambiando
+  los RR por los del historial)**: hr_log guarda los RR del pulso EN DIRECTO (con decimales, 2A37); los del historial (enteros) son otra medición de
+  los mismos latidos (misma cantidad por noche, 28 260 vs 28 274, pero latido a latido no coinciden ni con desfase). 5 noches con historial completo
+  (WHOOP / directo / historial): 20/10 78,0 / 81,9 / 83,3 · 21/10 91,7 / 89,2 / 91,5 · 10/11 102,8 / 102,5 / 105,1 · 18/11 103,0 / 105,0 / 106,6 ·
+  19/11 85,2 / 83,4 / 84,1 → historial +2 ms de media y, quitando ese desplazamiento, MAE 2,1 = directo 2,1. NO mejora: lo que nos separa de WHOOP
+  no es la fuente de los RR. Se deja el directo. iOS: Exportar ya incluye las copias `_anterior` (historial bruto, bio, registro).
 - **WHOOP Age 18/11 (capturas de las dos apps, semana 15–21/11)**: WHOOP <18,0 / 0,0x; PulseApp 18,9 / −0,2x. Por dato (6 meses, años) W vs P:
   regularidad 66 +0,5 / 65 +0,5 · horas 8:01 −0,2 / 8:01 −0,2 · Z1-3 4:38 −1,5 / 4:30 −1,4 · Z4-5 0:47 −0,2 / 0:46 −0,2 · fuerza 2:01 −1,6 / 2:06 −1,7 ·
   pasos 10 173 −0,4 / 7895 +0,0 · VO₂ 56 −2,6 / 51 −1,5 · FCR 57 −0,3 / 57 −0,3 → la diferencia es VO₂ (1,1 años) y pasos (0,4).
