@@ -406,13 +406,16 @@ enum HomeDataLoader {
         // 1/11: 30 días como WHOOP (con 14 la VFC de WHOOP del 1/11, 78, también habría salido fuera; WHOOP la daba dentro)
         let month = Day.add(date, -30)
         let hist = records.values.filter { $0.date < date && $0.date >= month }
+        // 19/11 (igual que Android): las 29 noches anteriores + hoy
+        let month29 = Day.add(date, -29)
+        let hist29 = hist.filter { $0.date >= month29 }
         let vitals0 = [
             vital("resp", "Frecuencia respiratoria", "lungs.fill", day.resp, "rpm", 1,
-                  hist.filter { BaselineProvider.sameScale($0.date) }.compactMap { $0.resp }, goodWhenHigh: false),
+                  hist29.filter { BaselineProvider.sameScale($0.date) }.compactMap { $0.resp }, goodWhenHigh: false),
             vital("rhr", "FCR", "heart.fill", day.rhr.map { Double($0) }, "lpm", 0,
-                  hist.compactMap { $0.rhr.map { Double($0) } }, goodWhenHigh: false),
+                  hist29.compactMap { $0.rhr.map { Double($0) } }, goodWhenHigh: false),
             vital("hrv", "VFC", "waveform.path.ecg", day.hrv, "ms", 0,
-                  hist.filter { BaselineProvider.sameScale($0.date) }.compactMap { $0.hrv }, goodWhenHigh: true)
+                  hist29.filter { BaselineProvider.sameScale($0.date) }.compactMap { $0.hrv }, goodWhenHigh: true)
         ]
         // 9/11: temperatura de la piel (diferencia con la media de las noches anteriores, como WHOOP). Cuenta como "dentro" salvo que se
         // salga más de 0,5 °C del rango (WHOOP el 9/11 daba ✓ con +0,9 y rango −0,4…+0,5; provisional).
@@ -519,23 +522,25 @@ enum HomeDataLoader {
         }
     }
 
-    /// Rango habitual = media ± 1 desviación (mínimo ±5 % de la media). nil con menos de 3 noches.
+    /// Rango habitual (19/11, igual que Android) = percentiles 25–75 de las 30 noches contando hoy; "dentro" con los valores redondeados.
     private static func vital(_ key: String, _ label: String, _ icon: String, _ value: Double?, _ unit: String, _ decimals: Int,
                               _ history: [Double], goodWhenHigh: Bool) -> VitalStatus {
-        guard history.count >= BaselineProvider.minDaysRequired, let v = value else {
+        guard history.count >= BaselineProvider.minDaysRequired, let v0 = value else {
             return VitalStatus(key: key, label: label, icon: icon, value: value, unit: unit, decimals: decimals,
                                lo: nil, hi: nil, goodWhenHigh: goodWhenHigh, ok: nil)
         }
-        let mean = history.reduce(0, +) / Double(history.count)
-        var sq = 0.0
-        for h in history { sq += (h - mean) * (h - mean) }
-        // 9/11: media ± 0,85 sd (muestral) de 30 días, como el Monitor de salud de WHOOP (ver Android). Provisional.
-        let sd = history.count > 1 ? (sq / Double(history.count - 1)).squareRoot() : 0
-        let half = max(0.85 * sd, mean * 0.005)
-        let lo = mean - half, hi = mean + half
+        let all = (history + [v0]).sorted()
+        func q(_ p: Double) -> Double {
+            let x = p * Double(all.count - 1); let i = Int(x); let f = x - Double(i)
+            return i + 1 < all.count ? all[i] + f * (all[i + 1] - all[i]) : all[i]
+        }
+        let lo = q(0.25), hi = q(0.75)
+        let k = pow(10.0, Double(decimals))
+        func r(_ x: Double) -> Double { (x * k).rounded() / k }
+        let v = r(v0), rl = r(lo), rh = r(hi)
         // Como WHOOP: fuera del rango hacia el lado bueno (VFC alta, FCR o respiración baja) sigue contando como bien
-        let ok = (v >= lo && v <= hi) || (goodWhenHigh && v > hi) || (!goodWhenHigh && v < lo)
-        return VitalStatus(key: key, label: label, icon: icon, value: v, unit: unit, decimals: decimals,
+        let ok = (v >= rl && v <= rh) || (goodWhenHigh && v > rh) || (!goodWhenHigh && v < rl)
+        return VitalStatus(key: key, label: label, icon: icon, value: v0, unit: unit, decimals: decimals,
                            lo: lo, hi: hi, goodWhenHigh: goodWhenHigh, ok: ok)
     }
 

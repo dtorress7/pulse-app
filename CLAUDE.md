@@ -1056,6 +1056,15 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   (WHOOP / directo / historial): 20/10 78,0 / 81,9 / 83,3 · 21/10 91,7 / 89,2 / 91,5 · 10/11 102,8 / 102,5 / 105,1 · 18/11 103,0 / 105,0 / 106,6 ·
   19/11 85,2 / 83,4 / 84,1 → historial +2 ms de media y, quitando ese desplazamiento, MAE 2,1 = directo 2,1. NO mejora: lo que nos separa de WHOOP
   no es la fuente de los RR. Se deja el directo. iOS: Exportar ya incluye las copias `_anterior` (historial bruto, bio, registro).
+- **Monitor de salud = percentiles 25–75 de las 30 noches CONTANDO HOY (19/11, Android + iOS `HomeData.vital`)**: la IA de WHOOP dio el rango de hoy
+  (VFC 85–103, FCR 56–59) y la media de 30 noches 20/10→18/11 (92,4 / 57,8 = la nuestra con la API, 92,3 / 57,8). Con los valores de WHOOP:
+  19/11 P25–P75 con hoy 85,4–102,7 / 56–59 ✓; 9/11 (2.ª comprobación, captura de entonces) 78,4–101,9 / 56–60,8 / resp 13,3–13,5 frente a WHOOP
+  79–102 / 56–61 / 13,3–13,5 ✓. La de antes (media ± 0,85 sd) daba 82–103 hoy. "Dentro" se mira con los valores redondeados como se muestran
+  (VFC 85 en 85–103 = dentro, como dice WHOOP). IA de WHOOP 19/11 sobre la VFC: promedio ponderado de VARIOS segmentos con más peso al profundo y al
+  final; no publica la duración de los tramos, el filtro de artefactos, los pesos ni la referencia exacta de la recuperación (dice 30 días).
+  Búsqueda de la VFC con 30 noches (check/vfc19: win.py, search.py; tramos 1/2/5 min, filtros 15–50 %, media/mediana/geométrica, con/sin pulso alto,
+  P/L/R/toda la noche, fases nuestras o de WHOOP; 1440 variantes): la actual 2,0 ms dejando cada noche fuera, la mejor 1,9, ninguna mejor al probar
+  noviembre con octubre → NO se cambia. Recuperación 23/10→19/11 (28 días): fórmula con la VFC/FCR de WHOOP MAE 2,36 (±5 93 %), app 3,33 (±5 81 %).
 - **WHOOP Age 18/11 (capturas de las dos apps, semana 15–21/11)**: WHOOP <18,0 / 0,0x; PulseApp 18,9 / −0,2x. Por dato (6 meses, años) W vs P:
   regularidad 66 +0,5 / 65 +0,5 · horas 8:01 −0,2 / 8:01 −0,2 · Z1-3 4:38 −1,5 / 4:30 −1,4 · Z4-5 0:47 −0,2 / 0:46 −0,2 · fuerza 2:01 −1,6 / 2:06 −1,7 ·
   pasos 10 173 −0,4 / 7895 +0,0 · VO₂ 56 −2,6 / 51 −1,5 · FCR 57 −0,3 / 57 −0,3 → la diferencia es VO₂ (1,1 años) y pasos (0,4).

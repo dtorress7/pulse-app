@@ -341,13 +341,15 @@ class HomeDataLoader(private val ctx: Context) {
         // 1/11: 30 días como WHOOP ("Hoy vs. los últimos 30 días"). Con 14 días el rango de la VFC era 84–105 y la de WHOOP (78, media
         // 30 d 90) también habría salido fuera; WHOOP la daba dentro (5/5). Con 30 días: 75–107.
         val hist = records.values.filter { it.date < date && it.date >= date.minusDays(30) }
+        // 19/11: el rango son las 30 noches CONTANDO la de hoy → las 29 anteriores + hoy (ver vital)
+        val hist29 = hist.filter { it.date > date.minusDays(30) }
         val vitals0 = listOf(
             vital("resp", "Frecuencia respiratoria", R.drawable.ic_lungs, day.resp, "rpm", 1,
-                hist.filter { BaselineProvider.sameScale(it.date.format(iso)) }.mapNotNull { it.resp }, goodWhenHigh = false),
+                hist29.filter { BaselineProvider.sameScale(it.date.format(iso)) }.mapNotNull { it.resp }, goodWhenHigh = false),
             vital("rhr", "FCR", R.drawable.ic_rhr, day.rhr?.toDouble(), "lpm", 0,
-                hist.mapNotNull { it.rhr?.toDouble() }, goodWhenHigh = false),
+                hist29.mapNotNull { it.rhr?.toDouble() }, goodWhenHigh = false),
             vital("hrv", "VFC", R.drawable.ic_hrv, day.hrv, "ms", 0,
-                hist.filter { BaselineProvider.sameScale(it.date.format(iso)) }.mapNotNull { it.hrv }, goodWhenHigh = true)
+                hist29.filter { BaselineProvider.sameScale(it.date.format(iso)) }.mapNotNull { it.hrv }, goodWhenHigh = true)
         )
         // 9/11: temperatura de la piel (diferencia con la media de las noches anteriores, como WHOOP). Cuenta como "dentro" salvo que
         // se salga más de 0,5 °C del rango: WHOOP el 9/11 daba ✓ con +0,9 y rango −0,4…+0,5 (provisional).
@@ -452,24 +454,26 @@ class HomeDataLoader(private val ctx: Context) {
         )
     }
 
-    private val HEALTH_RANGE_SD = 0.85
-
-    /** Rango habitual = media ± 0,85 desviaciones de 30 días (9/11), como el Monitor de salud de WHOOP. Null con menos de 3 noches. */
+    /**
+     * Rango habitual (19/11) = percentiles 25–75 de las 30 noches CONTANDO HOY (las 29 anteriores + hoy), como el Monitor de salud de WHOOP.
+     * Comprobado con las dos capturas de WHOOP y sus valores (API): 9/11 VFC 79–102 → 78,4–101,9, FCR 56–61 → 56–60,8, resp 13,3–13,5 →
+     * 13,3–13,5; 19/11 VFC 85–103 → 85,4–102,7, FCR 56–59 → 56–59. Dentro = el valor redondeado como se muestra cae en el rango redondeado
+     * (19/11: VFC 85 en 85–103 = "dentro", como WHOOP). Antes: media ± 0,85 sd (19/11 daba 82–103). Null con menos de 3 noches.
+     */
     private fun vital(key: String, label: String, icon: Int, value: Double?, unit: String, decimals: Int,
                       history: List<Double>, goodWhenHigh: Boolean): VitalStatus {
         if (history.size < BaselineProvider.MIN_DAYS_REQUIRED || value == null) {
             return VitalStatus(key, label, icon, value, unit, decimals, null, null, goodWhenHigh, null)
         }
-        val mean = history.average()
-        // 9/11: rango = media ± 0,85 sd (muestral) de 30 días. Con los valores de WHOOP da su Monitor de salud del 9/11 (VFC 79–102 → 76–102,
-        // FCR 56–61 → 55–61, resp 13,3–13,5 → 13,3–13,6) y deja dentro su VFC del 1/11 (78); con ± 1 sd y suelo del 5 % la respiración salía
-        // 12,7–14,0. Provisional: 2 días de WHOOP para comprobarlo.
-        val sd = if (history.size > 1) sqrt(history.sumOf { (it - mean) * (it - mean) } / (history.size - 1)) else 0.0
-        val half = maxOf(HEALTH_RANGE_SD * sd, mean * 0.005)
-        val lo = mean - half
-        val hi = mean + half
+        val all = (history + value).sorted()
+        fun q(p: Double): Double { val x = p * (all.size - 1); val i = x.toInt(); val f = x - i
+            return if (i + 1 < all.size) all[i] + f * (all[i + 1] - all[i]) else all[i] }
+        val lo = q(0.25); val hi = q(0.75)
+        val k = Math.pow(10.0, decimals.toDouble())
+        fun r(x: Double) = Math.round(x * k) / k
+        val v = r(value); val rl = r(lo); val rh = r(hi)
         // Como WHOOP: fuera del rango hacia el lado bueno (VFC alta, FCR o respiración baja) sigue contando como bien
-        val ok = value in lo..hi || (goodWhenHigh && value > hi) || (!goodWhenHigh && value < lo)
+        val ok = v in rl..rh || (goodWhenHigh && v > rh) || (!goodWhenHigh && v < rl)
         return VitalStatus(key, label, icon, value, unit, decimals, lo, hi, goodWhenHigh, ok)
     }
 
