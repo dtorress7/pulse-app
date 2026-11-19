@@ -1024,6 +1024,16 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
     efectivo de las series: 4/11 285 / 6844 · 9/11 302 / 5232 (app 6,49, W 7,35) · 16/11 1053 / 9838 (app 8,49, W 11,78; dominadas, fondos, copenhague 3×30).
     No sigue al volumen (ni separando peso externo / corporal, ni por repetición) → NO se cambia; pedidas capturas del registro de WHOOP de esas sesiones.
 
+- **18→19/11 (32.ª referencia, fútbol 20:40–21:57 la víspera, WHOOP 13,4)**: WHOOP (API) 22:21:04Z–06:37:05Z (23:21–07:37), dormido 7:41,
+  35/285/112/64, 10 despertares, 93,8 %, VFC 85,24, FCR 59, resp 13,7, calificación 90 (regularidad 86), recuperación 58, necesidad 469 + 28.
+  Código real (check/n19, Nights.kt / k/S.kt / k/H.kt): 23:21–07:37 exacto, dormido 7:42, 34/311/70/81, VFC 80,2, FCR 59, resp 13,2,
+  regularidad 86, calificación ≈ 89 → recuperación 51 (con la VFC/FCR de WHOOP la fórmula da 59 → los −7 son nuestra VFC).
+  Fases: hipnograma leído de las capturas (profundo 115 / REM 59 ≈ API): de nuestros 70 min de profundo 68 caen en el de WHOOP, pero faltan
+  02:47–03:11, 00:08–00:14, 02:01–02:05 y 06:21–06:28 (igual que 9/11: el modelo se queda corto de profundo, sesgo −8,5 en 23 noches).
+  Con las fases EXACTAS de WHOOP la VFC sale 82,1 (W 85,2) → las fases explican ~2 de los 5 ms. Para la ronda de fases (capturas en check/n19/z).
+  Día 18/11 (Day.kt): esfuerzo 13,66 (W 13,66), kcal 2329 (W 2331); fútbol 20:39–22:34 vs W 20:40–21:57 (fin +37: 22:00–22:34 a 95–126 lpm
+  moviéndose; mismo patrón de finales, sin regla general), esfuerzo 13,39 (W 13,38), kcal 725 (W 656). Paseo 22:57–23:11 (FC 92–99,
+  50–118 pasos/min) que WHOOP no registró. Sin cambios de código.
 - **WHOOP Age 18/11 (capturas de las dos apps, semana 15–21/11)**: WHOOP <18,0 / 0,0x; PulseApp 18,9 / −0,2x. Por dato (6 meses, años) W vs P:
   regularidad 66 +0,5 / 65 +0,5 · horas 8:01 −0,2 / 8:01 −0,2 · Z1-3 4:38 −1,5 / 4:30 −1,4 · Z4-5 0:47 −0,2 / 0:46 −0,2 · fuerza 2:01 −1,6 / 2:06 −1,7 ·
   pasos 10 173 −0,4 / 7895 +0,0 · VO₂ 56 −2,6 / 51 −1,5 · FCR 57 −0,3 / 57 −0,3 → la diferencia es VO₂ (1,1 años) y pasos (0,4).
