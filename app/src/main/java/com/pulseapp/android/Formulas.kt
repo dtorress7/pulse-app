@@ -323,8 +323,13 @@ object Formulas {
     // no salen. Sin movimiento grabado no se detectan paseos.
     const val WALK_TYPE = "Caminar"
 
+    /** 19/11: pulso medio mínimo de un paseo, en fracción de la reserva (antes 0,26 como las actividades). Paseos de WHOOP con
+     *  pulso del móvil: 24/10 109 y 102 lpm, 7/11 112 y 108 (y las pesas del 2/11, 101); paseos falsos (andar por casa tras
+     *  cenar): 10/11 95 y 18/11 94. Con FCR 59 / FCmáx 195: 0,26 → 94,4 lpm; 0,28 → 97,1 (en medio). */
+    const val WALK_MIN_HRR = 0.28
+
     fun detectWalks(minutes: List<Pair<Long, Double>>, motion: Map<Long, MotionMinute>, hrMax: Double, rhr: Int = zoneRestingHr()): List<Pair<Long, Long>> {
-        val elevated = rhr + ACT_ELEVATED_HRR * (hrMax - rhr)
+        val elevated = rhr + WALK_MIN_HRR * (hrMax - rhr)
         val hrBy = HashMap<Long, Double>(minutes.size * 2)
         for ((k, v) in minutes) hrBy[k] = v
         val walk = motion.filterValues { it.steps >= 30 }.keys.sorted()

@@ -1,6 +1,6 @@
 import Foundation
 
-// Comprobación en CI (macOS): el modelo de fases en Swift da lo mismo que el entrenado en Python (ref = noches 17 y 23).
+// Comprobación en CI (macOS): el modelo de fases en Swift da lo mismo que el entrenado en Python (ref = noches 17 y 24; modelo con rasgos de contexto ±7 min desde el 19/11).
 struct Night: Decodable { let secs: [[[JSONNum]]]; let mot: [[Double]?]; let stages: String }
 enum JSONNum: Decodable {
     case n(Double), a([Double])

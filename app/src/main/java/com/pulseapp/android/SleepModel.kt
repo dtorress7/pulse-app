@@ -15,6 +15,9 @@ import kotlin.math.sqrt
  * elige la secuencia más probable sin saltos sueltos. Lo que más pesa: el profundo tiene el pulso muy estable y llega tras
  * mucho rato sin moverse, sobre todo al principio de la noche; el REM sube el pulso, baja la VFC y suele ir tras un movimiento.
  *
+ * 19/11: reentrenado con 30 noches (16/10→19/11, hipnogramas de las capturas; totales a ±3 min de la API) y, por minuto, también la
+ * media de cada rasgo en ±7 min ("roll" del JSON). Validación justa (cada noche fuera, 27/10→19/11): profundo MAE 18,5 → 12,1 min
+ * (sesgo −11 → −2), ligero 30 → 25, REM 24 → 24, acuerdo 77 → 79 %. Entrenar con octubre y probar noviembre: profundo 18,5 → 15,0.
  * Los rasgos se calculan exactamente igual que en el entrenamiento (check/hyp/feat2.py y model3.py). El orden de las fases del
  * modelo (D, L, P, R) coincide con SleepStager.AWAKE/LIGHT/DEEP/REM.
  */
@@ -24,7 +27,7 @@ object SleepModel {
     class Minute(val still: Double, val gyro: Double, val steps: Double)
 
     private class Tree(val f: IntArray, val t: DoubleArray, val l: IntArray, val r: IntArray, val v: DoubleArray)
-    private class Model(val baseline: DoubleArray, val bias: DoubleArray, val stay: Double, val trees: List<Tree>)
+    private class Model(val baseline: DoubleArray, val bias: DoubleArray, val stay: Double, val trees: List<Tree>, val roll: IntArray)
 
     @Volatile private var model: Model? = null
     @Volatile private var loadFailed = false
@@ -42,7 +45,8 @@ object SleepModel {
                 Tree(nums(m["f"]).map { it.toInt() }.toIntArray(), nums(m["t"]), nums(m["l"]).map { it.toInt() }.toIntArray(),
                     nums(m["r"]).map { it.toInt() }.toIntArray(), nums(m["v"]))
             }
-            Model(nums(root["baseline"]), nums(root["bias"]), (root["stay"] as Number).toDouble(), trees).also { model = it }
+            val roll = (root["roll"] as List<*>?)?.map { (it as Number).toInt() }?.toIntArray() ?: IntArray(0)
+            Model(nums(root["baseline"]), nums(root["bias"]), (root["stay"] as Number).toDouble(), trees, roll).also { model = it }
         } catch (e: Exception) {
             loadFailed = true
             null
@@ -55,7 +59,7 @@ object SleepModel {
      */
     fun classify(secs: List<List<Second>>, mot: List<Minute?>): IntArray? {
         val m = load() ?: return null
-        val x = features(secs, mot)
+        val x = features(secs, mot, m.roll)
         val n = x.size
         val k = 4
         val emis = Array(n) { DoubleArray(k) }
@@ -135,7 +139,11 @@ object SleepModel {
         return ln(sqrt(s / (out.size - 1)))
     }
 
-    fun features(secs: List<List<Second>>, mot: List<Minute?>): Array<DoubleArray> {
+    /**
+     * [roll] (19/11): además de los 17 rasgos del minuto, la media de cada uno en ±w minutos para cada w (contexto: el profundo y el REM
+     * duran tramos de 10–30 min). 30 noches de WHOOP dejando cada una fuera: profundo MAE 15,6 → 12,0 min con ±7.
+     */
+    fun features(secs: List<List<Second>>, mot: List<Minute?>, roll: IntArray = IntArray(0)): Array<DoubleArray> {
         val n = secs.size
         fun lo(i: Int, k: Int) = maxOf(0, i - k)
         fun hi(i: Int, k: Int) = minOf(n - 1, i + k)
@@ -171,7 +179,7 @@ object SleepModel {
         }
         val p10 = nanPercentile(hr5, 10.0)
         val lnrMed = nanMedian(lnr, 0, n - 1)
-        return Array(n) { i ->
+        val base = Array(n) { i ->
             val prog = i.toDouble() / n
             val row = doubleArrayOf(
                 hr5[i] - med30h[i], lnr[i] - med30l[i], ln(1 + hsd[i]), ln(1 + minOf(since[i], 240.0)), prog, prog * prog,
@@ -179,6 +187,21 @@ object SleepModel {
                 ln(1 + hsd10[i]), hr5[i] - med10h[i], hr5[i] - med90h[i], lnr[i] - med90l[i], minOf(i.toDouble(), 300.0) / 300, ln(1 + gmax5[i]))
             for (c in row.indices) if (row[c].isNaN()) row[c] = 0.0
             row
+        }
+        if (roll.isEmpty()) return base
+        val k = base.firstOrNull()?.size ?: 17
+        return Array(n) { i ->
+            val out = DoubleArray(k * (1 + roll.size))
+            System.arraycopy(base[i], 0, out, 0, k)
+            for ((r, w) in roll.withIndex()) {
+                val a = lo(i, w); val b = hi(i, w)
+                for (c in 0 until k) {
+                    var sum = 0.0
+                    for (j in a..b) sum += base[j][c]
+                    out[k * (1 + r) + c] = sum / (b - a + 1)
+                }
+            }
+            out
         }
     }
 }

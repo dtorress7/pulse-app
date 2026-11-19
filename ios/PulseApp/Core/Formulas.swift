@@ -355,9 +355,12 @@ enum Formulas {
     // Minuto andando = ≥ 30 pasos; pausas ≤ 10 min. Paseo si dura ≥ 12 min, ≥ 8 min andando, ≥ 40 pasos/min y FC media ≥ 26 % de la reserva.
     static let walkType = "Caminar"
 
+    /// 19/11: pulso medio mínimo de un paseo en fracción de la reserva (antes 0,26). Paseos de WHOOP 102–112 lpm; falsos (andar por casa) 94–95.
+    static let walkMinHrr = 0.28
+
     static func detectWalks(_ minutes: [(Int64, Double)], motion: [Int64: MotionMinute], hrMax: Double, rhr: Int? = nil) -> [(Int64, Int64)] {
         let r = Double(rhr ?? zoneRestingHr())
-        let elevated = r + 0.26 * (hrMax - r)
+        let elevated = r + walkMinHrr * (hrMax - r)
         var hrBy = [Int64: Double](minimumCapacity: minutes.count)
         for (k, v) in minutes { hrBy[k] = v }
         let walk = motion.filter { $0.value.steps >= 30 }.keys.sorted()

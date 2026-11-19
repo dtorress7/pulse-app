@@ -1034,6 +1034,22 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   Día 18/11 (Day.kt): esfuerzo 13,66 (W 13,66), kcal 2329 (W 2331); fútbol 20:39–22:34 vs W 20:40–21:57 (fin +37: 22:00–22:34 a 95–126 lpm
   moviéndose; mismo patrón de finales, sin regla general), esfuerzo 13,39 (W 13,38), kcal 725 (W 656). Paseo 22:57–23:11 (FC 92–99,
   50–118 pasos/min) que WHOOP no registró. Sin cambios de código.
+- **RONDA DE FASES 19/11 (Android + iOS)**: hipnogramas de WHOOP de 30 noches (16/10→19/11, sin 23–24/10 ni 7–8/11) leídos de TODAS las capturas
+  de attachments (check/hyp2: py/find.py localiza las 4 pistas aunque la pantalla esté desplazada, py/dig.py + lab.py → labels.csv; totales a ±3 min
+  de la API). Rasgos del código real (hyp2/k/F.kt, gancho `SleepStager.debugModelWindow` = ventana de la 2.ª pasada), entrenamiento en Python
+  (py/common.py, exp.py, final.py, export.py). Nuevo modelo: mismos árboles (150 × 4, prof. 3) + la media de cada rasgo en ±7 min (`roll: [7]` en
+  sleep_model.json, `SleepModel.features(…, roll)`), sesgo [1,5; 0; 0,3; 0,3], 30 noches. Validación justa dejando cada noche fuera, 27/10→19/11:
+  acuerdo 76,8 → 79,1 %, MAE L/P/R 30,3/18,5/24,2 → 25,0/12,1/24,1, sesgo de profundo −11,1 → −1,6. Entrenando con octubre y probando noviembre
+  P 18,5 → 15,0 / L 29,6 → 26,6. Con ±7 y ±20 no mejora. Kotlin = Python 99,9 % de minutos. 19/11 con la app: 34/291/107/64 (WHOOP 35/285/112/64).
+  **La VFC NO mejora con mejores fases**: con las fases EXACTAS de WHOOP la VFC sale peor (MAE 1,93 vs 1,81 con las nuestras); con las nuevas 1,96;
+  reajustar los coeficientes no mejora (LOO 2,1). Recuperación de la app 23/10→19/11 (27 días) 3,37 → 3,33, ±5 81 % (19/11 51 → 55, WHOOP 58).
+  Con la VFC/FCR de WHOOP la fórmula (con el escalón) clava los últimos días (15–19/11: 72/80/99/88/59 vs 73/80/98/87/58) → lo que falla es nuestra VFC
+  (±1,8 ms de media), que con los RR de la pulsera no baja más. Tests de iOS regenerados (sleep_ref.json, stager/nights.csv con check/regen/R.kt).
+  `night_recalc_v22` / iOS 22.
+- **Paseos (19/11, Android + iOS `Formulas.WALK_MIN_HRR` / `walkMinHrr` 0,28, antes 0,26)**: falsos al andar por casa tras cenar (10/11 95 lpm, 18/11 94);
+  los de WHOOP 102–112 (24/10 ×2, 7/11 ×2). Con todo el pulso desde el 14/10 (check/n19/k/Wk.kt) quedan solo los 4 de WHOOP. No detectados (como antes):
+  31/10 y 8/11 (WHOOP, ~90 lpm). Una vez al instalar (`walk_clean` 1 / iOS `pulseapp_walk_clean`) se borran los paseos automáticos sin editar de
+  10 días que ya no salen. Final del fútbol 18/11 (ducha + coche 21:57–22:34, pulso 95–126 moviéndose): sin regla general, se deja.
 - **WHOOP Age 18/11 (capturas de las dos apps, semana 15–21/11)**: WHOOP <18,0 / 0,0x; PulseApp 18,9 / −0,2x. Por dato (6 meses, años) W vs P:
   regularidad 66 +0,5 / 65 +0,5 · horas 8:01 −0,2 / 8:01 −0,2 · Z1-3 4:38 −1,5 / 4:30 −1,4 · Z4-5 0:47 −0,2 / 0:46 −0,2 · fuerza 2:01 −1,6 / 2:06 −1,7 ·
   pasos 10 173 −0,4 / 7895 +0,0 · VO₂ 56 −2,6 / 51 −1,5 · FCR 57 −0,3 / 57 −0,3 → la diferencia es VO₂ (1,1 años) y pasos (0,4).

@@ -10,7 +10,7 @@ enum SleepModel {
     struct Minute { let still: Double; let gyro: Double; let steps: Double }
 
     private struct Tree: Decodable { let f: [Int]; let t: [Double]; let l: [Int]; let r: [Int]; let v: [Double] }
-    private struct Model: Decodable { let baseline: [Double]; let bias: [Double]; let stay: Double; let trees: [Tree] }
+    private struct Model: Decodable { let baseline: [Double]; let bias: [Double]; let stay: Double; let trees: [Tree]; let roll: [Int]? }
 
     /// Archivo del modelo (se puede cambiar antes del primer uso, p. ej. en la comprobación de CI).
     static var modelURL: URL? = Bundle.main.url(forResource: "sleep_model", withExtension: "json")
@@ -23,7 +23,7 @@ enum SleepModel {
 
     static func classify(_ secs: [[Second]], _ mot: [Minute?]) -> [Int]? {
         guard let m = model else { return nil }
-        let x = features(secs, mot)
+        let x = features(secs, mot, roll: m.roll ?? [])
         let n = x.count
         if n == 0 { return nil }
         let k = 4
@@ -106,7 +106,8 @@ enum SleepModel {
 
     private static func mn(_ a: Double, _ b: Double) -> Double { return a.isNaN || b.isNaN ? .nan : min(a, b) }
 
-    static func features(_ secs: [[Second]], _ mot: [Minute?]) -> [[Double]] {
+    /// [roll] (19/11, igual que Android): además de los 17 rasgos, la media de cada uno en ±w minutos para cada w.
+    static func features(_ secs: [[Second]], _ mot: [Minute?], roll: [Int] = []) -> [[Double]] {
         let n = secs.count
         func lo(_ i: Int, _ k: Int) -> Int { return max(0, i - k) }
         func hi(_ i: Int, _ k: Int) -> Int { return min(n - 1, i + k) }
@@ -144,7 +145,7 @@ enum SleepModel {
         }
         let p10 = nanPercentile(hr5, 10)
         let lnrMed = nanMedian(lnr, 0, n - 1)
-        return (0..<n).map { i in
+        let base: [[Double]] = (0..<n).map { i in
             let prog = Double(i) / Double(n)
             var row: [Double] = [
                 hr5[i] - med30h[i], lnr[i] - med30l[i], log(1 + hsd[i]), log(1 + min(since[i], 240)), prog, prog * prog,
@@ -152,6 +153,20 @@ enum SleepModel {
                 log(1 + hsd10[i]), hr5[i] - med10h[i], hr5[i] - med90h[i], lnr[i] - med90l[i], min(Double(i), 300) / 300, log(1 + gmax5[i])]
             for c in row.indices where row[c].isNaN { row[c] = 0 }
             return row
+        }
+        if roll.isEmpty { return base }
+        let k = base.first?.count ?? 17
+        return (0..<n).map { i in
+            var out = base[i]
+            for w in roll {
+                let a = lo(i, w), b = hi(i, w)
+                for c in 0..<k {
+                    var sum = 0.0
+                    for j in a...b { sum += base[j][c] }
+                    out.append(sum / Double(b - a + 1))
+                }
+            }
+            return out
         }
     }
 }

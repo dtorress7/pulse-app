@@ -27,7 +27,9 @@ enum AutoActivityScanner {
         let rescan = UserDefaults.standard.integer(forKey: "pulseapp_act_rescan") < 2
         // 4/11 (igual que Android): una vez, se miran 10 días SOLO para borrar las suaves pegadas a un entreno (no se añade nada viejo)
         let softClean = UserDefaults.standard.integer(forKey: "pulseapp_act_soft_clean") < 3   // 3 (12/11): rato parado antes del núcleo; 2 (4/11): también recorta el inicio por los pasos
-        let windowMs: Int64 = (rescan || softClean) ? 10 * 86_400_000 : 36 * 3_600_000
+        // 19/11 (igual que Android, walk_clean 1): paseos automáticos (sin editar) de 10 días que con el umbral nuevo ya no salen → fuera
+        let walkClean = UserDefaults.standard.integer(forKey: "pulseapp_walk_clean") < 1
+        let windowMs: Int64 = (rescan || softClean || walkClean) ? 10 * 86_400_000 : 36 * 3_600_000
 
         let readings = hrLog.readings(from: now - windowMs, to: now)
         var per = [Int64: (Int, Int)]()
@@ -76,6 +78,15 @@ enum AutoActivityScanner {
                     existing.removeAll { $0.id == old.id }
                 }
             }
+        }
+        if walkClean {
+            for old in existing where old.autoDetected && old.type == Formulas.walkType && old.startMillis >= now - windowMs + edgeMarginMs {
+                if !walks.contains(where: { $0.0 * 60_000 <= old.endMillis && $0.1 * 60_000 + 59_999 >= old.startMillis }) {
+                    store.deleteSession(id: old.id)
+                    existing.removeAll { $0.id == old.id }
+                }
+            }
+            UserDefaults.standard.set(1, forKey: "pulseapp_walk_clean")
         }
         // 6/11 (igual que Android, nap_clean 1): siestas automáticas (sin editar) de menos de 45 min guardadas con la regla de antes → fuera
         if UserDefaults.standard.integer(forKey: "pulseapp_nap_clean") < 1 {

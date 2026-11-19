@@ -369,6 +369,7 @@ object SleepStager {
             // tiempo en cama de WHOOP; con la ventana sin recortar, ese progreso dependía de cuánto rato llevabas levantado (la ventana del
             // pulso crece por la mañana) y las fases de TODA la noche cambiaban: 5/11 a las 8:00 VFC 94,0 / recuperación 69 y a las
             // 8:15 93,1 / 67 (12 minutos de fase distintos a las 23:08, 00:43, 02:50 y 07:06).
+            if (b0 - a0 >= minWindow) debugModelWindow?.invoke(m0 + a0, b0 - a0)
             if (b0 - a0 >= minWindow) modelStages(m0 + a0, b0 - a0, readings, motion)?.let { ms2 ->
                 for (k in ms2.indices) ms2[k] = if (aw[a0 + k]) AWAKE else if (ms2[k] == AWAKE) LIGHT else ms2[k]
                 val (a1, b1) = trimBounds(ms2, hrm, gyro, steps, a0, keepStart = true)
@@ -425,6 +426,9 @@ object SleepStager {
     private const val ONGOING_MIN = 5
     private const val NAP_MIN_MINUTES = 20
     private const val NAP_NO_REM_MIN = 60
+
+    /** Solo para comprobaciones fuera de la app (arneses): ventana (minuto inicial, minutos) de la 2.ª pasada del modelo. */
+    @JvmStatic var debugModelWindow: ((Long, Int) -> Unit)? = null
 
     /** Fases con SleepModel (pulso y RR de cada segundo + movimiento de cada minuto de la ventana). */
     private fun modelStages(m0: Long, n: Int, readings: List<HrReading>, motion: List<MotionMinute>): IntArray? {

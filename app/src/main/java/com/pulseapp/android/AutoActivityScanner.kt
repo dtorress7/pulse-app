@@ -65,7 +65,9 @@ object AutoActivityScanner {
         // 4/11 (act_soft_clean 2): una vez, se miran 10 días SOLO para borrar las suaves pegadas a un entreno y recortar el inicio
         // de las automáticas por los pasos de la pulsera (no se añade nada viejo)
         val softClean = sp.getInt("act_soft_clean", 0) < 3   // 3 (12/11): rato parado antes del núcleo
-        val windowMs = if (rescan || softClean) 10 * 86_400_000L else 36 * 3_600_000L
+        // 19/11 (walk_clean 1): paseos automáticos (sin editar) de 10 días que con el umbral nuevo (Formulas.WALK_MIN_HRR) ya no salen → fuera
+        val walkClean = sp.getInt("walk_clean", 0) < 1
+        val windowMs = if (rescan || softClean || walkClean) 10 * 86_400_000L else 36 * 3_600_000L
         val db = AppDatabase.getInstance(context)
         val profile = db.userProfileDao().getOnce() ?: return 0
         Formulas.init(context)
@@ -111,6 +113,14 @@ object AutoActivityScanner {
                     db.activitySessionDao().delete(old); existing.remove(old)
                 }
             }
+        }
+        if (walkClean) {
+            for (old in existing.filter { it.autoDetected && it.type == Formulas.WALK_TYPE && it.startMillis >= now - windowMs + EDGE_MARGIN_MS }) {
+                if (walks.none { it.first * 60_000L <= old.endMillis && it.second * 60_000L + 59_999L >= old.startMillis }) {
+                    db.activitySessionDao().delete(old); existing.remove(old)
+                }
+            }
+            sp.edit().putInt("walk_clean", 1).apply()
         }
         // 6/11 (nap_clean 1): siestas automáticas (sin editar) de menos de 45 min guardadas con la regla de antes → fuera
         if (sp.getInt("nap_clean", 0) < 1) {
