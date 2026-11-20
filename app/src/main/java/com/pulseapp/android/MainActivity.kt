@@ -218,6 +218,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.rowExport).setOnClickListener { exportCsv() }
         findViewById<View>(R.id.rowWhoopImport).setOnClickListener { askWhoopImport() }
         findViewById<View>(R.id.rowWhoopExperimental).setOnClickListener(openWhoop)
+        findViewById<TextView>(R.id.txtBuildInfo).text = "Versión: " + BuildConfig.BUILD_INFO
         findViewById<View>(R.id.rowScan).setOnClickListener(openWhoop)
         findViewById<View>(R.id.rowSummary).setOnClickListener { showSummaryDialog() }
         findViewById<View>(R.id.rowProfile).setOnClickListener(openProfile)

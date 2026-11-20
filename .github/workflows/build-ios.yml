@@ -59,6 +59,12 @@ jobs:
           swiftc $(ls PulseApp/Core/*.swift | grep -v -e HomeData.swift -e AndroidImport.swift -e Community.swift) Tests/reccal/main.swift -o reccalcheck
           ./reccalcheck Tests/reccal
 
+      - name: Marcar la versión (commit y fecha, se ve en Más)
+        run: |
+          INFO="$(git rev-parse --short HEAD) · $(TZ=Europe/Madrid git log -1 --format=%cd --date=format-local:'%d/%m %H:%M')"
+          printf 'enum BuildInfo {\n    static let text = "%s"\n}\n' "$INFO" > PulseApp/Core/BuildInfo.swift
+          cat PulseApp/Core/BuildInfo.swift
+
       - name: Compilar (sin firmar)
         run: |
           set -o pipefail

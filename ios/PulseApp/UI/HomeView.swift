@@ -797,6 +797,9 @@ struct HomeView: View {
                 .buttonStyle(.plain)
             }
             .background(Theme.wCard).cornerRadius(14)
+            Text("Versión: \(BuildInfo.text)")
+                .font(Theme.text(12)).foregroundColor(Theme.textSecondary)
+                .frame(maxWidth: .infinity).padding(.top, 4)
         }
     }
 

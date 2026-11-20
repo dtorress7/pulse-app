@@ -39,6 +39,9 @@ jobs:
       - name: Configurar Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Marcar la versión (commit y fecha, se ve en Más)
+        run: echo "PULSE_BUILD_INFO=$(git rev-parse --short HEAD) · $(TZ=Europe/Madrid git log -1 --format=%cd --date=format-local:'%d/%m %H:%M')" >> $GITHUB_ENV
+
       - name: Compilar APK de depuración
         run: gradle assembleDebug --stacktrace
 

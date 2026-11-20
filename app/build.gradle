@@ -14,6 +14,8 @@ android {
         targetSdk 34
         versionCode 1
         versionName "1.0"
+        // Versión instalada (20/11): GitHub Actions pone el commit y la fecha; en local "local"
+        buildConfigField "String", "BUILD_INFO", "\"${System.getenv('PULSE_BUILD_INFO') ?: 'compilación local'}\""
     }
 
     // Firma fija: así cada APK de GitHub Actions se instala ENCIMA del anterior
@@ -47,6 +49,7 @@ android {
 
     buildFeatures {
         viewBinding true
+        buildConfig true
     }
 }
 

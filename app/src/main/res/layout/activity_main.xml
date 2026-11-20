@@ -1176,6 +1176,17 @@
                         android:tint="@color/text_secondary" />
                 </LinearLayout>
             </LinearLayout>
+
+            <!-- Versión instalada (20/11): commit y fecha de la compilación de GitHub Actions -->
+            <TextView
+                android:id="@+id/txtBuildInfo"
+                style="@style/Caption"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:layout_marginBottom="24dp"
+                android:gravity="center"
+                android:textColor="@color/text_secondary" />
         </LinearLayout>
     </com.pulseapp.android.ui.PullScrollView>
 
