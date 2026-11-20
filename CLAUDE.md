@@ -1080,6 +1080,10 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
     Código real (Day.kt): funcional 19/11 18:19–19:16, 12,65 (W 12,30; con la ventana de WHOOP 11,93), kcal 320 (W 287); día 13,27 (W 12,52). Sin clasificar
     daba 8,9 (falta la carga muscular) → importante que quede como funcional. El fin sigue +10 (pulso 95–104 tras acabar). `act_soft_clean` 4 / iOS 4.
   - Amigos: FC en reposo para zonas = la que cuadra con SUS zonas de WHOOP (pedir captura de "Ajustes de frecuencia cardiaca" con los 5 rangos y la FCmáx).
+- **Versión instalada (20/11, Android + iOS)**: al final de "Más" sale "Versión: <commit> · dd/MM HH:mm" (GitHub Actions: env `PULSE_BUILD_INFO` →
+  `BuildConfig.BUILD_INFO`; iOS reescribe `Core/BuildInfo.swift`). Las compilaciones de antes de 6d5a84d no lo muestran. Recuperación 20/11 en la app 94
+  (VFC 111) = compilación del miércoles 18/11 (84c810b): con el modelo de fases antiguo de 11 noches la noche 19→20 da VFC 109,9 (con el inicio viejo ~111);
+  con el código actual 105,1 → ≈ 90 (WHOOP 104,8 / 88). Arnés: check/run_old.sh (pone check/oldm/sleep_model.json delante).
 - **WHOOP Age 18/11 (capturas de las dos apps, semana 15–21/11)**: WHOOP <18,0 / 0,0x; PulseApp 18,9 / −0,2x. Por dato (6 meses, años) W vs P:
   regularidad 66 +0,5 / 65 +0,5 · horas 8:01 −0,2 / 8:01 −0,2 · Z1-3 4:38 −1,5 / 4:30 −1,4 · Z4-5 0:47 −0,2 / 0:46 −0,2 · fuerza 2:01 −1,6 / 2:06 −1,7 ·
   pasos 10 173 −0,4 / 7895 +0,0 · VO₂ 56 −2,6 / 51 −1,5 · FCR 57 −0,3 / 57 −0,3 → la diferencia es VO₂ (1,1 años) y pasos (0,4).
