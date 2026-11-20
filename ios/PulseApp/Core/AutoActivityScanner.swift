@@ -26,7 +26,7 @@ enum AutoActivityScanner {
         // 28/10 (2): repasa 10 días para añadir las actividades suaves (funcional 22/10, fútbol 26/10)
         let rescan = UserDefaults.standard.integer(forKey: "pulseapp_act_rescan") < 2
         // 4/11 (igual que Android): una vez, se miran 10 días SOLO para borrar las suaves pegadas a un entreno (no se añade nada viejo)
-        let softClean = UserDefaults.standard.integer(forKey: "pulseapp_act_soft_clean") < 3   // 3 (12/11): rato parado antes del núcleo; 2 (4/11): también recorta el inicio por los pasos
+        let softClean = UserDefaults.standard.integer(forKey: "pulseapp_act_soft_clean") < 4   // 4 (20/11): calentamiento; 3 (12/11): rato parado antes del núcleo; 2 (4/11): también recorta el inicio por los pasos
         // 19/11 (igual que Android, walk_clean 1): paseos automáticos (sin editar) de 10 días que con el umbral nuevo ya no salen → fuera
         let walkClean = UserDefaults.standard.integer(forKey: "pulseapp_walk_clean") < 1
         let windowMs: Int64 = (rescan || softClean || walkClean) ? 10 * 86_400_000 : 36 * 3_600_000
@@ -58,10 +58,11 @@ enum AutoActivityScanner {
         var rawStart = [Int64: Int64]()
         // 12/11: en los entrenos también cuenta un rato parado justo antes del núcleo (Formulas.trimByIdleBeforeCore)
         let trimmedActs: [(Int64, Int64, String)] = acts.map { a in
-            let t = Formulas.trimStartByBandSteps(a.0, a.1, band, coreStart: Formulas.firstCoreMinute(a.0, a.1, minutes, hrMax: hrMax))
+            // 20/11: y se quita el calentamiento suave del principio (Formulas.trimWarmup, igual que Android)
+            let t = Formulas.trimWarmup(Formulas.trimStartByBandSteps(a.0, a.1, band, coreStart: Formulas.firstCoreMinute(a.0, a.1, minutes, hrMax: hrMax)), a.1, minutes, hrMax: hrMax)
             rawStart[t] = a.0; return (t, a.1, "Sin clasificar")
         } + soft.map { a in
-            let t = Formulas.trimStartByBandSteps(a.0, a.1, band); rawStart[t] = a.0; return (t, a.1, "Sin clasificar")
+            let t = Formulas.trimWarmup(Formulas.trimStartByBandSteps(a.0, a.1, band), a.1, minutes, hrMax: hrMax); rawStart[t] = a.0; return (t, a.1, "Sin clasificar")
         }
         let found: [(Int64, Int64, String)] = trimmedActs
             + walks.map { ($0.0, $0.1, Formulas.walkType) }
@@ -160,7 +161,7 @@ enum AutoActivityScanner {
             saved += 1
         }
         if rescan { UserDefaults.standard.set(2, forKey: "pulseapp_act_rescan") }
-        if softClean { UserDefaults.standard.set(3, forKey: "pulseapp_act_soft_clean") }
+        if softClean { UserDefaults.standard.set(4, forKey: "pulseapp_act_soft_clean") }
         // 29/10 (una vez): las automáticas "Sin clasificar" de los últimos 30 días reciben deporte si se parecen claramente a las tuyas
         if UserDefaults.standard.integer(forKey: "pulseapp_act_classify") < 1 {
             let all = store.allSessions()

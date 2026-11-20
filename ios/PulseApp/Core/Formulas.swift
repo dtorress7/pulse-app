@@ -259,6 +259,24 @@ enum Formulas {
     }
 
     /// Primer minuto de [s]..[e] con pulso de núcleo (≥ 50 % de la reserva), o nil.
+    /// 20/11 (igual que Android): quita el calentamiento suave del principio (≥ 10 min todos por debajo de la zona 1 → empieza en el primer
+    /// minuto ≥ zona 1 con al menos 3 de los 4 siguientes también ≥ zona 1).
+    static let warmupMin: Int64 = 10
+    static func trimWarmup(_ s: Int64, _ e: Int64, _ minutes: [(Int64, Double)], hrMax: Double, rhr: Int? = nil) -> Int64 {
+        let z1 = Double(zoneBounds(hrMax: hrMax, rhr: rhr)[0])
+        var hr = [Int64: Double]()
+        for (m, v) in minutes where m >= s && m <= e + 4 { hr[m] = v }
+        var c: Int64? = nil
+        var m = s
+        while m <= e {
+            if (hr[m] ?? 0) >= z1 && (0...3).filter({ (hr[m + Int64($0)] ?? 0) >= z1 }).count >= 3 { c = m; break }
+            m += 1
+        }
+        guard let c0 = c, c0 - s >= warmupMin else { return s }
+        let pre = (s..<c0).compactMap { hr[$0] }
+        return (!pre.isEmpty && pre.allSatisfy { $0 < z1 }) ? c0 : s
+    }
+
     static func firstCoreMinute(_ s: Int64, _ e: Int64, _ minutes: [(Int64, Double)], hrMax: Double, rhr: Int? = nil) -> Int64? {
         let r = Double(rhr ?? zoneRestingHr())
         let core = r + 0.50 * (hrMax - r)   // = núcleo de detectActivities (Android ACT_CORE_HRR)

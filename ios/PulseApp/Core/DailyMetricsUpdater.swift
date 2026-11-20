@@ -17,14 +17,14 @@ enum DailyMetricsUpdater {
     /// Una sola vez tras actualizar (23/10, VFC y recuperación nuevas): rehace con las fórmulas de ahora los días guardados
     /// que tengan pulso guardado, para que la línea base de VFC esté en la misma escala. Sin pulso, se dejan igual.
     static func recalcPastNightsOnce(store: AppStore, hrLog: HrLog, motionFile: URL, ageYears: Int, weightKg: Double, sex: String) {
-        if UserDefaults.standard.integer(forKey: recalcKey) >= 22 { return }   // 22 (19/11): modelo de fases con 30 noches y contexto ±7 min; 21 (18/11): VO₂ máx con K 16,45; 20 (12/11): inicio con tramo quieto de 9 min; 19 (11/11): paseos sin carga aparte en el día; 18 (11/11): esfuerzo del día sin el pulso casi en reposo fuera de las actividades; 17 (10/11): fin de la noche sin cortar al dormitar con el pulso alto ni con un despertar de 3 min; 16 (9/11 tarde): temperatura de la piel; 15 (9/11): fin antes del rato despierto tumbado e inquieto; 14 (7/11): inicio/fin de la noche despierto en la cama; 13 (5/11): fases con segunda pasada sobre la noche recortada; 12 (4/11): VFC sin los tramos de pulso alto; 11 (3/11): fin de la noche con 40 pasos y pesas con su carga; 10 (2/11): esfuerzo con la FCR de referencia; 9 (1/11): VFC por profundo + ligero; 8 (1/11): fin de la noche sin remolonear; 7 (30/10): esfuerzo sin el pulso bajo dormido; 6 (27/10): esfuerzo del día sin base fuera de actividades; 5: fases 11 noches
+        if UserDefaults.standard.integer(forKey: recalcKey) >= 23 { return }   // 23 (20/11): inicio con giros en la cama; 22 (19/11): modelo de fases con 30 noches y contexto ±7 min; 21 (18/11): VO₂ máx con K 16,45; 20 (12/11): inicio con tramo quieto de 9 min; 19 (11/11): paseos sin carga aparte en el día; 18 (11/11): esfuerzo del día sin el pulso casi en reposo fuera de las actividades; 17 (10/11): fin de la noche sin cortar al dormitar con el pulso alto ni con un despertar de 3 min; 16 (9/11 tarde): temperatura de la piel; 15 (9/11): fin antes del rato despierto tumbado e inquieto; 14 (7/11): inicio/fin de la noche despierto en la cama; 13 (5/11): fases con segunda pasada sobre la noche recortada; 12 (4/11): VFC sin los tramos de pulso alto; 11 (3/11): fin de la noche con 40 pasos y pesas con su carga; 10 (2/11): esfuerzo con la FCR de referencia; 9 (1/11): VFC por profundo + ligero; 8 (1/11): fin de la noche sin remolonear; 7 (30/10): esfuerzo sin el pulso bajo dormido; 6 (27/10): esfuerzo del día sin base fuera de actividades; 5: fases 11 noches
         let today = TimeUtil.dayKey(TimeUtil.nowMillis())
         let importUntil = WhoopImport.importedUntil()
         for row in store.lastDays(60) where row.date < today && (importUntil.isEmpty || row.date > importUntil) {
             if let d = computeDay(store: store, hrLog: hrLog, motionFile: motionFile, key: row.date,
                                   ageYears: ageYears, weightKg: weightKg, sex: sex) { store.saveDay(d) }
         }
-        UserDefaults.standard.set(22, forKey: recalcKey)
+        UserDefaults.standard.set(23, forKey: recalcKey)
     }
 
     /// 17/11: tras importar el pulso de otro móvil (p. ej. de PulseApp a Pulse Beta), calcula los días que aún no están guardados

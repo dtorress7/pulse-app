@@ -311,6 +311,30 @@ object Formulas {
         return minutes.firstOrNull { it.first in s..e && it.second >= core }?.first
     }
 
+    /**
+     * 20/11: calentamiento al principio. Funcional 19/11: 18:07–18:20 andando y estirando a 93–107 lpm (debajo de la zona 1, 113) y WHOOP empieza
+     * a las 18:21, cuando el pulso pasa a 116–145. Si los primeros ≥ [WARMUP_MIN] min están TODOS por debajo del inicio de la zona 1, la actividad
+     * empieza en el primer minuto ≥ zona 1 con al menos 3 de los 4 minutos siguientes también ≥ zona 1. 27 entrenos de WHOOP (21/10→19/11):
+     * solo cambian el funcional 19/11 (−14 → 0 min) y el fútbol 11/11 sin pasos de la pulsera (−18 → +1); con 8 min o tolerando un minuto
+     * por encima cambiaban otros a peor (pádel +10, fútbol +12). Inicio MAE 4,96 → 3,86 min.
+     */
+    const val WARMUP_MIN = 10
+
+    fun trimWarmup(s: Long, e: Long, minutes: List<Pair<Long, Double>>, hrMax: Double, rhr: Int = zoneRestingHr()): Long {
+        val z1 = zoneBounds(hrMax, rhr)[0].toDouble()
+        val hr = HashMap<Long, Double>()
+        for ((m, v) in minutes) if (m in s..e + 4) hr[m] = v
+        var c: Long? = null
+        var m = s
+        while (m <= e) {
+            if ((hr[m] ?: 0.0) >= z1 && (0..3).count { (hr[m + it] ?: 0.0) >= z1 } >= 3) { c = m; break }
+            m++
+        }
+        if (c == null || c - s < WARMUP_MIN) return s
+        val pre = (s until c).mapNotNull { hr[it] }
+        return if (pre.isNotEmpty() && pre.all { it < z1 }) c else s
+    }
+
     /** ¿Una suave [s]..[e] (minutos) queda pegada a otra actividad de [taken]? */
     fun softNextToActivity(s: Long, e: Long, taken: List<Pair<Long, Long>>): Boolean =
         taken.any { (a, b) -> (s > b && s - b <= SOFT_AFTER_GAP_MIN) || (a > e && a - e <= SOFT_BEFORE_GAP_MIN) }

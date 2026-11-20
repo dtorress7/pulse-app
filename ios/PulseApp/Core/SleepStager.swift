@@ -40,7 +40,7 @@ enum SleepStager {
 
     private static let minWindowMinutes = 90
     /// La noche empieza en el primer tramo de al menos estos minutos sin despertar (17/10).
-    private static let onsetRun = 10   // 24/10: 15 → 10 (igual que Android)
+    private static let onsetRun = 8   // 24/10: 15 → 10; 20/11: 10 → 8 (igual que Android)
     private static let minMotionCoverage = 0.6
 
     final class Result {
@@ -109,7 +109,7 @@ enum SleepStager {
         while true {
             var b = m, steps = 0
             while let x = byMin[b], !still(x), m - b < 6 { steps += x.steps; b -= 1 }
-            if byMin[b] == nil || m - b > 5 || steps > 12 { break }
+            if byMin[b] == nil || m - b > 5 || steps > 20 { break }   // 20/11: 12 → 20 (giros en la cama de 16–17 pasos; igual que Android ONSET_TURN_STEPS)
             var q = b
             while still(byMin[q]) { q -= 1 }
             if b - q >= 9 { onset = q + 1 }   // 24/10: 15 → 10; 12/11: 10 → 9 (igual que Android ONSET_STILL)

@@ -1065,6 +1065,21 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   Búsqueda de la VFC con 30 noches (check/vfc19: win.py, search.py; tramos 1/2/5 min, filtros 15–50 %, media/mediana/geométrica, con/sin pulso alto,
   P/L/R/toda la noche, fases nuestras o de WHOOP; 1440 variantes): la actual 2,0 ms dejando cada noche fuera, la mejor 1,9, ninguna mejor al probar
   noviembre con octubre → NO se cambia. Recuperación 23/10→19/11 (28 días): fórmula con la VFC/FCR de WHOOP MAE 2,36 (±5 93 %), app 3,33 (±5 81 %).
+- **19→20/11 (33.ª referencia, funcional 18:21–19:06 la víspera)**: WHOOP (API) 22:11:10Z–07:42:13Z (23:11–08:42), 31/345/106/90, 14 despertares,
+  94,6 %, VFC 104,76, FCR 56, resp 13,6, calificación 95 (regularidad 84), recuperación 88. Código real (check/n20): 23:26–08:49, 42/343/109/69,
+  VFC 106,4, FCR 57 → recuperación 91 (con la VFC/FCR de WHOOP la fórmula da 89). Hipnograma leído (hyp2/zips/n20…, lab20.csv; totales a ±2 de la API):
+  acuerdo 85,6 %, de nuestros 106 min de profundo 92 caen en el de WHOOP; REM 59 vs 92 (los 59 dentro del de WHOOP, se queda corto).
+  - **Inicio (20/11, Android + iOS `ONSET_TURN_STEPS` 12 → 20, `ONSET_RUN` 10 → 8)**: quieto 23:11–23:19, dos vueltas en la cama (23:20 17 "pasos",
+    23:25 16) → `motionBounds` paraba en el giro de 17 pasos y `trimBounds` exigía 10 min sin despertar (solo había 9). Con los dos cambios, de 35 noches
+    (check/n20/on_*.csv) solo cambia la 20/11: 23:26 → 23:11 (W 23:11), 48/365/106/59, VFC 105,1; inicio MAE 2,14 → 1,71. Con solo uno de los dos no cambia
+    nada. Tests de iOS (stager/nights.csv, motionBounds) siguen valiendo (check/regen2/B.kt). `night_recalc_v23` / iOS 23.
+  - **Calentamiento al principio de un entreno (20/11, Android + iOS `Formulas.trimWarmup`, `WARMUP_MIN` 10)**: funcional 19/11 detectado 18:07–19:16
+    (W 18:21–19:06): de 18:07 a 18:20 a 93–107 lpm moviéndose. Si los primeros ≥ 10 min están todos por debajo del inicio de la zona 1, empieza en el
+    primer minuto ≥ zona 1 con 3 de los 4 siguientes ≥ zona 1. 27 entrenos de WHOOP (21/10→19/11, check/n20/pairs.pkl): solo cambian el funcional 19/11
+    (−14 → −2) y el fútbol 11/11 sin pasos (−18 → +1); con 8 min o tolerando 1 minuto por encima empeoraban pádel 27/10 y fútbol 30/10. Inicio MAE 4,96 → 3,86.
+    Código real (Day.kt): funcional 19/11 18:19–19:16, 12,65 (W 12,30; con la ventana de WHOOP 11,93), kcal 320 (W 287); día 13,27 (W 12,52). Sin clasificar
+    daba 8,9 (falta la carga muscular) → importante que quede como funcional. El fin sigue +10 (pulso 95–104 tras acabar). `act_soft_clean` 4 / iOS 4.
+  - Amigos: FC en reposo para zonas = la que cuadra con SUS zonas de WHOOP (pedir captura de "Ajustes de frecuencia cardiaca" con los 5 rangos y la FCmáx).
 - **WHOOP Age 18/11 (capturas de las dos apps, semana 15–21/11)**: WHOOP <18,0 / 0,0x; PulseApp 18,9 / −0,2x. Por dato (6 meses, años) W vs P:
   regularidad 66 +0,5 / 65 +0,5 · horas 8:01 −0,2 / 8:01 −0,2 · Z1-3 4:38 −1,5 / 4:30 −1,4 · Z4-5 0:47 −0,2 / 0:46 −0,2 · fuerza 2:01 −1,6 / 2:06 −1,7 ·
   pasos 10 173 −0,4 / 7895 +0,0 · VO₂ 56 −2,6 / 51 −1,5 · FCR 57 −0,3 / 57 −0,3 → la diferencia es VO₂ (1,1 años) y pasos (0,4).

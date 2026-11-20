@@ -64,7 +64,8 @@ object SleepStager {
 
     private const val MIN_WINDOW_MINUTES = 90
     /** La noche empieza en el primer tramo de al menos estos minutos sin despertar (24/10: 15 → 10). */
-    private const val ONSET_RUN = 10
+    /** 20/11: 10 → 8. Noche 19→20/11: quieto 23:11–23:19 (9 min) y luego dos vueltas en la cama; con 10 el inicio pasaba a 23:27 (WHOOP 23:11). */
+    private const val ONSET_RUN = 8
     /** Tramo quieto antes de un cambio de postura que adelanta el inicio (24/10: 15 → 10; la noche 23→24 empezaba 15 min tarde).
      *  12/11: 10 → 9. Noche 11→12: quieto 23:31–23:39 (9 min), giro con 9 pasos a las 23:40, y PulseApp empezaba a las 23:42 (WHOOP 23:31).
      *  27 noches (check/n12, código real): solo cambia esa → 23:31, VFC 86,0 → 84,4 (W 82,1); con 8 sale igual. */
@@ -184,7 +185,7 @@ object SleepStager {
         while (true) {
             var b = m; var steps = 0
             while (byMin[b] != null && !still(byMin[b]) && m - b < 6) { steps += byMin[b]!!.steps; b-- }
-            if (byMin[b] == null || m - b > 5 || steps > 12) break
+            if (byMin[b] == null || m - b > 5 || steps > ONSET_TURN_STEPS) break
             var q = b
             while (still(byMin[q])) q--
             if (b - q >= ONSET_STILL) onset = q + 1
@@ -421,6 +422,9 @@ object SleepStager {
     /** 3/11: levantarse 2 min (16 + 9 pasos, p. ej. al baño) y volver a dormirse sigue siendo noche (WHOOP 06:55, antes 06:44).
      *  15 → 40 pasos: 18 noches, solo cambia la 3/11 (error del fin 1,9 → 1,3 min); igual con 25–60. */
     private const val END_EXT_STEPS = 40
+    /** 20/11: pasos máximos de un giro en la cama al buscar el inicio hacia atrás (antes 12; al darse la vuelta salen 16–17 "pasos").
+     *  Con 20 + ONSET_RUN 8, de 35 noches solo cambia la 19→20/11: 23:26 → 23:11 (WHOOP 23:11); inicio MAE 2,14 → 1,71 min. */
+    private const val ONSET_TURN_STEPS = 20
     // 10/11: despertar de 3 min (07:15–07:17, 26 pasos) y otra vez quieto: sigue siendo noche (antes ≤ 2 min)
     private const val END_EXT_GAP = 3
     private const val ONGOING_MIN = 5
