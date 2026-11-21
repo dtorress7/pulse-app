@@ -159,7 +159,14 @@ object SleepStager {
         val byMin = HashMap<Long, MotionMinute>(motion.size * 2)
         for (mm in motion) byMin[mm.minuteStartUnix / 60] = mm
         fun still(m: MotionMinute?) = m != null && m.stillSecs >= 50 && m.gyroDps < 2.5f && m.steps == 0
-        val m0 = startMillis / 60_000L; val m1 = endMillis / 60_000L
+        val m0 = startMillis / 60_000L
+        // 21/11: en tiempo real el movimiento puede ir unos minutos por detrás del pulso (21/11 a las 09:35: pulso hasta 09:34 y
+        // movimiento hasta ~09:20 → la noche acababa a las 09:34 y luego, con todo, a las 09:20 = WHOOP). Si el movimiento se corta
+        // antes del final del pulso (≤ MOTION_LAG_MAX min), la noche solo se mira hasta el último minuto con movimiento.
+        val lastMotion = motion.maxOfOrNull { it.minuteStartUnix / 60 } ?: Long.MIN_VALUE
+        val m1 = (endMillis / 60_000L).let { e ->
+            if (lastMotion in (m0 + 60) until e && e - lastMotion <= MOTION_LAG_MAX) lastMotion else e
+        }
         // Tramos quietos (se tolera 1 minuto suelto que no lo sea)
         val runs = ArrayList<LongArray>()
         var k = m0 - 180
@@ -428,6 +435,7 @@ object SleepStager {
     // 10/11: despertar de 3 min (07:15–07:17, 26 pasos) y otra vez quieto: sigue siendo noche (antes ≤ 2 min)
     private const val END_EXT_GAP = 3
     private const val ONGOING_MIN = 5
+    private const val MOTION_LAG_MAX = 60L
     private const val NAP_MIN_MINUTES = 20
     private const val NAP_NO_REM_MIN = 60
 

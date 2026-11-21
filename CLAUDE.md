@@ -1080,6 +1080,19 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
     Código real (Day.kt): funcional 19/11 18:19–19:16, 12,65 (W 12,30; con la ventana de WHOOP 11,93), kcal 320 (W 287); día 13,27 (W 12,52). Sin clasificar
     daba 8,9 (falta la carga muscular) → importante que quede como funcional. El fin sigue +10 (pulso 95–104 tras acabar). `act_soft_clean` 4 / iOS 4.
   - Amigos: FC en reposo para zonas = la que cuadra con SUS zonas de WHOOP (pedir captura de "Ajustes de frecuencia cardiaca" con los 5 rangos y la FCmáx).
+- **20→21/11 (34.ª referencia, fútbol 20:49–21:49 la víspera, WHOOP 11,5)**: WHOOP (API) 23:53:10Z–08:20:17Z (00:53–09:20), 39/264/113/91, 12 despertares,
+  93 %, VFC 77,39, FCR 59, resp 13,36, calificación 84 (regularidad 68), recuperación 43. Código real (check/n21, hr_log_42 + motion_minutes_30):
+  00:53–09:20 exacto, 29/306/95/78, VFC 78,7, FCR 60, resp 13,2 → recuperación 48 (con la VFC/FCR de WHOOP 47 → −4 de la fórmula). App (miércoles) 49 / 79 / 60,
+  sueño 84 % (= WHOOP), 7:59 (W 7:48).
+  - **Fin en tiempo real con el movimiento atrasado (21/11, Android + iOS `motionBounds`, `MOTION_LAG_MAX` / `motionLagMax` 60)**: a las ~09:35 la app marcaba
+    despertar ≈ 09:35 y luego 09:21. Con el archivo completo cortado a cualquier hora 09:25–10:30 sale 09:20 (versión actual y la del miércoles); se reproduce
+    SOLO si el movimiento va por detrás del pulso (pulso hasta 09:35, movimiento hasta 09:15–09:25 → fin 09:34: sin movimiento después la noche se alargaba
+    hasta el final del pulso). Ahora si el movimiento acaba ≤ 60 min antes que el pulso, la noche se mira solo hasta el último minuto con movimiento
+    (09:11/09:19/09:20). 37 noches con todos los datos: idénticas; cortes 10/11 y 7/11 iguales que antes; test de motionBounds de iOS sin cambios.
+  - **Pablo (amigo, versión del miércoles)**: WHOOP 46 % (VFC 112 vs media 120–121, FCR 47 vs 46–47, resp 17,5, sueño 80 %, 7:08 dormido, horas 80 %,
+    regularidad 64, eficiencia 97); PulseApp 63 %, VFC 112, FCR 46, sueño 89 %, 9:10. VFC/FCR CUADRAN; con la línea base de WHOOP (120) nuestra fórmula da 63 =
+    la app → no es la línea base, es que WHOOP responde distinto a él (−7 % de VFC → 46; a ti → ~60). Remedio previsto: importar SU export de WHOOP →
+    `RecoveryCalibration` (≥ 90 noches y mejora ≥ 0,3). Sueño +2 h: sin sus archivos no se puede saber (pedidos el lunes).
 - **Versión instalada (20/11, Android + iOS)**: al final de "Más" sale "Versión: <commit> · dd/MM HH:mm" (GitHub Actions: env `PULSE_BUILD_INFO` →
   `BuildConfig.BUILD_INFO`; iOS reescribe `Core/BuildInfo.swift`). Las compilaciones de antes de 6d5a84d no lo muestran. Recuperación 20/11 en la app 94
   (VFC 111) = compilación del miércoles 18/11 (84c810b): con el modelo de fases antiguo de 11 noches la noche 19→20 da VFC 109,9 (con el inicio viejo ~111);

@@ -42,6 +42,7 @@ enum SleepStager {
     /// La noche empieza en el primer tramo de al menos estos minutos sin despertar (17/10).
     private static let onsetRun = 8   // 24/10: 15 → 10; 20/11: 10 → 8 (igual que Android)
     private static let minMotionCoverage = 0.6
+    private static let motionLagMax: Int64 = 60   // 21/11: movimiento por detrás del pulso (igual que Android MOTION_LAG_MAX)
 
     final class Result {
         let startMinute: Int64
@@ -85,7 +86,12 @@ enum SleepStager {
             guard let m = m else { return false }
             return m.stillSecs >= 50 && m.gyroDps < 2.5 && m.steps == 0
         }
-        let m0 = startMillis / 60_000, m1 = endMillis / 60_000
+        let m0 = startMillis / 60_000
+        // 21/11 (igual que Android): si el movimiento va por detrás del pulso (≤ 60 min), la noche solo se mira hasta el último
+        // minuto con movimiento (21/11 a las 09:35 acababa a las 09:34 en vez de 09:20).
+        let lastMotion = motion.map { $0.minuteStartUnix / 60 }.max() ?? Int64.min
+        let e = endMillis / 60_000
+        let m1 = (lastMotion >= m0 + 60 && lastMotion < e && e - lastMotion <= motionLagMax) ? lastMotion : e
         var runs = [(Int64, Int64)]()
         var k = m0 - 180
         while k <= m1 + 120 {
