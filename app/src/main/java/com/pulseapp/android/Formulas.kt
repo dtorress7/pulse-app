@@ -59,7 +59,7 @@ object Formulas {
         cachedBodyKg = sp.getFloat(KEY_BODY_KG, 70f).toDouble()
         cachedImportUntil = sp.getString(KEY_IMPORT_UNTIL, "") ?: ""
         personalRecCoef = sp.getString(KEY_REC_PERSONAL, null)?.split(";")?.mapNotNull { it.toDoubleOrNull() }
-            ?.takeIf { it.size == 4 }?.toDoubleArray()
+            ?.takeIf { it.size == 4 || it.size == 7 }?.toDoubleArray()
     }
 
     // ---------- Historial importado de WHOOP (23/10) ----------
@@ -746,14 +746,22 @@ object Formulas {
         return doubleArrayOf(delta ?: -0.1, rhrDelta ?: 0.0, normalCdf((lnToday - mu) / sdLn))
     }
 
-    /** [date] = día de la noche (yyyy-MM-dd); null = hoy. */
-    fun recovery(hrv: Double?, restingHr: Int?, respiratoryRate: Double?, b: PersonalBaseline?, date: String? = null): RecoveryResult {
+    /**
+     * [date] = día de la noche (yyyy-MM-dd); null = hoy. [sleepScore] = calificación del sueño de esa noche (solo la usa la
+     * calibración personal v2, 21/11; si falta, su media). Coeficientes personales de 7 números = [base, VFC, FCR, percentil,
+     * calificación, escalón personal desde el 10/11, calificación media]: con ellos NO se suma el escalón general del usuario.
+     */
+    fun recovery(hrv: Double?, restingHr: Int?, respiratoryRate: Double?, b: PersonalBaseline?, date: String? = null,
+                 sleepScore: Int? = null): RecoveryResult {
         val lnRef = b?.lnHrvMean ?: ln(FALLBACK_HRV)
         val delta = hrv?.takeIf { it > 0 }?.let { ln(it) - lnRef }
         val rhrDelta = if (restingHr != null) restingHr - (b?.avgRestingHr ?: FALLBACK_RHR) else null
         val f = recoveryFeatures(hrv, restingHr, b)
         val c = recoveryCoefficients()
-        var score = c[0] + c[1] * f[0] - c[2] * f[1] + c[3] * f[2] + recoveryStep(date)
+        var score = c[0] + c[1] * f[0] - c[2] * f[1] + c[3] * f[2] + if (c.size >= 7) {
+            val d = date ?: java.time.LocalDate.now().toString()
+            c[4] * (sleepScore?.toDouble() ?: c[6]) + if (d >= REC_WHOOP_STEP_SINCE) c[5] else 0.0
+        } else recoveryStep(date)
         var penalty = false
         if (respiratoryRate != null && respiratoryRate in 8.0..25.0 && b?.respMean != null && b.respSd != null) {
             val z = (respiratoryRate - b.respMean) / b.respSd

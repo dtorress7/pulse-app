@@ -1093,6 +1093,25 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
     regularidad 64, eficiencia 97); PulseApp 63 %, VFC 112, FCR 46, sueño 89 %, 9:10. VFC/FCR CUADRAN; con la línea base de WHOOP (120) nuestra fórmula da 63 =
     la app → no es la línea base, es que WHOOP responde distinto a él (−7 % de VFC → 46; a ti → ~60). Remedio previsto: importar SU export de WHOOP →
     `RecoveryCalibration` (≥ 90 noches y mejora ≥ 0,3). Sueño +2 h: sin sus archivos no se puede saber (pedidos el lunes).
+- **Pablo con su export de WHOOP (21/11; check/pablo, check/multi: m.py, p3.py, p4.py, Cal2.kt, P3.kt; NO subir sus datos al repo)**:
+  - **WHOOP rehace la noche**: a las 11:18 mostraba 7:08 dormido / VFC 112 / recuperación 46; en el export (ya procesado) 01:31–11:26, 9:22, VFC 118,
+    recuperación 57. PulseApp 01:28–11:25, 9:20 → PulseApp estaba bien. Ojo con las capturas tempranas de WHOOP.
+  - **Suelo del giroscopio (Android + iOS `SleepStager.normalizeGyro`, `GYRO_FLOOR_REF/TOL/MIN_N` 1,4 / 0,3 / 60)**: quieta, su pulsera marca 0,7 °/s
+    (la del usuario 1,4) → sus pequeños movimientos contaban como quietud. P10 del giro en los minutos quietos de la ventana; si se aleja > 0,3 de 1,4 se
+    desplaza todo. Pablo 19→20: 01:32–10:02 → 02:49–10:02 (WHOOP 02:44–10:02), dormido 479 → 424 (433); 19 y 21 iguales (±5 min). Tus 37 noches idénticas.
+    `night_recalc_v24` / iOS 24. Las siestas (`Formulas.detectNaps`, giro < 2,5) aún NO usan el suelo.
+  - **REM = 0 en sus 3 noches** (WHOOP 155/117/131): el modelo de fases (solo tus noches) no ve REM en él (pulso 40–46, VFC que varía poco). Probado y no
+    basta: suelo del giro, escalar ΔlnRMSSD/ΔFC, bajar la sd del pulso, cuantiles hacia tu distribución. Hace falta reentrenar con hipnogramas de Pablo.
+  - **Respiración** 8,1 / 0 / 17,4 (WHOOP 17,3 / 17,4 / 17,5): las dos primeras noches el móvil solo recibió RR en ~45 % de los latidos.
+  - **Recuperación: WHOOP NO usa los mismos números para todos** (192 noches de Pablo, 215 tuyas). Sd de ln VFC 30 d: tú 0,195, Pablo 0,113. Ajustes
+    por persona: VFC 39 (tú) frente a 78 (Pablo); calificación del sueño 0 frente a +0,5/punto; escalón del 10/11 +7,4 frente a −5. Una fórmula común
+    (o normalizada por la sd de cada uno, "z") ajustada con uno y probada con el otro falla 5,1–7,3 → la idea de "misma fórmula con su variación" NO se
+    cumple. **Calibración v2 (Android + iOS `RecoveryCalibration`, `Formulas.recovery(…, sleepScore)`)**: con el export se ajustan base, VFC, FCR,
+    percentil, calificación del sueño de WHOOP y su escalón propio desde el 10/11 (si ≥ 7 noches a cada lado); 7 números guardados (+ calificación media
+    si falta la de hoy); con ellos NO se suma el escalón general. Pablo (código real): validación cruzada general 5,60 → 3,79; ajustando hasta el 15/9 y
+    probando 68 noches después 6,22 → 3,71. Tú: sigue la general (3,96 vs 3,90). 19–21/11 con VFC/FCR de PulseApp: 61/65/57 (WHOOP 62/74/57).
+    HomeData calcula la recuperación DESPUÉS de la calificación del sueño. Test de iOS reccal regenerado (CalRef.kt, days.csv con calificación).
+    Pablo tiene que volver a importar su export tras instalar. El escalón general +7,4 (desde el 10/11) es TUYO, no global (a Pablo le perjudica +6).
 - **Versión instalada (20/11, Android + iOS)**: al final de "Más" sale "Versión: <commit> · dd/MM HH:mm" (GitHub Actions: env `PULSE_BUILD_INFO` →
   `BuildConfig.BUILD_INFO`; iOS reescribe `Core/BuildInfo.swift`). Las compilaciones de antes de 6d5a84d no lo muestran. Recuperación 20/11 en la app 94
   (VFC 111) = compilación del miércoles 18/11 (84c810b): con el modelo de fases antiguo de 11 noches la noche 19→20 da VFC 109,9 (con el inicio viejo ~111);

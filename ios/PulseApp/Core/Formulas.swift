@@ -556,10 +556,10 @@ enum Formulas {
     /// Coeficientes [base, VFC, FCR, percentil]: los personales del export de WHOOP si mejoran a los generales (RecoveryCalibration).
     private static let keyRecPersonal = "pulseapp_rec_personal_coef"
     static func recoveryCoefficients() -> [Double] {
-        if let c = UserDefaults.standard.array(forKey: keyRecPersonal) as? [Double], c.count == 4 { return c }
+        if let c = UserDefaults.standard.array(forKey: keyRecPersonal) as? [Double], c.count == 4 || c.count == 7 { return c }
         return [recBias, recKHrv, recKRhr, recKPct]
     }
-    static func hasPersonalRecovery() -> Bool { (UserDefaults.standard.array(forKey: keyRecPersonal) as? [Double])?.count == 4 }
+    static func hasPersonalRecovery() -> Bool { let n = (UserDefaults.standard.array(forKey: keyRecPersonal) as? [Double])?.count; return n == 4 || n == 7 }
     static func setPersonalRecovery(_ c: [Double]?) {
         if let c = c { UserDefaults.standard.set(c, forKey: keyRecPersonal) } else { UserDefaults.standard.removeObject(forKey: keyRecPersonal) }
     }
@@ -578,8 +578,10 @@ enum Formulas {
         return [delta ?? -0.1, rhrDelta ?? 0.0, normalCdf((lnToday - mu) / sdLn)]
     }
 
-    /// [date] = día de la noche (yyyy-MM-dd); nil = hoy.
-    static func recovery(hrv: Double?, restingHr: Int?, respiratoryRate: Double?, baseline b: PersonalBaseline?, date: String? = nil) -> RecoveryResult {
+    /// [date] = día de la noche (yyyy-MM-dd); nil = hoy. [sleepScore] = calificación del sueño (calibración personal v2, 21/11, igual
+    /// que Android): con 7 coeficientes [base, VFC, FCR, percentil, calificación, escalón personal, calificación media] no se suma el escalón general.
+    static func recovery(hrv: Double?, restingHr: Int?, respiratoryRate: Double?, baseline b: PersonalBaseline?, date: String? = nil,
+                         sleepScore: Int? = nil) -> RecoveryResult {
         let lnRef = b?.lnHrvMean ?? log(fallbackHrv)
         var delta: Double? = nil
         if let h = hrv, h > 0 { delta = log(h) - lnRef }
@@ -587,7 +589,13 @@ enum Formulas {
         if let r = restingHr { rhrDelta = Double(r) - (b?.avgRestingHr ?? fallbackRhr) }
         let f = recoveryFeatures(hrv: hrv, restingHr: restingHr, baseline: b)
         let c = recoveryCoefficients()
-        var score = c[0] + c[1] * f[0] - c[2] * f[1] + c[3] * f[2] + recoveryStep(date)
+        var score = c[0] + c[1] * f[0] - c[2] * f[1] + c[3] * f[2]
+        if c.count >= 7 {
+            let d = date ?? TimeUtil.dayKey(TimeUtil.nowMillis())
+            score += c[4] * (sleepScore.map { Double($0) } ?? c[6]) + (d >= recWhoopStepSince ? c[5] : 0)
+        } else {
+            score += recoveryStep(date)
+        }
         var penalty = false
         if let rr = respiratoryRate, rr >= 8.0, rr <= 25.0, let bb = b, let m = bb.respMean, let sd = bb.respSd {
             let z = (rr - m) / sd

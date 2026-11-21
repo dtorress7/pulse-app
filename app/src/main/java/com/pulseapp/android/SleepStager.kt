@@ -138,12 +138,28 @@ object SleepStager {
     }
 
     private fun computeNight(hrFile: File, motionFile: File, startMillis0: Long, endMillis0: Long): Result? {
-        val allMotion = MotionTracker.readMinutes(motionFile)
+        val allMotion = normalizeGyro(MotionTracker.readMinutes(motionFile), startMillis0, endMillis0)
         val (startMillis, endMillis) = motionBounds(startMillis0, endMillis0, allMotion)
         val motion = allMotion.filter { it.minuteStartUnix / 60 in (startMillis / 60_000L)..(endMillis / 60_000L) }
         if (motion.isEmpty()) return null
         val readings = parseHr(hrFile, startMillis, endMillis)
         return stage(startMillis, endMillis, readings, motion)
+    }
+
+    /**
+     * Suelo del giroscopio de cada pulsera (21/11). Quieto del todo, la pulsera del usuario marca ~1,4 °/s y la de Pablo 0,7: todos los
+     * umbrales (quieto < 2,5, inquieto ≥ 3…) y el modelo de fases se ajustaron con 1,4, así que con 0,7 los pequeños movimientos
+     * contaban como quietud (19→20/11 de Pablo: 01:32–10:02 frente a WHOOP 02:44–10:02). Suelo = percentil 10 del giro en los
+     * minutos quietos (≥ 50 s, 0 pasos) de la ventana; si se aleja más de 0,3 de 1,4, se desplaza todo el giro para que su suelo sea 1,4.
+     */
+    fun normalizeGyro(motion: List<MotionMinute>, startMillis: Long, endMillis: Long): List<MotionMinute> {
+        val a = startMillis / 60_000L; val b = endMillis / 60_000L
+        val g = motion.filter { it.minuteStartUnix / 60 in a..b && it.stillSecs >= 50 && it.steps == 0 }.map { it.gyroDps }.sorted()
+        if (g.size < GYRO_FLOOR_MIN_N) return motion
+        val floor = g[g.size / 10]
+        val off = GYRO_FLOOR_REF - floor
+        if (abs(off) <= GYRO_FLOOR_TOL) return motion
+        return motion.map { it.copy(gyroDps = maxOf(0f, it.gyroDps + off)) }
     }
 
     /**
@@ -418,7 +434,8 @@ object SleepStager {
      */
     fun stageNap(hrFile: File, motionFile: File, startMillis: Long, endMillis: Long): Result? {
         if (!motionFile.exists()) return null
-        val motion = MotionTracker.readMinutes(motionFile).filter { it.minuteStartUnix / 60 in (startMillis / 60_000L)..(endMillis / 60_000L) }
+        val motion = normalizeGyro(MotionTracker.readMinutes(motionFile), startMillis, endMillis)
+            .filter { it.minuteStartUnix / 60 in (startMillis / 60_000L)..(endMillis / 60_000L) }
         if (motion.isEmpty()) return null
         val r = stage(startMillis, endMillis, parseHr(hrFile, startMillis, endMillis), motion, NAP_MIN_MINUTES) ?: return null
         val st = r.stages.copyOf()
@@ -436,6 +453,9 @@ object SleepStager {
     private const val END_EXT_GAP = 3
     private const val ONGOING_MIN = 5
     private const val MOTION_LAG_MAX = 60L
+    private const val GYRO_FLOOR_REF = 1.4f
+    private const val GYRO_FLOOR_TOL = 0.3f
+    private const val GYRO_FLOOR_MIN_N = 60
     private const val NAP_MIN_MINUTES = 20
     private const val NAP_NO_REM_MIN = 60
 

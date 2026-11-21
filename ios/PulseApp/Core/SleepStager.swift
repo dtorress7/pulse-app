@@ -42,6 +42,8 @@ enum SleepStager {
     /// La noche empieza en el primer tramo de al menos estos minutos sin despertar (17/10).
     private static let onsetRun = 8   // 24/10: 15 → 10; 20/11: 10 → 8 (igual que Android)
     private static let minMotionCoverage = 0.6
+    private static let gyroFloorRef: Float = 1.4, gyroFloorTol: Float = 0.3
+    private static let gyroFloorMinN = 60
     private static let motionLagMax: Int64 = 60   // 21/11: movimiento por detrás del pulso (igual que Android MOTION_LAG_MAX)
 
     final class Result {
@@ -178,7 +180,7 @@ enum SleepStager {
         if key == cacheKey { let v = cacheValue; cacheLock.unlock(); return v }
         cacheLock.unlock()
 
-        let allMotion = MotionTracker.readMinutes(motionFile)
+        let allMotion = normalizeGyro(MotionTracker.readMinutes(motionFile), startMillis, endMillis)
         let (start, end) = motionBounds(startMillis, endMillis, allMotion)
         let lo = start / 60_000, hi = end / 60_000
         let motion = allMotion.filter { $0.minuteStartUnix / 60 >= lo && $0.minuteStartUnix / 60 <= hi }
@@ -193,12 +195,29 @@ enum SleepStager {
         return computed
     }
 
+    /// Suelo del giroscopio de cada pulsera (21/11, igual que Android `normalizeGyro`): quieta, la pulsera del usuario marca ~1,4 °/s y la
+    /// de Pablo 0,7, y los umbrales y el modelo se ajustaron con 1,4. Suelo = percentil 10 del giro en los minutos quietos (≥ 50 s, 0 pasos)
+    /// de la ventana; si se aleja más de 0,3 de 1,4, se desplaza todo el giro.
+    static func normalizeGyro(_ motion: [MotionMinute], _ startMillis: Int64, _ endMillis: Int64) -> [MotionMinute] {
+        let a = startMillis / 60_000, b = endMillis / 60_000
+        let g = motion.filter { $0.minuteStartUnix / 60 >= a && $0.minuteStartUnix / 60 <= b && $0.stillSecs >= 50 && $0.steps == 0 }
+            .map { $0.gyroDps }.sorted()
+        if g.count < gyroFloorMinN { return motion }
+        let off = gyroFloorRef - g[g.count / 10]
+        if abs(off) <= gyroFloorTol { return motion }
+        return motion.map { m in
+            MotionMinute(minuteStartUnix: m.minuteStartUnix, seconds: m.seconds, steps: m.steps, enmoMg: m.enmoMg,
+                         gyroDps: max(0, m.gyroDps + off), stillSecs: m.stillSecs, gravX: m.gravX, gravY: m.gravY, gravZ: m.gravZ)
+        }
+    }
+
     /// Fases de una SIESTA (2/11, igual que Android `stageNap`): el mismo clasificador sobre la ventana de la siesta (mínimo 20 min) y sin
     /// REM en los primeros 60 min. Siesta del 1/11 15:51–17:35 → 2/74/22/0 (WHOOP 7/51/40/0).
     static func stageNap(hrLog: HrLog, motionFile: URL, startMillis: Int64, endMillis: Int64) -> Result? {
         if !FileManager.default.fileExists(atPath: motionFile.path) { return nil }
         let lo = startMillis / 60_000, hi = endMillis / 60_000
-        let motion = MotionTracker.readMinutes(motionFile).filter { $0.minuteStartUnix / 60 >= lo && $0.minuteStartUnix / 60 <= hi }
+        let motion = normalizeGyro(MotionTracker.readMinutes(motionFile), startMillis, endMillis)
+            .filter { $0.minuteStartUnix / 60 >= lo && $0.minuteStartUnix / 60 <= hi }
         if motion.isEmpty { return nil }
         guard let r = stage(startMillis: startMillis, endMillis: endMillis, readings: hrLog.readings(from: startMillis, to: endMillis),
                             motion: motion, minWindow: 20) else { return nil }

@@ -92,8 +92,8 @@ struct RecoveryBreakdown {
 
 enum RecoveryCalculator {
     static func breakdown(nightlyHrv: Double?, restingHr: Int?, baseline: PersonalBaseline?,
-                          respiratoryRate: Double? = nil) -> RecoveryBreakdown {
-        let r = Formulas.recovery(hrv: nightlyHrv, restingHr: restingHr, respiratoryRate: respiratoryRate, baseline: baseline)
+                          respiratoryRate: Double? = nil, sleepScore: Int? = nil) -> RecoveryBreakdown {
+        let r = Formulas.recovery(hrv: nightlyHrv, restingHr: restingHr, respiratoryRate: respiratoryRate, baseline: baseline, sleepScore: sleepScore)
         return RecoveryBreakdown(total: r.total, hrvDeltaPct: r.hrvDeltaPct, rhrDelta: r.rhrDelta,
                                  respPenalty: r.respPenalty, personalBaseline: r.usedPersonalBaseline)
     }

@@ -230,11 +230,6 @@ enum HomeDataLoader {
             let baseline = BaselineProvider.computeFrom(Array(before.reversed()))
             var r = DayRecord(date: d)
             // Días importados de WHOOP (23/10): se muestran las notas oficiales de WHOOP; si no, las calcula PulseApp
-            if let w = row.whoopRecovery {
-                r.recovery = w
-            } else if row.avgHrv != nil || row.restingHr != nil {
-                r.recovery = Formulas.recovery(hrv: row.avgHrv, restingHr: row.restingHr, respiratoryRate: row.respiratoryRate, baseline: baseline, date: d).total
-            }
             let prevStrain = byDate[Day.add(d, -1)]?.strain
             let debtBefore = SleepPlanner.debtFrom(Array(before.suffix(14)), base: base)
             let strainAdj = Formulas.sleepNeedFromStrain(prevStrain ?? 0)
@@ -249,6 +244,13 @@ enum HomeDataLoader {
             } else if let m = row.sleepMinutes {
                 r.sleepScore = Formulas.sleepScore(hoursVsNeedPct: min(m * 100 / max(needLastNight, 1), 100),
                                                    efficiencyPct: row.sleepEfficiencyPct, consistencyPct: consistency)
+            }
+            // 21/11: la calibración personal usa también la calificación del sueño de esa noche
+            if let w = row.whoopRecovery {
+                r.recovery = w
+            } else if row.avgHrv != nil || row.restingHr != nil {
+                r.recovery = Formulas.recovery(hrv: row.avgHrv, restingHr: row.restingHr, respiratoryRate: row.respiratoryRate, baseline: baseline,
+                                               date: d, sleepScore: r.sleepScore).total
             }
             r.hrv = row.avgHrv; r.rhr = row.restingHr; r.resp = row.respiratoryRate
             r.sleepMinutes = row.sleepMinutes; r.efficiency = row.sleepEfficiencyPct
@@ -277,10 +279,6 @@ enum HomeDataLoader {
         if isToday, let s = summary {
             let baseline = BaselineProvider.compute(store: store)
             var r = DayRecord(date: date)
-            if s.avgHrv != nil || s.restingHr != nil {
-                r.recovery = RecoveryCalculator.breakdown(nightlyHrv: s.avgHrv, restingHr: s.restingHr, baseline: baseline,
-                                                          respiratoryRate: s.respiratoryRate).total
-            }
             let lastPlan = SleepPlanner.planForLastNight(store: store, summary: s)
             // Deuda tras la noche de hoy: la mitad de lo que faltó para la necesidad de esa noche
             var debtAfter = lastPlan.debtAdjustmentMinutes
@@ -312,6 +310,10 @@ enum HomeDataLoader {
             if let m = s.sleepMinutes {
                 r.sleepScore = Formulas.sleepScore(hoursVsNeedPct: min(m * 100 / max(lastPlan.totalNeedMinutes, 1), 100),
                                                    efficiencyPct: s.sleepEfficiencyPct, consistencyPct: consistency)
+            }
+            if s.avgHrv != nil || s.restingHr != nil {
+                r.recovery = RecoveryCalculator.breakdown(nightlyHrv: s.avgHrv, restingHr: s.restingHr, baseline: baseline,
+                                                          respiratoryRate: s.respiratoryRate, sleepScore: r.sleepScore).total
             }
             r.debt = debtAfter
             // VO2 máx estable: se recalcula solo los martes (o si nunca se ha calculado)
