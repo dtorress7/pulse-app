@@ -14,6 +14,7 @@ struct SleepDetailView: View {
     /// Fase elegida (como WHOOP: se pinta en la gráfica de pulso y en su barra). nil = ninguna.
     @State private var selectedStage: Int? = nil
     @State private var showTypical = false
+    @State private var editingSleep = false
 
     var body: some View {
         WScreen {
@@ -121,6 +122,17 @@ struct SleepDetailView: View {
         // ---------- El sueño de anoche ----------
         WHeading(text: "El sueño de anoche").padding(.top, 34)
         WBody(text: "\(WText.dateShort(d.date)) vs. los 30 días anteriores", size: 14)
+        // 22/11: editar el inicio/fin de la noche, como WHOOP (p. ej. tumbado viendo una película antes de dormirte)
+        if let f = d.sleepFromMillis, let t = d.sleepToMillis {
+            Button(action: { editingSleep = true }) {
+                Text(SleepEdits.forDate(AppPaths.baseDir, d.date) != nil ? "EDITADO A MANO · CAMBIAR" : "EDITAR SUEÑO")
+                    .font(Theme.label(15)).foregroundColor(Theme.wRingSleep)
+            }
+            .buttonStyle(.plain).padding(.top, 10)
+            .sheet(isPresented: $editingSleep) {
+                SleepEditSheet(date: d.date, fromMillis: f, toMillis: t) { HomeStore.shared.invalidate() }
+            }
+        }
         sleepCard(d, prev, avg).padding(.top, 16)
 
         // ---------- Horas vs. lo necesario ----------

@@ -160,6 +160,24 @@ class SleepDetailActivity : AppCompatActivity() {
                 setPadding(0, dp(34f), 0, 0)
             })
             content.addView(W.body(ctx, "${W.dateShort(d.date)} vs. los 30 días anteriores", 14f))
+            // 22/11: editar el inicio/fin de la noche, como WHOOP (p. ej. tumbado viendo una película antes de dormirte)
+            if (d.sleepFromMillis != null && d.sleepToMillis != null) {
+                val dir = getExternalFilesDir(null)!!
+                val edited = SleepEdits.forDate(dir, d.date.toString()) != null
+                content.addView(W.title(ctx, if (edited) "EDITADO A MANO · CAMBIAR" else "EDITAR SUEÑO", 13f, R.color.w_ring_sleep).apply {
+                    setPadding(0, dp(10f), 0, dp(2f))
+                    setOnClickListener {
+                        SleepEditDialog.show(ctx, dir, d.date, d.sleepFromMillis, d.sleepToMillis) { _, end ->
+                            lifecycleScope.launch {
+                                withContext(Dispatchers.IO) {
+                                    StrengthSave.recalcDayOf(ctx, AppDatabaseHolder.get(ctx), end ?: d.sleepToMillis)
+                                }
+                                load()
+                            }
+                        }
+                    }
+                })
+            }
 
             val sleepCard = W.card(ctx, 16f)
             sleepCard.addView(W.metricHeader(ctx, "Horas de sueño", hm(day.sleepMinutes),

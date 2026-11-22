@@ -1146,6 +1146,13 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   automáticos; a mano solo el pulso → 2,06 (paseos automáticos sin cambios: 8/11 3,59, 7/11 5,21). El 0,2 de WHOOP no se explica con el pulso
   (8/11, 20 min a FC 90 → 2,97) → pregunta para la IA de WHOOP. `act_recalc` 7 / iOS 7.
 
+- **Editar sueño (22/11, Android `SleepEdits.kt` + `SleepEditDialog.kt`, iOS `Core/SleepEdits.swift` + `UI/SleepEditSheet.swift`)**: noche 21→22/11 tumbado
+  viendo una película desde las 21:50 (quieto, pulso 54–60): WHOOP la empezó a las ~22:00 y PulseApp a las 21:50; el usuario la cambió a mano en WHOOP a
+  22:50. Ahora Sueño → "EDITAR SUEÑO" (inicio y fin; 12:00–23:59 = víspera) → sleep_edits.csv ("fecha,inicio ms,fin ms"; "fecha,0,0" = restablecer).
+  `SleepStager.stageNight` con una edición que se solapa: exactamente ese tramo (`stage(…, forced = true)`: sin motionBounds ni trimBounds), las fases/VFC/
+  FCR/respiración solo de él; el día se recalcula (`recalcDayOf`). Código real (check/n22/ed): 22:50–08:51, 45/329/121/107, VFC 105,7, FCR 55 (sin editar
+  21:50–08:51, 47/425/83/107, VFC 100,3, FCR 56; WHOOP 28/336/107/129, VFC 110, FCR 54); 20 y 21/11 iguales; restablecer vuelve a lo de antes.
+
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
 esfuerzo 11,5, 271 kcal, FC media 127 (la media aritmética de esos segundos es 133: WHOOP no usa la media simple), máx 170,

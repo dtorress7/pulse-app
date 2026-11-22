@@ -130,7 +130,7 @@ object SleepStager {
     fun stageNight(hrFile: File, motionFile: File, startMillis: Long, endMillis: Long): Result? {
         if (!motionFile.exists()) return null
         // Inicio solo se llama una vez por minuto desde Inicio: se reaprovecha si no cambió la ventana ni el movimiento
-        val key = "$startMillis-$endMillis-${motionFile.length()}-${hrFile.length() / 200_000L}"
+        val key = "$startMillis-$endMillis-${motionFile.length()}-${hrFile.length() / 200_000L}-${SleepEdits.stamp(hrFile.parentFile ?: File("."))}"
         synchronized(this) { if (key == cacheKey) return cacheValue }
         val computed = computeNight(hrFile, motionFile, startMillis, endMillis)
         synchronized(this) { cacheKey = key; cacheValue = computed }
@@ -138,6 +138,13 @@ object SleepStager {
     }
 
     private fun computeNight(hrFile: File, motionFile: File, startMillis0: Long, endMillis0: Long): Result? {
+        // 22/11: noche editada a mano → exactamente ese tramo en cama, sin buscar límites ni recortar
+        SleepEdits.find(hrFile.parentFile ?: File("."), startMillis0, endMillis0)?.let { ed ->
+            val motion = normalizeGyro(MotionTracker.readMinutes(motionFile), ed.startMillis, ed.endMillis)
+                .filter { it.minuteStartUnix / 60 in (ed.startMillis / 60_000L)..(ed.endMillis / 60_000L) }
+            if (motion.isEmpty()) return null
+            return stage(ed.startMillis, ed.endMillis, parseHr(hrFile, ed.startMillis, ed.endMillis), motion, forced = true)
+        }
         val allMotion = normalizeGyro(MotionTracker.readMinutes(motionFile), startMillis0, endMillis0)
         val (startMillis, endMillis) = motionBounds(startMillis0, endMillis0, allMotion)
         val motion = allMotion.filter { it.minuteStartUnix / 60 in (startMillis / 60_000L)..(endMillis / 60_000L) }
@@ -265,7 +272,7 @@ object SleepStager {
     }
 
     fun stage(startMillis: Long, endMillis: Long, readings: List<HrReading>, motion: List<MotionMinute>,
-              minWindow: Int = MIN_WINDOW_MINUTES): Result? {
+              minWindow: Int = MIN_WINDOW_MINUTES, forced: Boolean = false): Result? {
         val m0 = startMillis / 60_000L
         val m1 = endMillis / 60_000L
         val n = (m1 - m0 + 1).toInt()
@@ -388,6 +395,7 @@ object SleepStager {
         // en las capturas los despertares cortos son líneas de 1 px y el modelo aprendió menos minutos despierto de la cuenta.
         modelStages(m0, n, readings, motion)?.let { ms ->
             for (k in 0 until n) ms[k] = if (aw[k]) AWAKE else if (ms[k] == AWAKE) LIGHT else ms[k]
+            if (forced) return Result(m0, ms)   // noche editada: la ventana ya es el tiempo en cama (como el modelo se entrenó)
             val (a0, b0) = trimBounds(ms, hrm, gyro, steps, 0)
             // 5/11: segunda pasada SOLO sobre la noche ya recortada. El modelo se entrenó con el "progreso" de la noche medido sobre el
             // tiempo en cama de WHOOP; con la ventana sin recortar, ese progreso dependía de cuánto rato llevabas levantado (la ventana del
@@ -420,6 +428,7 @@ object SleepStager {
             if ((st[i] == DEEP || st[i] == REM) && j - i < MIN_RUN) for (k in i until j) st[k] = LIGHT
             i = j
         }
+        if (forced) return Result(m0, st)
         // Recorte: fuera el rato en la cama antes de dormirse y después de despertarse
         val (a, b) = trimBounds(st, hrm, gyro, steps, 0)
         return Result(m0 + a, st.copyOfRange(a, b))

@@ -175,11 +175,21 @@ enum SleepStager {
     static func stageNight(hrLog: HrLog, motionFile: URL, startMillis: Int64, endMillis: Int64) -> Result? {
         if !FileManager.default.fileExists(atPath: motionFile.path) { return nil }
         let msize = (try? FileManager.default.attributesOfItem(atPath: motionFile.path)[.size] as? NSNumber)?.int64Value ?? 0
-        let key = "\(startMillis)-\(endMillis)-\(msize)-\(hrLog.fileSize() / 200_000)"
+        let key = "\(startMillis)-\(endMillis)-\(msize)-\(hrLog.fileSize() / 200_000)-\(SleepEdits.stamp(motionFile.deletingLastPathComponent()))"
         cacheLock.lock()
         if key == cacheKey { let v = cacheValue; cacheLock.unlock(); return v }
         cacheLock.unlock()
 
+        // 22/11: noche editada a mano → exactamente ese tramo en cama, sin buscar límites ni recortar
+        if let ed = SleepEdits.find(motionFile.deletingLastPathComponent(), startMillis, endMillis) {
+            let lo = ed.startMillis / 60_000, hi = ed.endMillis / 60_000
+            let motion = normalizeGyro(MotionTracker.readMinutes(motionFile), ed.startMillis, ed.endMillis)
+                .filter { $0.minuteStartUnix / 60 >= lo && $0.minuteStartUnix / 60 <= hi }
+            let computed = motion.isEmpty ? nil : stage(startMillis: ed.startMillis, endMillis: ed.endMillis,
+                                                        readings: hrLog.readings(from: ed.startMillis, to: ed.endMillis), motion: motion, forced: true)
+            cacheLock.lock(); cacheKey = key; cacheValue = computed; cacheLock.unlock()
+            return computed
+        }
         let allMotion = normalizeGyro(MotionTracker.readMinutes(motionFile), startMillis, endMillis)
         let (start, end) = motionBounds(startMillis, endMillis, allMotion)
         let lo = start / 60_000, hi = end / 60_000
@@ -226,7 +236,7 @@ enum SleepStager {
         return Result(startMinute: r.startMinute, stages: st)
     }
 
-    static func stage(startMillis: Int64, endMillis: Int64, readings: [HrReading], motion: [MotionMinute], minWindow: Int = minWindowMinutes) -> Result? {
+    static func stage(startMillis: Int64, endMillis: Int64, readings: [HrReading], motion: [MotionMinute], minWindow: Int = minWindowMinutes, forced: Bool = false) -> Result? {
         let m0 = startMillis / 60_000
         let m1 = endMillis / 60_000
         let n = Int(m1 - m0 + 1)
@@ -389,6 +399,7 @@ enum SleepStager {
         }
         if var ms = SleepModel.classify(secs, mot) {
             for k in 0..<n { ms[k] = aw[k] ? awake : (ms[k] == awake ? light : ms[k]) }
+            if forced { return Result(startMinute: m0, stages: ms) }   // noche editada: la ventana ya es el tiempo en cama
             let (a0, b0) = trimBounds(ms, hr: hrm, gyro: gyro, steps: steps, off: 0)
             // 5/11 (igual que Android): segunda pasada SOLO sobre la noche recortada. El "progreso" de la noche del modelo depende de la
             // ventana, que crecía por la mañana: 5/11 a las 8:00 VFC 94,0 / recuperación 69 y a las 8:15 93,1 / 67.
@@ -419,6 +430,7 @@ enum SleepStager {
             if (st[i] == deep || st[i] == rem) && j - i < minRun { for k in i..<j { st[k] = light } }
             i = j
         }
+        if forced { return Result(startMinute: m0, stages: st) }
         // Recorte: fuera el rato en la cama antes de dormirse y después de despertarse
         let (a, b) = trimBounds(st, hr: hrm, gyro: gyro, steps: steps, off: 0)
         return Result(startMinute: m0 + Int64(a), stages: Array(st[a..<b]))
