@@ -52,7 +52,10 @@ class ActivityRecorder {
             trimpTotal += Formulas.trimp(deltaMin, readings[i].bpm, rhr, hrMax, sex != "F")
         }
         // Esfuerzo de la actividad: misma escala que el del día (WHOOP: fútbol 2 h ≈ 10,7)
-        val strain = Formulas.strainFromTrimp(trimpTotal, Formulas.sessionMuscleMinutes(type, startMillis, endMillis))
+        // 22/11: la carga propia de los paseos solo para los DETECTADOS solos. Caminata de 1 h añadida a mano el 21/11 (FC media 87–89):
+        // WHOOP 0,2 y PulseApp 6,9; los 6 paseos que WHOOP detectó solo (20–30 min, FC 90–113) dan 3–5 y con la carga cuadran (±0,3).
+        val muscle = if (Formulas.isWalk(type) && !autoDetected) 0.0 else Formulas.sessionMuscleMinutes(type, startMillis, endMillis)
+        val strain = Formulas.strainFromTrimp(trimpTotal, muscle)
 
         val durationMinutes = (endMillis - startMillis) / 60000.0
         // Calorías por tiempo en cada zona (ajustadas con el export de WHOOP); antes Keytel daba ~1,8× más

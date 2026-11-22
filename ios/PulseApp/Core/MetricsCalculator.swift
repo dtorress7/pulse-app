@@ -223,8 +223,9 @@ enum ActivityRecorder {
                 trimpTotal += Formulas.trimp(minutes: deltaMin, hr: readings[i].bpm, restingHr: rhr, hrMax: hrMax, male: sex != "F")
             }
         }
-        let strain = Formulas.strainFromTrimp(trimpTotal,
-                                              strengthMinutes: Formulas.sessionMuscleMinutes(type, startMillis, endMillis))
+        // 22/11 (igual que Android): la carga propia de los paseos solo para los detectados solos (caminata a mano: WHOOP 0,2, PulseApp 6,9)
+        let muscle = (Formulas.isWalk(type) && !autoDetected) ? 0 : Formulas.sessionMuscleMinutes(type, startMillis, endMillis)
+        let strain = Formulas.strainFromTrimp(trimpTotal, strengthMinutes: muscle)
         let durationMinutes = Double(endMillis - startMillis) / 60000.0
         // Calorías por tiempo en cada zona (ajustadas con el export de WHOOP); Keytel daba ~1,8× más
         let b = Formulas.bmr() > 0 ? Formulas.bmr()

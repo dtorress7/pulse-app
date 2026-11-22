@@ -1141,6 +1141,11 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   personalizados en UserDefaults), `BehaviorPickerView`, `JournalView` nuevo, "Registro inteligente" escrito/hablado (`SmartLog`, `SpeechInput`;
   permisos de micrófono y voz en project.yml). Pendiente: Android.
 
+- **Caminata puesta a mano (22/11, Android + iOS `ActivityRecorder.summarize` / `MetricsCalculator`)**: 21/11 19:00–20:00 a mano en las dos apps, FC media 87:
+  WHOOP 0,2, PulseApp 6,9 (la carga propia de los paseos, pensada para los que WHOOP detecta solo, sumaba ~4,7). Ahora esa carga solo va en paseos
+  automáticos; a mano solo el pulso → 2,06 (paseos automáticos sin cambios: 8/11 3,59, 7/11 5,21). El 0,2 de WHOOP no se explica con el pulso
+  (8/11, 20 min a FC 90 → 2,97) → pregunta para la IA de WHOOP. `act_recalc` 7 / iOS 7.
+
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
 esfuerzo 11,5, 271 kcal, FC media 127 (la media aritmética de esos segundos es 133: WHOOP no usa la media simple), máx 170,
