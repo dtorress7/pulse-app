@@ -171,31 +171,62 @@ enum HomeDataLoader {
         let hrMax = Formulas.hrMax(ageYears: age)
         let motionFile = AppPaths.file(MotionTracker.fileName)
 
+        // 22/11: el día va de sueño a sueño, como WHOOP (DayCycle): pasadas las 00:00 sin haber dormido sigues en el día anterior.
         let now = TimeUtil.nowMillis()
-        let today = Day.today()
-        let date = Day.add(today, min(dayOffset, 0))
-        let isToday = date == today
-        let dayStart = Day.start(date)
-        let dayEnd = Day.start(Day.add(date, 1))
+        let today = Day.today()   // día del reloj (cachés por día natural)
+        let wantToday = dayOffset >= 0
 
         // Tras actualizar (23/10): rehace una vez las noches guardadas con la VFC y la recuperación nuevas
-        if isToday {
+        if wantToday {
             DailyMetricsUpdater.recalcPastNightsOnce(store: store, hrLog: hrLog, motionFile: motionFile, ageYears: age,
                                                      weightKg: profile?.weightKg ?? 75, sex: profile?.sex ?? "M")
         }
+        if wantToday { AutoActivityScanner.scan(store: store, hrLog: hrLog) }
+        let allSessions = store.allSessions()
+        // 11/11: las actividades se pasan al esfuerzo del día (fuera de ellas el pulso casi en reposo no suma)
+        let actWindows = allSessions.filter { $0.type != Formulas.napType }.map { ($0.startMillis, $0.endMillis) }
+        var cycleToday = wantToday ? today : DayCycle.today()
+        var summary: DailySummary? = nil
+        if wantToday {
+            let calc = MetricsCalculator(ageYears: age, male: male)
+            let s0 = calc.analyze(hrLog: hrLog, activities: actWindows)
+            if DayCycle.opensDay(asleepMinutes: s0.sleepMinutes, endMillis: s0.sleepEndMillis, date: today) {
+                summary = s0
+            } else {
+                cycleToday = Day.add(today, -1)
+                summary = calc.analyze(hrLog: hrLog, activities: actWindows, date: cycleToday)
+            }
+            DayCycle.setToday(cycleToday)
+            // El día anterior se guarda cuando ya ha empezado el nuevo (antes se guardaba a las 00:00)
+            if cycleToday == today {
+                DailyMetricsUpdater.updateYesterdayIfNeeded(store: store, hrLog: hrLog, motionFile: motionFile, ageYears: age,
+                                                            weightKg: profile?.weightKg ?? 75, sex: profile?.sex ?? "M")
+            }
+        }
+        let date = Day.add(cycleToday, min(dayOffset, 0))
+        let isToday = date == cycleToday
         // Días guardados (la fila D = noche que termina D + esfuerzo de D), de más antiguo a más reciente
         let stored = store.lastDays(max(80, historyDays + 40)).sorted { $0.date < $1.date }
         var byDate = [String: DailyMetrics]()
         for d in stored { byDate[d.date] = d }
-        if isToday { AutoActivityScanner.scan(store: store, hrLog: hrLog) }
-        let allSessions = store.allSessions()
-        // 11/11: las actividades se pasan al esfuerzo del día (fuera de ellas el pulso casi en reposo no suma)
-        let summary: DailySummary? = isToday ? MetricsCalculator(ageYears: age, male: male)
-            .analyze(hrLog: hrLog, activities: allSessions.filter { $0.type != Formulas.napType }.map { ($0.startMillis, $0.endMillis) }) : nil
+        // 22/11: inicio y fin de cada día = de que te duermes a que te vuelves a dormir (sin noche guardada, las 00:00)
+        func cycleStartOf(_ d: String) -> Int64 {
+            if d == cycleToday, let c = summary?.cycleStartMillis { return c }
+            if let r = byDate[d] { return DayCycle.startMillis(d, r.sleepStartMinuteOfDay, r.sleepEndMinuteOfDay) }
+            return Day.start(d)
+        }
+        func cycleEndOf(_ d: String) -> Int64 { return d >= cycleToday ? now : max(cycleStartOf(Day.add(d, 1)), cycleStartOf(d)) }
+        let dayStart = cycleStartOf(date)
+        let dayEnd = cycleEndOf(date)
         // 2/11: fases de las siestas recientes (una vez cada una; restan de la necesidad con su tiempo dormido)
         let napSince = Day.start(Day.add(date, -2))
         for s in allSessions where s.type == Formulas.napType && s.startMillis >= napSince { _ = NapStages.get(s, hrLog: hrLog) }
-        let stepsByDay = stepsPerDay(motionFile)   // 30/10: pulsera + PulseApp (ver BandSteps)
+        // 30/10: pulsera + PulseApp (ver BandSteps); 22/11: sumados por día de sueño a sueño
+        let stepMinutes = BandSteps.MinuteSteps(BandSteps.perMinute(BandSteps.read(), MotionTracker.readMinutes(motionFile)))
+        func stepsOf(_ d: String) -> Int? {
+            let n = stepMinutes.sum(cycleStartOf(d), cycleEndOf(d) + (d >= cycleToday ? 60_000 : 0))
+            return n > 0 ? n : nil
+        }
         let zoneDays = ZoneDayCache.load(hrUrl: hrLog.url, hrMax: hrMax, today: today, days: 40)
         let base = SleepPlanner.baselineForAge(profile?.ageYears())
         let wake = SleepPlanner.wakeMinute()
@@ -204,13 +235,15 @@ enum HomeDataLoader {
         // Ritmo fuera de entrenos de WHOOP (de tus días importados), guardado para cuando ya no estén en la ventana de días
         var restKcal = Formulas.whoopRestKcalPerDay(days: stored, sessions: allSessions)
         if let r = restKcal { Formulas.setRestKcalPerDay(r) } else { restKcal = Formulas.restKcalPerDay() }
-        func kcalFor(_ d: String, _ elapsed: Double) -> Double? {
+        // 22/11: calorías del día de sueño a sueño (como el ciclo de WHOOP): ritmo de reposo × duración del ciclo + actividades
+        func kcalFor(_ d: String) -> Double? {
             guard let p = profile else { return nil }
-            let s = Day.start(d), e = Day.start(Day.add(d, 1))
+            let s = cycleStartOf(d), e = cycleEndOf(d)
+            let elapsed = Double(e - s) / 60_000.0
             let daySessions = allSessions.filter { $0.startMillis >= s && $0.startMillis < e }
             let act = daySessions.reduce(0.0) { $0 + $1.caloriesKcal }
             // minutos de actividad (sin siestas) dentro de lo transcurrido del día: ahí ya cuentan las kcal de la actividad
-            let limit = s + Int64(elapsed * 60_000)
+            let limit = e
             let actMin = daySessions.filter { $0.type != Formulas.napType }
                 .reduce(0.0) { $0 + Double(max(0, min($1.endMillis, limit, e) - $1.startMillis)) / 60_000.0 }
             return CalorieCalculator.estimateDailyTotal(elapsedMinutesToday: elapsed, activityKcalToday: act,
@@ -218,7 +251,7 @@ enum HomeDataLoader {
                                                         activityMinutesToday: actMin, restKcalPerDay: restKcal)
         }
         func strengthOf(_ d: String) -> Int {
-            let s = Day.start(d), e = Day.start(Day.add(d, 1))
+            let s = cycleStartOf(d), e = cycleEndOf(d)
             return allSessions.filter { $0.type.lowercased().contains("fuerza") && $0.startMillis >= s && $0.startMillis < e }
                 .reduce(0) { $0 + Int(($1.endMillis - $1.startMillis) / 60_000) }
         }
@@ -260,8 +293,8 @@ enum HomeDataLoader {
             r.needTonight = base + Formulas.sleepNeedFromStrain(row.strain ?? 0) + debtAfter
             r.debt = debtAfter
             r.consistency = consistency
-            if let st = stepsByDay[d], st > 0 { r.steps = st }
-            r.kcal = kcalFor(d, 1440)
+            r.steps = stepsOf(d)
+            r.kcal = kcalFor(d)
             r.vo2 = row.vo2Max
             r.light = row.lightMinutes; r.deep = row.deepMinutes; r.rem = row.remMinutes; r.awake = row.awakeMinutes
             r.wakeEpisodes = row.wakeEpisodes; r.latency = row.latencyMinutes
@@ -332,9 +365,8 @@ enum HomeDataLoader {
             r.strain = dayStrain
             r.needTonight = plan.totalNeedMinutes
             r.consistency = consistency
-            let live = Steps.today(live: WhoopManager.shared.stepsToday)
-            if live > 0 { r.steps = live }
-            r.kcal = kcalFor(date, Double(TimeUtil.minuteOfDay(now)))
+            r.steps = stepsOf(date)
+            r.kcal = kcalFor(date)
             if let st = s.stages {
                 r.light = st.lightMinutes; r.deep = st.deepMinutes; r.rem = st.remMinutes; r.awake = st.awakeMinutes
                 r.wakeEpisodes = st.awakenings
@@ -364,7 +396,7 @@ enum HomeDataLoader {
             day = recordFromStored(date, row)
         } else {
             day = DayRecord(date: date)
-            if let st = stepsByDay[date], st > 0 { day.steps = st }
+            day.steps = stepsOf(date)
             day.strengthMinutes = strengthOf(date)
             day.zones = zoneDays[date]
         }
@@ -379,8 +411,8 @@ enum HomeDataLoader {
             sleepFrom = s.stages?.startMillis ?? ss
             sleepTo = s.stages?.endMillis ?? se
         } else if let s = day.sleepStartMinute, let e = day.sleepEndMinute {
-            sleepTo = dayStart + Int64(e) * 60_000
-            sleepFrom = s > e ? dayStart - Int64(1440 - s) * 60_000 : dayStart + Int64(s) * 60_000
+            sleepTo = Day.start(date) + Int64(e) * 60_000
+            sleepFrom = DayCycle.startMillis(date, s, e)
         }
 
         // ---------- Estrés del día (00:00 → ahora, como WHOOP) ----------

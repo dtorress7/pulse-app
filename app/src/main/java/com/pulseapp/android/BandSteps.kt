@@ -146,6 +146,33 @@ object BandSteps {
         return out
     }
 
+    /**
+     * 22/11: pasos por MINUTO (minuto unix → pasos) con las mismas reglas que [perDay], para sumarlos por día de sueño a sueño
+     * (ver DayCycle). Lo de un hueco sin historial va al minuto en que acaba el hueco, como en [perDay].
+     */
+    fun perMinute(band: Data, imu: List<MotionMinute>): java.util.TreeMap<Long, Int> {
+        val out = java.util.TreeMap<Long, Int>()
+        for ((m, v) in band.perMinute) out[m] = (out[m] ?: 0) + v
+        val imuSorted = imu.sortedBy { it.minuteStartUnix }
+        val imuMinutes = imuSorted.map { it.minuteStartUnix }
+        for (x in imu) {
+            if (band.covers(x.minuteStartUnix) || band.covers(x.minuteStartUnix + 59)) continue
+            val m = x.minuteStartUnix / 60; out[m] = (out[m] ?: 0) + x.steps
+        }
+        for (g in band.gaps) {
+            var k = java.util.Collections.binarySearch(imuMinutes, g[0]); if (k < 0) k = -k - 1
+            var imuInGap = 0
+            while (k < imuMinutes.size && imuMinutes[k] <= g[1]) { imuInGap += imuSorted[k].steps; k++ }
+            val extra = (g[2].toInt() - imuInGap).coerceAtLeast(0)
+            if (extra > 0) { val m = g[1] / 60; out[m] = (out[m] ?: 0) + extra }
+        }
+        return out
+    }
+
+    /** Suma de [perMinute] en [fromMs, toMs). */
+    fun sumBetween(perMinute: java.util.TreeMap<Long, Int>, fromMs: Long, toMs: Long): Int =
+        if (toMs <= fromMs) 0 else perMinute.subMap(fromMs / 60_000L, toMs / 60_000L).values.sum()
+
     /** ¿Hay historial de la pulsera dentro de [fromMs, toMs)? */
     fun hasData(band: Data, fromMs: Long, toMs: Long): Boolean =
         band.covered.any { it[0] * 1000 < toMs && it[1] * 1000 >= fromMs }

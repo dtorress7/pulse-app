@@ -328,7 +328,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateDayLabel() {
         val label = findViewById<TextView>(R.id.dayLabel)
-        val date = java.time.LocalDate.now().plusDays(dayOffset.toLong())
+        val date = DayCycle.today().plusDays(dayOffset.toLong())
         label.text = when (dayOffset) {
             0 -> "HOY"
             -1 -> "AYER"

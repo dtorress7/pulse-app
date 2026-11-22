@@ -25,7 +25,9 @@ data class DailySummary(
     val sleepStartMillis: Long? = null,
     val sleepEndMillis: Long? = null,
     /** Fases minuto a minuto de la noche (solo si esa noche hay movimiento grabado). */
-    val stages: SleepStager.Result? = null
+    val stages: SleepStager.Result? = null,
+    /** 22/11: inicio del día de sueño a sueño (al dormirte; sin noche, las 00:00) */
+    val cycleStartMillis: Long? = null
 )
 
 private data class Reading(val timeMillis: Long, val bpm: Int, val rr: List<Double>)
@@ -40,7 +42,7 @@ class MetricsCalculator(ageYears: Int, private val male: Boolean = true) {
     }
 
     fun analyze(file: File, motionFile: File = File(file.parentFile, MotionTracker.FILE_NAME),
-                activities: List<Pair<Long, Long>> = emptyList()): DailySummary {
+                activities: List<Pair<Long, Long>> = emptyList(), date: java.time.LocalDate? = null): DailySummary {
         val readings = parseCsv(file)
         if (readings.isEmpty()) {
             return DailySummary(null, null, null, null, 0.0, null, null, null, null, null, null, null, null, null, 0)
@@ -51,8 +53,11 @@ class MetricsCalculator(ageYears: Int, private val male: Boolean = true) {
         // Noche = desde las 18:00 de AYER (igual que DailyMetricsUpdater). Antes eran las últimas 30 h: entraba el final
         // de la noche anterior, bajaba el umbral del detector y el inicio cambiaba según la hora a la que abrías la app
         // (19→20: 00:50 con 30 h, 00:00 desde las 18:00).
+        // 22/11: [date] = día (de sueño a sueño) que se calcula; sin él, el del reloj. Pasadas las 00:00 sin haber dormido, Inicio
+        // pide el día anterior: su noche y su esfuerzo desde que te dormiste hasta ahora (ver DayCycle).
+        val ref = date?.atTime(12, 0)?.atZone(java.time.ZoneId.systemDefault())?.toInstant()?.toEpochMilli() ?: now
         val eve18 = java.util.Calendar.getInstance().apply {
-            timeInMillis = now; add(java.util.Calendar.DAY_OF_YEAR, -1)
+            timeInMillis = ref; add(java.util.Calendar.DAY_OF_YEAR, -1)
             set(java.util.Calendar.HOUR_OF_DAY, 18); set(java.util.Calendar.MINUTE, 0)
             set(java.util.Calendar.SECOND, 0); set(java.util.Calendar.MILLISECOND, 0)
         }.timeInMillis
@@ -66,17 +71,18 @@ class MetricsCalculator(ageYears: Int, private val male: Boolean = true) {
         // Ciclo del día como WHOOP: empieza al dormirte (si la noche acabó hace menos de 20 h); si no, a las 00:00.
         // Antes se usaba TODO el archivo y el esfuerzo de hoy arrastraba el de días anteriores.
         val midnight = java.util.Calendar.getInstance().apply {
+            timeInMillis = ref
             set(java.util.Calendar.HOUR_OF_DAY, 0); set(java.util.Calendar.MINUTE, 0)
             set(java.util.Calendar.SECOND, 0); set(java.util.Calendar.MILLISECOND, 0)
         }.timeInMillis
-        val cycleStart = if (sleep != null && now - sleep.endMillis < 20 * 3_600_000L) sleep.startMillis else midnight
-        val cycleReadings = readings.filter { it.timeMillis >= cycleStart }
-        val avgHr = cycleReadings.takeIf { it.isNotEmpty() }?.map { it.bpm }?.average()?.toInt()
-
         // Con movimiento grabado esa noche, las fases (y el tiempo despierto) salen de SleepStager.
         // La ventana de las fases ya viene recortada: empieza al dormirse y acaba al despertar (17/10).
         val staged = sleep?.let { SleepStager.stageNight(file, motionFile, it.startMillis, it.endMillis) }
         val window = staged?.let { it.startMillis to it.endMillis - 1 } ?: restWindow
+        // 22/11: el ciclo empieza al DORMIRTE (inicio de la noche recortada, = inicio del ciclo de WHOOP), no al primer pulso bajo
+        val cycleStart = if (sleep != null && (date != null || now - sleep.endMillis < 20 * 3_600_000L)) (window?.first ?: sleep.startMillis) else midnight
+        val cycleReadings = readings.filter { it.timeMillis >= cycleStart }
+        val avgHr = cycleReadings.takeIf { it.isNotEmpty() }?.map { it.bpm }?.average()?.toInt()
 
         // FC en reposo y VFC SOLO con la ventana de sueño (igual que WHOOP)
         val sleepReadings = if (window != null) {
@@ -116,6 +122,7 @@ class MetricsCalculator(ageYears: Int, private val male: Boolean = true) {
             sleepEfficiencyPct = staged?.efficiencyPct ?: sleepEfficiency,
             respiratoryRate = respiratoryRate,
             totalReadings = readings.size,
+            cycleStartMillis = cycleStart,
             sleepStartMillis = window?.first,
             sleepEndMillis = window?.second,
             stages = staged

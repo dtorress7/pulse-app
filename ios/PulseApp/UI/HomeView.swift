@@ -271,7 +271,7 @@ struct HomeView: View {
     private var dayLabel: String {
         if dayOffset == 0 { return "HOY" }
         if dayOffset == -1 { return "AYER" }
-        let d = Day.add(Day.today(), dayOffset)
+        let d = Day.add(DayCycle.today(), dayOffset)
         return "\(WText.weekdayUpper(d)). \(Day.dayOfMonth(d))"
     }
 

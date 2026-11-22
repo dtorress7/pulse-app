@@ -8,15 +8,18 @@ struct MetricsCalculator {
     private var hrMax: Double { return Formulas.hrMax(ageYears: ageYears) }
 
     func analyze(hrLog: HrLog, motionFile: URL = AppPaths.file(MotionTracker.fileName), now: Int64 = TimeUtil.nowMillis(),
-                 activities: [(Int64, Int64)] = []) -> DailySummary {
+                 activities: [(Int64, Int64)] = [], date: String? = nil) -> DailySummary {
+        // 22/11: [date] = día (de sueño a sueño) que se calcula; sin él, el del reloj. Pasadas las 00:00 sin haber dormido, Inicio
+        // pide el día anterior: su noche y su esfuerzo desde que te dormiste hasta ahora (ver DayCycle).
+        let ref = date.map { Day.start($0) + 12 * 3_600_000 } ?? now
         // Solo hace falta lo reciente: la noche (últimas 30 h) y el ciclo del día
-        let readings = hrLog.readings(from: now - 36 * 3_600_000, to: now + 3_600_000)
+        let readings = hrLog.readings(from: min(now - 36 * 3_600_000, TimeUtil.startOfDay(ref) - 7 * 3_600_000), to: now + 3_600_000)
         if readings.isEmpty { return DailySummary.empty() }
         let totalReadings = readings.count
 
         // Noche = desde las 18:00 de AYER (igual que DailyMetricsUpdater). Con las últimas 30 h entraba el final de la noche
         // anterior, bajaba el umbral del detector y el inicio dependía de la hora a la que abrías la app (19→20: 00:50 / 00:00).
-        let eve18 = TimeUtil.startOfDay(now) - 6 * 3_600_000
+        let eve18 = TimeUtil.startOfDay(ref) - 6 * 3_600_000
         // …y hasta las 14:00 de hoy: la noche es la que TERMINA hoy (20/10: un rato en el sofá de 20:28 a 21:58 con el pulso
         // bajo se tomó como "la noche"). Las siestas de la tarde no cuentan como noche.
         let today15 = eve18 + 21 * 3_600_000
@@ -25,17 +28,6 @@ struct MetricsCalculator {
         let restWindow: (Int64, Int64)? = sleep.map { ($0.startMillis, $0.endMillis) }
 
         // Ciclo del día como WHOOP: empieza al dormirte (si la noche acabó hace menos de 20 h); si no, a las 00:00.
-        let midnight = TimeUtil.startOfDay(now)
-        var cycleStart = midnight
-        if let s = sleep, now - s.endMillis < 20 * 3_600_000 { cycleStart = s.startMillis }
-        let cycleReadings = readings.filter { $0.timeMillis >= cycleStart }
-        var avgHr: Int? = nil
-        if !cycleReadings.isEmpty {
-            var sum = 0.0
-            for r in cycleReadings { sum += Double(r.bpm) }
-            avgHr = Int(sum / Double(cycleReadings.count))
-        }
-
         // Con movimiento grabado esa noche, las fases (y el tiempo despierto) salen de SleepStager.
         // La ventana de las fases ya viene recortada: empieza al dormirse y acaba al despertar (17/10).
         var staged: SleepStager.Result? = nil
@@ -43,6 +35,17 @@ struct MetricsCalculator {
             staged = SleepStager.stageNight(hrLog: hrLog, motionFile: motionFile, startMillis: s.startMillis, endMillis: s.endMillis)
         }
         let window: (Int64, Int64)? = staged.map { ($0.startMillis, $0.endMillis - 1) } ?? restWindow
+        // 22/11: el ciclo empieza al DORMIRTE (inicio de la noche recortada, = inicio del ciclo de WHOOP), no al primer pulso bajo
+        let midnight = TimeUtil.startOfDay(ref)
+        var cycleStart = midnight
+        if let s = sleep, date != nil || now - s.endMillis < 20 * 3_600_000 { cycleStart = window?.0 ?? s.startMillis }
+        let cycleReadings = readings.filter { $0.timeMillis >= cycleStart }
+        var avgHr: Int? = nil
+        if !cycleReadings.isEmpty {
+            var sum = 0.0
+            for r in cycleReadings { sum += Double(r.bpm) }
+            avgHr = Int(sum / Double(cycleReadings.count))
+        }
 
         // FC en reposo y VFC SOLO con la ventana de sueño (igual que WHOOP)
         var sleepReadings = [HrReading]()
@@ -82,6 +85,7 @@ struct MetricsCalculator {
         summary.totalReadings = totalReadings
         summary.stages = staged
         summary.restStartMillis = sleep?.startMillis
+        summary.cycleStartMillis = cycleStart
         return summary
     }
 

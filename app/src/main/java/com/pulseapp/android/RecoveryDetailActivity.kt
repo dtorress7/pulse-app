@@ -30,7 +30,7 @@ class RecoveryDetailActivity : AppCompatActivity() {
         setContentView(R.layout.activity_sleep_detail)
         window.statusBarColor = Ui.color(this, R.color.w_bg_top)
         offset = intent.getIntExtra(EXTRA_DAY_OFFSET, 0)
-        Ui.setupDetailHeader(this, if (offset == 0) "HOY" else W.dateTitle(LocalDate.now().plusDays(offset.toLong())))
+        Ui.setupDetailHeader(this, if (offset == 0) "HOY" else W.dateTitle(DayCycle.today().plusDays(offset.toLong())))
         Ui.setupTabBar(this, Ui.Tab.HOME)
     }
 

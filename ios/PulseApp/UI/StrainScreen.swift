@@ -13,7 +13,7 @@ struct StrainDetailView: View {
 
     var body: some View {
         WScreen {
-            DetailHeader(title: WText.dateTitle(Day.add(Day.today(), dayOffset)), showBack: showBack)
+            DetailHeader(title: WText.dateTitle(Day.add(DayCycle.today(), dayOffset)), showBack: showBack)
             if let d = data {
                 content(d)
             } else {

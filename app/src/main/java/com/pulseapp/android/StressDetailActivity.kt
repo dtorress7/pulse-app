@@ -69,11 +69,12 @@ class StressDetailActivity : AppCompatActivity() {
             val home = HomeDataLoader(ctx).load(dayOffset)
             val baseline = BaselineProvider().compute(db)
             val file = File(getExternalFilesDir(null), "hr_log.csv")
-            val day = LocalDate.now(zone).plusDays(dayOffset.toLong())
-            val isToday = dayOffset == 0
-            val dayStart = day.atStartOfDay(zone).toInstant().toEpochMilli()
+            // 22/11: el día va de sueño a sueño (DayCycle): el mismo tramo que Inicio
+            val day = home.date
+            val isToday = home.isToday
+            val dayStart = home.stressFrom
             val now = System.currentTimeMillis()
-            val end = if (isToday) now else day.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+            val end = if (isToday) now else home.stressTo
             val elapsed = end - dayStart
             val allSessions = db.activitySessionDao().getAll()
             val sessions = allSessions.map { it.startMillis..it.endMillis }

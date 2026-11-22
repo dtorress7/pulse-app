@@ -7,9 +7,30 @@ enum DailyMetricsUpdater {
         recalcPastNightsOnce(store: store, hrLog: hrLog, motionFile: motionFile, ageYears: ageYears, weightKg: weightKg, sex: sex)
         let now = TimeUtil.nowMillis()
         let yesterdayKey = TimeUtil.dayKey(TimeUtil.addDays(now, -1))
-        if store.getDay(yesterdayKey) != nil { return }
+        // 22/11: el día va de sueño a sueño (DayCycle). Ayer se cierra cuando ya ha empezado el día de hoy (has dormido la noche que
+        // acaba hoy) o, sin noche, a las 15:00; se guarda una vez cerrado (aunque ya hubiera una fila guardada antes de tiempo).
+        if UserDefaults.standard.string(forKey: closedKey) == yesterdayKey { return }
+        let importUntil = WhoopImport.importedUntil()
+        if !importUntil.isEmpty && yesterdayKey <= importUntil { UserDefaults.standard.set(yesterdayKey, forKey: closedKey); return }
+        let todayKey = TimeUtil.dayKey(now)
+        let opens = detectNight(hrLog: hrLog, motionFile: motionFile, key: todayKey)
+            .map { DayCycle.opensDay(asleepMinutes: $0.asleep, endMillis: $0.window.1, date: todayKey) } ?? false
+        if !opens && now < Day.start(todayKey) + 15 * 3_600_000 { return }
         if let d = computeDay(store: store, hrLog: hrLog, motionFile: motionFile, key: yesterdayKey,
                               ageYears: ageYears, weightKg: weightKg, sex: sex) { store.saveDay(d) }
+        UserDefaults.standard.set(yesterdayKey, forKey: closedKey)
+    }
+
+    static let closedKey = "pulseapp_cycle_closed_day"
+
+    /// La noche que termina el día [key] (de las 18:00 de la víspera a las 15:00 de ese día): ventana recortada y minutos dormido.
+    static func detectNight(hrLog: HrLog, motionFile: URL, key: String) -> (window: (Int64, Int64), asleep: Int?)? {
+        let d0 = Day.start(key)
+        let nightReadings = hrLog.readings(from: d0 - 6 * 3_600_000, to: d0 + 15 * 3_600_000)
+        guard let sleep = SleepDetector.detect(nightReadings.map { ($0.timeMillis, $0.bpm) }) else { return nil }
+        let staged = SleepStager.stageNight(hrLog: hrLog, motionFile: motionFile, startMillis: sleep.startMillis, endMillis: sleep.endMillis)
+        let window = staged.map { ($0.startMillis, $0.endMillis - 1) } ?? (sleep.startMillis, sleep.endMillis)
+        return (window, staged?.asleepMinutes ?? sleep.asleepMinutes)
     }
 
     static let recalcKey = "pulseapp_night_recalc"
@@ -17,14 +38,14 @@ enum DailyMetricsUpdater {
     /// Una sola vez tras actualizar (23/10, VFC y recuperación nuevas): rehace con las fórmulas de ahora los días guardados
     /// que tengan pulso guardado, para que la línea base de VFC esté en la misma escala. Sin pulso, se dejan igual.
     static func recalcPastNightsOnce(store: AppStore, hrLog: HrLog, motionFile: URL, ageYears: Int, weightKg: Double, sex: String) {
-        if UserDefaults.standard.integer(forKey: recalcKey) >= 24 { return }   // 24 (21/11): suelo del giroscopio de cada pulsera; 23 (20/11): inicio con giros en la cama; 22 (19/11): modelo de fases con 30 noches y contexto ±7 min; 21 (18/11): VO₂ máx con K 16,45; 20 (12/11): inicio con tramo quieto de 9 min; 19 (11/11): paseos sin carga aparte en el día; 18 (11/11): esfuerzo del día sin el pulso casi en reposo fuera de las actividades; 17 (10/11): fin de la noche sin cortar al dormitar con el pulso alto ni con un despertar de 3 min; 16 (9/11 tarde): temperatura de la piel; 15 (9/11): fin antes del rato despierto tumbado e inquieto; 14 (7/11): inicio/fin de la noche despierto en la cama; 13 (5/11): fases con segunda pasada sobre la noche recortada; 12 (4/11): VFC sin los tramos de pulso alto; 11 (3/11): fin de la noche con 40 pasos y pesas con su carga; 10 (2/11): esfuerzo con la FCR de referencia; 9 (1/11): VFC por profundo + ligero; 8 (1/11): fin de la noche sin remolonear; 7 (30/10): esfuerzo sin el pulso bajo dormido; 6 (27/10): esfuerzo del día sin base fuera de actividades; 5: fases 11 noches
+        if UserDefaults.standard.integer(forKey: recalcKey) >= 25 { return }   // 25 (22/11): esfuerzo, FC media y calorías del día de sueño a sueño; 24 (21/11): suelo del giroscopio de cada pulsera; 23 (20/11): inicio con giros en la cama; 22 (19/11): modelo de fases con 30 noches y contexto ±7 min; 21 (18/11): VO₂ máx con K 16,45; 20 (12/11): inicio con tramo quieto de 9 min; 19 (11/11): paseos sin carga aparte en el día; 18 (11/11): esfuerzo del día sin el pulso casi en reposo fuera de las actividades; 17 (10/11): fin de la noche sin cortar al dormitar con el pulso alto ni con un despertar de 3 min; 16 (9/11 tarde): temperatura de la piel; 15 (9/11): fin antes del rato despierto tumbado e inquieto; 14 (7/11): inicio/fin de la noche despierto en la cama; 13 (5/11): fases con segunda pasada sobre la noche recortada; 12 (4/11): VFC sin los tramos de pulso alto; 11 (3/11): fin de la noche con 40 pasos y pesas con su carga; 10 (2/11): esfuerzo con la FCR de referencia; 9 (1/11): VFC por profundo + ligero; 8 (1/11): fin de la noche sin remolonear; 7 (30/10): esfuerzo sin el pulso bajo dormido; 6 (27/10): esfuerzo del día sin base fuera de actividades; 5: fases 11 noches
         let today = TimeUtil.dayKey(TimeUtil.nowMillis())
         let importUntil = WhoopImport.importedUntil()
         for row in store.lastDays(60) where row.date < today && (importUntil.isEmpty || row.date > importUntil) {
             if let d = computeDay(store: store, hrLog: hrLog, motionFile: motionFile, key: row.date,
                                   ageYears: ageYears, weightKg: weightKg, sex: sex) { store.saveDay(d) }
         }
-        UserDefaults.standard.set(24, forKey: recalcKey)
+        UserDefaults.standard.set(25, forKey: recalcKey)
     }
 
     /// 17/11: tras importar el pulso de otro móvil (p. ej. de PulseApp a Pulse Beta), calcula los días que aún no están guardados
@@ -86,11 +107,20 @@ enum DailyMetricsUpdater {
         let avgHrv: Double? = sleepWindowReadings.isEmpty ? nil : NightMetrics.hrv(sleepWindowReadings, staged: staged)
         var vo2: Double? = nil
         if let r = restingHr, r > 0 { vo2 = Formulas.vo2Max(hrMax: hrMax, restingHr: Double(r)) }
-        var strain = Formulas.strainOf(readings: dayReadings.map { ($0.timeMillis, $0.bpm) }, restingHr: Formulas.zoneRestingHr(),   // 2/11: FCR de referencia
+        // 22/11: el día va de sueño a sueño (DayCycle): desde que te dormiste esa noche hasta que te dormiste la siguiente
+        // (sin noche, de 00:00 a 00:00). El esfuerzo, la FC media y las calorías salen de ese tramo, como el ciclo de WHOOP.
+        let cycleStart = window?.0 ?? dayStart
+        let nextKey = Day.add(yesterdayKey, 1)
+        let nextStart = detectNight(hrLog: hrLog, motionFile: motionFile, key: nextKey)
+            .flatMap { DayCycle.opensDay(asleepMinutes: $0.asleep, endMillis: $0.window.1, date: nextKey) ? $0.window.0 : nil }
+        let cycleEnd = max(cycleStart + 3_600_000, nextStart ?? dayEnd)
+        var cycleReadings = hrLog.readings(from: cycleStart, to: cycleEnd).filter { $0.timeMillis >= cycleStart && $0.timeMillis < cycleEnd }
+        if cycleReadings.isEmpty { cycleReadings = dayReadings }
+        var strain = Formulas.strainOf(readings: cycleReadings.map { ($0.timeMillis, $0.bpm) }, restingHr: Formulas.zoneRestingHr(),   // 2/11: FCR de referencia
                                        hrMax: hrMax, male: sex != "F", sleepWindow: window,
                                        activities: store.allSessions().filter { $0.type != Formulas.napType }.map { ($0.startMillis, $0.endMillis) })   // 11/11
         // Día con fuerza/funcional: + carga muscular, como WHOOP (22/10)
-        let daySessions = store.allSessions().filter { $0.startMillis >= dayStart && $0.startMillis < dayEnd }
+        let daySessions = store.allSessions().filter { $0.startMillis >= cycleStart && $0.startMillis < cycleEnd }
         let strengthMin = daySessions.reduce(0.0) { $0 + Formulas.dayMuscleMinutes($1.type, $1.startMillis, $1.endMillis) }
         // 27/10: la base por minuto solo en las actividades (el pulso del día va sin ella)
         let activityMin = daySessions.reduce(0.0) { $0 + Formulas.activityLoadMinutes($1.type, Double($1.endMillis - $1.startMillis) / 60000.0) }
@@ -106,9 +136,9 @@ enum DailyMetricsUpdater {
         let resp: Double? = sleepWindowReadings.isEmpty ? nil : RespiratoryRateCalculator.estimate(sleepWindowReadings.flatMap { $0.rr })
 
         var sum = 0.0
-        for r in dayReadings { sum += Double(r.bpm) }
-        let avgHr = sum / Double(dayReadings.count)
-        let durationMinutes = Double(dayReadings.count) / 60.0
+        for r in cycleReadings { sum += Double(r.bpm) }
+        let avgHr = sum / Double(cycleReadings.count)
+        let durationMinutes = Double(cycleReadings.count) / 60.0
         let calories = CalorieCalculator.exerciseCalories(avgHr: avgHr, durationMinutes: durationMinutes,
                                                           ageYears: ageYears, weightKg: weightKg, sex: sex)
 

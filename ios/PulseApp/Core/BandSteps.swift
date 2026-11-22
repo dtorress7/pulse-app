@@ -133,6 +133,43 @@ enum BandSteps {
         return out
     }
 
+    /// 22/11: pasos por MINUTO (minuto unix → pasos) con las mismas reglas que `perDay`, para sumarlos por día de sueño a sueño.
+    static func perMinute(_ band: Data, _ imu: [MotionMinute]) -> [Int64: Int] {
+        var out = [Int64: Int]()
+        for (m, v) in band.perMinute { out[m, default: 0] += v }
+        for x in imu where !band.covers(x.minuteStartUnix) && !band.covers(x.minuteStartUnix + 59) {
+            out[x.minuteStartUnix / 60, default: 0] += x.steps
+        }
+        for g in band.gaps {
+            let imuInGap = imu.filter { $0.minuteStartUnix >= g.0 && $0.minuteStartUnix <= g.1 }.reduce(0) { $0 + $1.steps }
+            let extra = max(0, g.2 - imuInGap)
+            if extra > 0 { out[g.1 / 60, default: 0] += extra }
+        }
+        return out
+    }
+
+    /// Pasos por minuto ordenados con sumas acumuladas (para sumar tramos rápido).
+    struct MinuteSteps {
+        let keys: [Int64]
+        let prefix: [Int]   // prefix[i] = suma de los i primeros
+        init(_ perMinute: [Int64: Int]) {
+            keys = perMinute.keys.sorted()
+            var p = [0]; p.reserveCapacity(keys.count + 1)
+            for k in keys { p.append(p.last! + perMinute[k]!) }
+            prefix = p
+        }
+        private func lowerBound(_ m: Int64) -> Int {
+            var lo = 0, hi = keys.count
+            while lo < hi { let mid = (lo + hi) / 2; if keys[mid] < m { lo = mid + 1 } else { hi = mid } }
+            return lo
+        }
+        /// Suma en [fromMs, toMs).
+        func sum(_ fromMs: Int64, _ toMs: Int64) -> Int {
+            if toMs <= fromMs { return 0 }
+            return prefix[lowerBound(toMs / 60_000)] - prefix[lowerBound(fromMs / 60_000)]
+        }
+    }
+
     /// 18/11: horas de cada día (clave yyyy-MM-dd) con historial seguido del contador de la pulsera.
     static func coveredHoursPerDay(_ band: Data) -> [String: Double] {
         var out = [String: Double]()

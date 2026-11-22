@@ -1159,6 +1159,17 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   falla el miércoles 11/11). La IA de WHOOP no sabe la regla (su "deuda resultante" y la "aplicada" difieren 7/9 o 9/7). Caminata 0,2: su curva = nuestro pulso
   (60 s/min sin huecos) → anomalía de WHOOP, no se toca.
 
+- **Día de sueño a sueño como WHOOP (22/11, Android `DayCycle.kt` + iOS `Core/DayCycle.swift`; pedido por el usuario y Pablo)**: el día ya NO cambia a las
+  00:00. API de WHOOP: cada ciclo empieza EXACTAMENTE al inicio del sueño (21/11 21:50:43Z = inicio editado) y se crea al despertar; el día lleva la fecha
+  del despertar. Regla: la noche que acaba hoy "abre" el día si tiene ≥ 3 h dormido y acaba después de las 03:00 (export: dormido mínimo 3:29, despertar
+  más temprano 06:29); si no, Inicio enseña AYER en directo (`MetricsCalculator.analyze(…, date)`: su noche y el esfuerzo desde que te dormiste hasta ahora).
+  `DayCycle.today()` lo usan Inicio, Sueño, Esfuerzo, Recuperación y Estrés. Esfuerzo, FC media, calorías (ritmo × duración del ciclo), pasos
+  (`BandSteps.perMinute` sumados por ciclo), fuerza, estrés y actividades del día = del inicio de su noche al inicio de la siguiente (HomeData
+  `cycleStartOf/cycleEndOf`, DailyMetricsUpdater `detectNight` + ciclo). El día anterior se guarda cuando ya ha empezado el nuevo (o a las 15:00 sin noche),
+  aunque hubiera fila guardada antes (marca `cycle_closed_day.txt` / iOS `pulseapp_cycle_closed_day`). `night_recalc_v25` / iOS 25. Zonas por día
+  (`ZoneDayCache`) y `StressDays` siguen por día natural. Código real (check/cyc/T.kt, noche 21→22/11 cortada): 00:30 → día 21 (VFC 78,7, FCR 60, esfuerzo
+  3,75; WHOOP ciclo 21/11 4,02), 02:00 dormido → día 21, 08:00 → día 22. El ciclo empieza en la noche RECORTADA (antes el inicio del detector).
+
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
 esfuerzo 11,5, 271 kcal, FC media 127 (la media aritmética de esos segundos es 133: WHOOP no usa la media simple), máx 170,

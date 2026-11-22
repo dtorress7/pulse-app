@@ -35,7 +35,7 @@ class ActivitiesListActivity : AppCompatActivity() {
         setContentView(R.layout.activity_activities)
         window.statusBarColor = Ui.color(this, R.color.w_bg_top)
         offset = intent.getIntExtra(EXTRA_DAY_OFFSET, 0)
-        Ui.setupDetailHeader(this, W.dateTitle(LocalDate.now().plusDays(offset.toLong())))
+        Ui.setupDetailHeader(this, W.dateTitle(DayCycle.today().plusDays(offset.toLong())))
         findViewById<View>(R.id.backButton).visibility = if (intent.hasExtra(EXTRA_DAY_OFFSET)) View.VISIBLE else View.INVISIBLE
         Ui.setupTabBar(this, Ui.Tab.ACTIVITIES)
     }

@@ -18,7 +18,9 @@ class DailyMetricsUpdater {
         private const val REST_GRACE_MINUTES = 20
         private const val REST_MIN_DURATION_MINUTES = 90
         private const val DISCONNECT_GAP_MINUTES = 3
-        const val RECALC_FLAG = "night_recalc_v24"   // v24 (21/11): suelo del giroscopio de cada pulsera; v23 (20/11): inicio de la noche con giros en la cama; v22 (19/11): modelo de fases con 30 noches y contexto ±7 min; v21 (18/11): VO₂ máx con K 16,45; v20 (12/11): inicio con tramo quieto de 9 min; v19 (11/11): los paseos no suman carga aparte de su pulso al esfuerzo del día; v18 (11/11): esfuerzo del día sin el pulso casi en reposo fuera de las actividades; v17 (10/11): fin de la noche sin cortar al dormitar con el pulso alto ni con un despertar de 3 min; v16 (9/11 tarde): temperatura de la piel de cada noche; v15 (9/11): fin de la noche antes del rato despierto tumbado e inquieto; v14 (7/11): inicio/fin de la noche despierto en la cama; v13 (5/11): fases con segunda pasada sobre la noche recortada; v12 (4/11): VFC sin los tramos de pulso alto; v11 (3/11): fin de la noche con 40 pasos y pesas con su carga; v10 (2/11): esfuerzo con la FCR de referencia; v9 (1/11): VFC por profundo + ligero; v8 (1/11): fin de la noche sin el rato remoloneando; v7 (30/10): esfuerzo sin el pulso bajo dormido; v6 (27/10): esfuerzo del día sin la base fuera de las actividades; v5 (26/10): modelo de fases con 11 noches (v4: VFC mezcla, esfuerzo v4, cambio de hora)
+        /** 22/11: último día cerrado de sueño a sueño (ver updateYesterdayIfNeeded) */
+        private const val CLOSED_FILE = "cycle_closed_day.txt"
+        const val RECALC_FLAG = "night_recalc_v25"   // v25 (22/11): esfuerzo, FC media y calorías del día de sueño a sueño (DayCycle); v24 (21/11): suelo del giroscopio de cada pulsera; v23 (20/11): inicio de la noche con giros en la cama; v22 (19/11): modelo de fases con 30 noches y contexto ±7 min; v21 (18/11): VO₂ máx con K 16,45; v20 (12/11): inicio con tramo quieto de 9 min; v19 (11/11): los paseos no suman carga aparte de su pulso al esfuerzo del día; v18 (11/11): esfuerzo del día sin el pulso casi en reposo fuera de las actividades; v17 (10/11): fin de la noche sin cortar al dormitar con el pulso alto ni con un despertar de 3 min; v16 (9/11 tarde): temperatura de la piel de cada noche; v15 (9/11): fin de la noche antes del rato despierto tumbado e inquieto; v14 (7/11): inicio/fin de la noche despierto en la cama; v13 (5/11): fases con segunda pasada sobre la noche recortada; v12 (4/11): VFC sin los tramos de pulso alto; v11 (3/11): fin de la noche con 40 pasos y pesas con su carga; v10 (2/11): esfuerzo con la FCR de referencia; v9 (1/11): VFC por profundo + ligero; v8 (1/11): fin de la noche sin el rato remoloneando; v7 (30/10): esfuerzo sin el pulso bajo dormido; v6 (27/10): esfuerzo del día sin la base fuera de las actividades; v5 (26/10): modelo de fases con 11 noches (v4: VFC mezcla, esfuerzo v4, cambio de hora)
     }
 
     private val dayFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
@@ -31,10 +33,36 @@ class DailyMetricsUpdater {
         val yesterdayCal = Calendar.getInstance()
         yesterdayCal.add(Calendar.DAY_OF_YEAR, -1)
         val yesterdayKey = dayFormat.format(yesterdayCal.time)
+        // 22/11: el día va de sueño a sueño (DayCycle). Ayer se cierra cuando ya ha empezado el día de hoy (has dormido la noche que
+        // acaba hoy) o, si no hay noche, a las 15:00. Se guarda una vez cerrado (aunque ya hubiera una fila guardada antes de tiempo).
+        val marker = File(csvFile.parentFile, CLOSED_FILE)
+        if (runCatching { marker.readText().trim() }.getOrNull() == yesterdayKey) return
+        val importUntil = Formulas.whoopImportUntil()
+        if (importUntil.isNotEmpty() && yesterdayKey <= importUntil) { runCatching { marker.writeText(yesterdayKey) }; return }
+        if (!csvFile.exists()) return
+        val all = parseCsv(csvFile)
+        val todayKey = dayFormat.format(Date())
+        val night = detectNight(all, csvFile, todayKey)
+        val opens = night?.let { DayCycle.opensDay(it.asleep, it.window.second, java.time.LocalDate.parse(todayKey)) } ?: false
+        val today15 = Calendar.getInstance().apply { set(Calendar.HOUR_OF_DAY, 15); set(Calendar.MINUTE, 0) }.timeInMillis
+        if (!opens && System.currentTimeMillis() < today15) return
+        computeDay(db, all, csvFile, yesterdayKey, ageYears, weightKg, sex)?.let { db.dailyMetricsDao().save(it) }
+        runCatching { marker.writeText(yesterdayKey) }
+    }
 
-        val existing = db.dailyMetricsDao().getByDate(yesterdayKey)
-        if (existing != null) return
-        computeDay(db, parseCsv(csvFile), csvFile, yesterdayKey, ageYears, weightKg, sex)?.let { db.dailyMetricsDao().save(it) }
+    private class Night(val sleep: SleepDetector.SleepWindow, val staged: SleepStager.Result?, val window: Pair<Long, Long>, val asleep: Int?)
+
+    /** La noche que termina el día [key] (de las 18:00 de la víspera a las 15:00 de ese día). */
+    private fun detectNight(allReadings: List<Reading>, csvFile: File, key: String): Night? {
+        val d0 = Calendar.getInstance().apply {
+            time = dayFormat.parse(key)!!
+            set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        val nightReadings = allReadings.filter { it.timeMillis in (d0 - 6 * 3_600_000L)..(d0 + 15 * 3_600_000L) }
+        val sleep = SleepDetector.detect(nightReadings.map { it.timeMillis to it.bpm }) ?: return null
+        val staged = SleepStager.stageNight(csvFile, File(csvFile.parentFile, MotionTracker.FILE_NAME), sleep.startMillis, sleep.endMillis)
+        val window = staged?.let { it.startMillis to it.endMillis - 1 } ?: (sleep.startMillis to sleep.endMillis)
+        return Night(sleep, staged, window, staged?.asleepMinutes ?: sleep.asleepMinutes)
     }
 
     /**
@@ -106,11 +134,19 @@ class DailyMetricsUpdater {
             NightMetrics.hrv(sleepWindowReadings.map { it.timeMillis to it.rr }, staged, sleepWindowReadings.map { it.bpm })
         } else null
         val vo2Max = restingHr?.let { Formulas.vo2Max(hrMax, it) }
+        // 22/11: el día va de sueño a sueño (DayCycle): desde que te dormiste esa noche hasta que te dormiste la siguiente
+        // (sin noche, de 00:00 a 00:00). El esfuerzo, la FC media y las calorías salen de ese tramo, como el ciclo de WHOOP.
+        val cycleStart = window?.first ?: d0
+        val nextKey = dayFormat.format(Date(d1 + 12 * 3_600_000L))
+        val nextNight = detectNight(allReadings, csvFile, nextKey)
+            ?.takeIf { DayCycle.opensDay(it.asleep, it.window.second, java.time.LocalDate.parse(nextKey)) }
+        val cycleEnd = maxOf(cycleStart + 3_600_000L, nextNight?.window?.first ?: d1)
+        val cycleReadings = allReadings.filter { it.timeMillis in cycleStart until cycleEnd }.ifEmpty { dayReadings }
         // Día con fuerza/funcional: + carga muscular, como WHOOP (22/10)
         val allSessionsForDay = db.activitySessionDao().getAll()
-        val daySessions = allSessionsForDay.filter { dayFormat.format(Date(it.startMillis)) == yesterdayKey }
+        val daySessions = allSessionsForDay.filter { it.startMillis in cycleStart until cycleEnd }
         // 2/11: FCR de referencia; 11/11: fuera de las actividades el pulso casi en reposo no suma (DAY_STRAIN_FLOOR)
-        val strainHr = Formulas.strainOf(dayReadings.map { it.timeMillis to it.bpm }, Formulas.zoneRestingHr(), hrMax, sex != "F", sleepWindow = window,
+        val strainHr = Formulas.strainOf(cycleReadings.map { it.timeMillis to it.bpm }, Formulas.zoneRestingHr(), hrMax, sex != "F", sleepWindow = window,
             activities = allSessionsForDay.filter { it.type != Formulas.NAP_TYPE }.map { it.startMillis to it.endMillis })
         val strengthMin = daySessions.sumOf { Formulas.dayMuscleMinutes(it.type, it.startMillis, it.endMillis) }
         // 27/10: la base por minuto solo en las actividades (el pulso del día va sin ella)
@@ -131,8 +167,8 @@ class DailyMetricsUpdater {
             RespiratoryRateCalculator().estimate(sleepWindowReadings.flatMap { it.rr })
         } else null
 
-        val avgHr = dayReadings.map { it.bpm }.average()
-        val durationMinutes = dayReadings.size / 60.0
+        val avgHr = cycleReadings.map { it.bpm }.average()
+        val durationMinutes = cycleReadings.size / 60.0
         val calories = estimateCalories(avgHr, durationMinutes, ageYears, weightKg, sex)
 
         return DailyMetrics(

@@ -100,6 +100,8 @@ struct DailySummary {
     var restStartMillis: Int64? = nil
     /// Fases minuto a minuto (solo si esa noche hay movimiento grabado).
     var stages: SleepStager.Result? = nil
+    /// 22/11: inicio del día de sueño a sueño (al dormirte; sin noche, las 00:00)
+    var cycleStartMillis: Int64? = nil
 
     static func empty() -> DailySummary {
         return DailySummary(restingHr: nil, avgHr: nil, avgHrv: nil, vo2Max: nil, strain: 0,

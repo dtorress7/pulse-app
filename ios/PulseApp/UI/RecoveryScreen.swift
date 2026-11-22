@@ -14,7 +14,7 @@ struct RecoveryDetailView: View {
 
     var body: some View {
         WScreen {
-            DetailHeader(title: dayOffset == 0 ? "Hoy" : WText.dateTitle(Day.add(Day.today(), dayOffset)), showBack: showBack)
+            DetailHeader(title: dayOffset == 0 ? "Hoy" : WText.dateTitle(Day.add(DayCycle.today(), dayOffset)), showBack: showBack)
             if let d = data {
                 content(d)
             } else {

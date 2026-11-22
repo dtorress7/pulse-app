@@ -262,7 +262,7 @@ struct StressDetailView: View {
                     Image(systemName: "info.circle").font(.system(size: 20)).foregroundColor(Theme.textPrimary).frame(width: 44, height: 44)
                 }))
             let off = offset ?? initialOffset
-            let day = Day.add(Day.today(), off)
+            let day = Day.add(DayCycle.today(), off)
             HStack(spacing: 6) {
                 Button(action: { offset = off - 1; load() }) {
                     Image(systemName: "chevron.left").font(.system(size: 17, weight: .semibold)).foregroundColor(Theme.textPrimary).frame(width: 40, height: 40)
@@ -316,10 +316,11 @@ struct StressDetailView: View {
     static func compute(_ home: HomeData, _ off: Int) -> Result {
         let store = AppStore.shared
         let baseline = BaselineProvider.compute(store: store)
-        let day = Day.add(Day.today(), off)
-        let dayStart = Day.start(day)
+        // 22/11: el día va de sueño a sueño (DayCycle): el mismo tramo que Inicio
+        let day = home.date
+        let dayStart = home.stressFrom
         let now = TimeUtil.nowMillis()
-        let end = off == 0 ? now : Day.start(Day.add(day, 1))
+        let end = home.isToday ? now : home.stressTo
         let elapsed = end - dayStart
         let all = store.allSessions()
         let sessions = all.map { $0.startMillis...max($0.endMillis, $0.startMillis) }

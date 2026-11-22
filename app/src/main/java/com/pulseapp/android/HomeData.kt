@@ -143,34 +143,54 @@ class HomeDataLoader(private val ctx: Context) {
         val hrFile = File(dir, "hr_log.csv")
         val motionFile = File(dir, MotionTracker.FILE_NAME)
 
-        val today = LocalDate.now(zone)
-        val date = today.plusDays(dayOffset.toLong().coerceAtMost(0))
-        val isToday = date == today
-        val dayStart = date.atStartOfDay(zone).toInstant().toEpochMilli()
-        val dayEnd = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+        // 22/11: el día va de sueño a sueño, como WHOOP (DayCycle): pasadas las 00:00 sin haber dormido sigues en el día anterior.
+        val today = LocalDate.now(zone)   // día del reloj (cachés por día natural)
         val now = System.currentTimeMillis()
+        val wantToday = dayOffset >= 0
 
         // Tras actualizar (23/10): rehace una vez las noches guardadas con la VFC y la recuperación nuevas
-        if (isToday) withContext(Dispatchers.IO) {
+        if (wantToday) withContext(Dispatchers.IO) {
             DailyMetricsUpdater().recalcPastNightsOnce(db, hrFile, age, profile?.weightKg ?: 75f, profile?.sex ?: "M")
         }
+        if (wantToday) AutoActivityScanner.scan(ctx, hrFile)
+        val allSessions = db.activitySessionDao().getAll()
+        // 11/11: las actividades se pasan al esfuerzo del día (fuera de ellas el pulso casi en reposo no suma)
+        val actWindows = allSessions.filter { it.type != Formulas.NAP_TYPE }.map { it.startMillis to it.endMillis }
+        var cycleToday = if (wantToday) today else DayCycle.today(zone)
+        val summary = if (wantToday) withContext(Dispatchers.IO) {
+            val calc = MetricsCalculator(ageYears = age, male = male)
+            val s0 = calc.analyze(hrFile, activities = actWindows)
+            if (DayCycle.opensDay(s0.sleepMinutes, s0.sleepEndMillis, today, zone)) s0
+            else { cycleToday = today.minusDays(1); calc.analyze(hrFile, activities = actWindows, date = cycleToday) }
+        } else null
+        if (wantToday) {
+            DayCycle.setToday(cycleToday)
+            // El día anterior se guarda cuando ya ha empezado el nuevo (antes se guardaba a las 00:00)
+            if (cycleToday == today) withContext(Dispatchers.IO) {
+                DailyMetricsUpdater().updateYesterdayIfNeeded(db, hrFile, age, profile?.weightKg ?: 75f, profile?.sex ?: "M")
+            }
+        }
+        val date = cycleToday.plusDays(dayOffset.toLong().coerceAtMost(0))
+        val isToday = date == cycleToday
         // Días guardados (la fila D = noche que termina D + esfuerzo de D), de más antiguo a más reciente
         val stored = db.dailyMetricsDao().getLastDays(80).sortedBy { it.date }
         val byDate = stored.associateBy { it.date }
-        if (isToday) AutoActivityScanner.scan(ctx, hrFile)
-        val allSessions = db.activitySessionDao().getAll()
-        // 11/11: las actividades se pasan al esfuerzo del día (fuera de ellas el pulso casi en reposo no suma)
-        val summary = if (isToday) withContext(Dispatchers.IO) {
-            MetricsCalculator(ageYears = age, male = male).analyze(hrFile,
-                activities = allSessions.filter { it.type != Formulas.NAP_TYPE }.map { it.startMillis to it.endMillis })
-        } else null
+        // 22/11: inicio y fin de cada día = de que te duermes a que te vuelves a dormir (sin noche guardada, las 00:00)
+        fun cycleStartOf(d: LocalDate): Long =
+            if (d == cycleToday && summary?.cycleStartMillis != null) summary.cycleStartMillis
+            else byDate[d.format(iso)]?.let { DayCycle.startMillis(d, it.sleepStartMinuteOfDay, it.sleepEndMinuteOfDay, zone) }
+                ?: d.atStartOfDay(zone).toInstant().toEpochMilli()
+        fun cycleEndOf(d: LocalDate): Long = if (d >= cycleToday) now else maxOf(cycleStartOf(d.plusDays(1)), cycleStartOf(d))
+        val dayStart = cycleStartOf(date)
+        val dayEnd = cycleEndOf(date)
         // 2/11: fases de las siestas recientes (una vez cada una; restan de la necesidad con su tiempo dormido)
         if (NapStages.dir == null) NapStages.dir = dir
         withContext(Dispatchers.IO) {
             val since = date.minusDays(2).atStartOfDay(zone).toInstant().toEpochMilli()
             allSessions.filter { it.type == Formulas.NAP_TYPE && it.startMillis >= since }.forEach { NapStages.get(it) }
         }
-        val stepsByDay = withContext(Dispatchers.IO) { stepsPerDay(motionFile, dir) }
+        val stepMinutes = withContext(Dispatchers.IO) { BandSteps.perMinute(BandSteps.read(dir), MotionTracker.readMinutes(motionFile)) }
+        fun stepsOf(d: LocalDate): Int? = BandSteps.sumBetween(stepMinutes, cycleStartOf(d), cycleEndOf(d) + if (d >= cycleToday) 60_000L else 0L).takeIf { it > 0 }
         val zoneDays = withContext(Dispatchers.IO) { ZoneDayCache(ctx).load(hrFile, hrMax, today, 40) }
         val base = SleepPlanner.baselineForAge(profile?.ageYears())
         val calories = CalorieCalculator()
@@ -181,21 +201,23 @@ class HomeDataLoader(private val ctx: Context) {
         // Ritmo fuera de entrenos de WHOOP (de tus días importados), guardado para cuando ya no estén en la ventana de días
         val restKcal = Formulas.whoopRestKcalPerDay(stored, allSessions, zone)?.also { Formulas.setRestKcalPerDay(ctx, it) }
             ?: Formulas.restKcalPerDay(ctx)
-        fun kcalFor(d: LocalDate, elapsedMinutes: Double): Double? = profile?.let {
-            val s = d.atStartOfDay(zone).toInstant().toEpochMilli()
-            val e = d.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+        // 22/11: calorías del día de sueño a sueño (como el ciclo de WHOOP): ritmo de reposo × duración del ciclo + actividades
+        fun kcalFor(d: LocalDate): Double? = profile?.let {
+            val s = cycleStartOf(d)
+            val e = cycleEndOf(d)
+            val elapsedMinutes = (e - s) / 60_000.0
             val daySessions = allSessions.filter { x -> x.startMillis in s until e }
             val act = daySessions.sumOf { x -> x.caloriesKcal }
             // minutos de actividad (sin siestas) dentro de lo transcurrido del día: ahí ya cuentan las kcal de la actividad
-            val limit = s + (elapsedMinutes * 60_000).toLong()
+            val limit = e
             val actMin = daySessions.filter { x -> x.type != Formulas.NAP_TYPE }
                 .sumOf { x -> (minOf(x.endMillis, limit, e) - x.startMillis).coerceAtLeast(0L) / 60000.0 }
             calories.estimateDailyTotal(elapsedMinutes, act, it.ageYears(), it.weightKg, it.heightCm, it.sex, actMin, restKcal)
         }
 
         fun strengthOf(d: LocalDate): Int {
-            val s = d.atStartOfDay(zone).toInstant().toEpochMilli()
-            val e = d.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+            val s = cycleStartOf(d)
+            val e = cycleEndOf(d)
             return allSessions.filter { it.type.contains("fuerza", ignoreCase = true) && it.startMillis in s until e }
                 .sumOf { ((it.endMillis - it.startMillis) / 60_000L).toInt() }
         }
@@ -226,7 +248,7 @@ class HomeDataLoader(private val ctx: Context) {
             return DayRecord(
                 d, row.avgHrv, row.restingHr, row.respiratoryRate, row.sleepMinutes, row.sleepEfficiencyPct,
                 row.sleepStartMinuteOfDay, row.sleepEndMinuteOfDay, row.strain, recovery, score, needTonight, debtAfter,
-                consistency, stepsByDay[d]?.takeIf { it > 0 }, kcalFor(d, 1440.0), row.vo2Max,
+                consistency, stepsOf(d), kcalFor(d), row.vo2Max,
                 light = row.lightMinutes, deep = row.deepMinutes, rem = row.remMinutes, awake = row.awakeMinutes,
                 wakeEpisodes = row.wakeEpisodes, latency = row.latencyMinutes,
                 inBed = if (row.sleepStartMinuteOfDay != null && row.sleepEndMinuteOfDay != null)
@@ -279,13 +301,11 @@ class HomeDataLoader(private val ctx: Context) {
                 db.userProfileDao().save(profile.copy(vo2Max = summary.vo2Max, vo2MaxUpdatedDate = date.format(iso)))
                 summary.vo2Max
             } else profile?.vo2Max ?: summary.vo2Max
-            val cal = Calendar.getInstance()
-            val elapsed = cal.get(Calendar.HOUR_OF_DAY) * 60.0 + cal.get(Calendar.MINUTE)
-            val liveSteps = withContext(Dispatchers.IO) { Ui.stepsToday(ctx) }
+            val liveSteps = stepsOf(date) ?: 0
             todayRecord = DayRecord(
                 date, summary.avgHrv, summary.restingHr, summary.respiratoryRate, summary.sleepMinutes, summary.sleepEfficiencyPct,
                 summary.sleepStartMinuteOfDay, summary.sleepEndMinuteOfDay, dayStrain, recovery, score,
-                plan.totalNeedMinutes, debtAfter, consistency, liveSteps.takeIf { it > 0 }, kcalFor(date, elapsed), vo2,
+                plan.totalNeedMinutes, debtAfter, consistency, liveSteps.takeIf { it > 0 }, kcalFor(date), vo2,
                 light = summary.stages?.lightMinutes, deep = summary.stages?.deepMinutes, rem = summary.stages?.remMinutes,
                 awake = summary.stages?.awakeMinutes ?: summary.awakeMinutes, wakeEpisodes = summary.stages?.awakenings,
                 latency = summary.stages?.let { st -> summary.sleepStartMillis?.let { ((st.startMillis - it) / 60_000L).toInt().coerceAtLeast(0) } },
@@ -304,7 +324,7 @@ class HomeDataLoader(private val ctx: Context) {
         val day: DayRecord = todayRecord
             ?: byDate[date.format(iso)]?.let { recordFromStored(date, it) }
             ?: DayRecord(date, null, null, null, null, null, null, null, null, null, null, null, null, null,
-                stepsByDay[date]?.takeIf { it > 0 }, null, null, strengthMinutes = strengthOf(date), zones = zoneDays[date])
+                stepsOf(date), null, null, strengthMinutes = strengthOf(date), zones = zoneDays[date])
         records[date] = day
         val previous = records.values.filter { it.date < date && it.date >= date.minusDays(30) }
 
@@ -315,9 +335,9 @@ class HomeDataLoader(private val ctx: Context) {
             sleepFrom = summary.stages?.startMillis ?: summary.sleepStartMillis
             sleepTo = summary.stages?.endMillis ?: summary.sleepEndMillis
         } else if (day.sleepStartMinute != null && day.sleepEndMinute != null) {
-            sleepTo = dayStart + day.sleepEndMinute * 60_000L
-            sleepFrom = if (day.sleepStartMinute > day.sleepEndMinute) dayStart - (1440 - day.sleepStartMinute) * 60_000L
-            else dayStart + day.sleepStartMinute * 60_000L
+            val d0 = date.atStartOfDay(zone).toInstant().toEpochMilli()
+            sleepTo = d0 + day.sleepEndMinute * 60_000L
+            sleepFrom = DayCycle.startMillis(date, day.sleepStartMinute, day.sleepEndMinute, zone)
         }
 
         // ---------- Estrés del día (00:00 → ahora, como WHOOP) ----------
