@@ -138,10 +138,18 @@ enum SleepPlanner {
     /// Deuda tras una noche, como WHOOP (18/10): la mitad de lo que te faltó para la necesidad de esa noche
     /// (base + esfuerzo de la víspera + deuda que traías). Ajustado con 152 noches del export de WHOOP: error medio 1,5 min.
     /// Sin dato de esa noche, la deuda se reduce a la mitad.
-    static func nextDebt(_ debtBefore: Int, base: Int, prevDayStrain: Double?, slept: Int?) -> Int {
+    static func nextDebt(_ debtBefore: Int, base: Int, prevDayStrain: Double?, slept: Int?, nightDate: String? = nil) -> Int {
         guard let s = slept else { return debtBefore / 2 }
         let need = base + Formulas.sleepNeedFromStrain(prevDayStrain ?? 0) + debtBefore
-        return max(Int((Double(need - s) / 2).rounded()), 0)
+        return max(Int((Double(need - s) * debtFactor(nightDate)).rounded()), 0)
+    }
+
+    /// Parte de lo que faltó dormir que pasa a la noche siguiente (22/11, igual que Android): 9/14 si la noche SIGUIENTE acaba en
+    /// jueves, viernes o sábado, la mitad el resto (110 noches del export: error 2,00 → 1,79 min; API 9–22/11 4,94 → 0,32).
+    static func debtFactor(_ nightDate: String?) -> Double {
+        guard let d = nightDate, let start = TimeUtil.parseDayKey(Day.add(d, 1)) else { return 0.5 }
+        let wd = Calendar.current.component(.weekday, from: Date(timeIntervalSince1970: Double(start) / 1000 + 12 * 3600))
+        return (5...7).contains(wd) ? 9.0 / 14.0 : 0.5   // 5 jueves, 6 viernes, 7 sábado
     }
 
     /// Deuda acumulada tras la última noche guardada, de la más antigua a la más reciente.
@@ -149,7 +157,7 @@ enum SleepPlanner {
         var strain = [String: Double]()
         for r in rowsOldestFirst { if let s = r.strain { strain[r.date] = s } }
         var debt = 0
-        for r in rowsOldestFirst { debt = nextDebt(debt, base: base, prevDayStrain: strain[Day.add(r.date, -1)], slept: r.sleepMinutes) }
+        for r in rowsOldestFirst { debt = nextDebt(debt, base: base, prevDayStrain: strain[Day.add(r.date, -1)], slept: r.sleepMinutes, nightDate: r.date) }
         return debt
     }
 

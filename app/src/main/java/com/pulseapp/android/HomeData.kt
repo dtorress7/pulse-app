@@ -221,7 +221,7 @@ class HomeDataLoader(private val ctx: Context) {
             // 21/11: la calibración personal usa también la calificación del sueño de esa noche
             val recovery = row.whoopRecovery ?: if (row.avgHrv != null || row.restingHr != null)
                 Formulas.recovery(row.avgHrv, row.restingHr, row.respiratoryRate, baseline, d.toString(), score).total else null
-            val debtAfter = SleepPlanner.nextDebt(debtBefore, base, prevStrain, row.sleepMinutes)
+            val debtAfter = SleepPlanner.nextDebt(debtBefore, base, prevStrain, row.sleepMinutes, row.date)
             val needTonight = base + Formulas.sleepNeedFromStrain(row.strain ?: 0.0) + debtAfter
             return DayRecord(
                 d, row.avgHrv, row.restingHr, row.respiratoryRate, row.sleepMinutes, row.sleepEfficiencyPct,

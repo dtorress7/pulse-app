@@ -256,7 +256,7 @@ enum HomeDataLoader {
             r.sleepMinutes = row.sleepMinutes; r.efficiency = row.sleepEfficiencyPct
             r.sleepStartMinute = row.sleepStartMinuteOfDay; r.sleepEndMinute = row.sleepEndMinuteOfDay
             r.strain = row.strain
-            let debtAfter = SleepPlanner.nextDebt(debtBefore, base: base, prevDayStrain: prevStrain, slept: row.sleepMinutes)
+            let debtAfter = SleepPlanner.nextDebt(debtBefore, base: base, prevDayStrain: prevStrain, slept: row.sleepMinutes, nightDate: row.date)
             r.needTonight = base + Formulas.sleepNeedFromStrain(row.strain ?? 0) + debtAfter
             r.debt = debtAfter
             r.consistency = consistency

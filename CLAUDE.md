@@ -1153,6 +1153,12 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   FCR/respiración solo de él; el día se recalcula (`recalcDayOf`). Código real (check/n22/ed): 22:50–08:51, 45/329/121/107, VFC 105,7, FCR 55 (sin editar
   21:50–08:51, 47/425/83/107, VFC 100,3, FCR 56; WHOOP 28/336/107/129, VFC 110, FCR 54); 20 y 21/11 iguales; restablecer vuelve a lo de antes.
 
+- **Deuda de sueño según el día (22/11, Android + iOS `SleepPlanner.debtFactor`)**: WHOOP pasa a la noche siguiente la mitad o 9/14 (0,643) de lo que faltó
+  dormir. Export (110 noches, scratchpad en check/exp): 0,643 sobre todo cuando la noche SIGUIENTE acaba en jueves/viernes/sábado (31 de 49), 0,5 el resto
+  (47 de 61). Regla aplicada: jue–sáb 9/14, resto 1/2. Error de la deuda export 2,00 → 1,79 min; API 9–22/11 (no usada para elegirla) 4,94 → 0,32 (solo
+  falla el miércoles 11/11). La IA de WHOOP no sabe la regla (su "deuda resultante" y la "aplicada" difieren 7/9 o 9/7). Caminata 0,2: su curva = nuestro pulso
+  (60 s/min sin huecos) → anomalía de WHOOP, no se toca.
+
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
 esfuerzo 11,5, 271 kcal, FC media 127 (la media aritmética de esos segundos es 133: WHOOP no usa la media simple), máx 170,

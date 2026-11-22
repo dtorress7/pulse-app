@@ -41,10 +41,21 @@ class SleepPlanner {
          * (base + esfuerzo de la víspera + deuda que traías). Ajustado con 152 noches del export de WHOOP: error medio 1,5 min
          * (la fórmula anterior, ×0,7 por día sobre la base, se quedaba muy por encima). Sin dato de esa noche, la deuda se reduce a la mitad.
          */
-        fun nextDebt(debtBefore: Int, base: Int, prevDayStrain: Double?, slept: Int?): Int {
+        fun nextDebt(debtBefore: Int, base: Int, prevDayStrain: Double?, slept: Int?, nightDate: String? = null): Int {
             if (slept == null) return debtBefore / 2
             val need = base + Formulas.sleepNeedFromStrain(prevDayStrain ?: 0.0) + debtBefore
-            return Math.round((need - slept) / 2.0).toInt().coerceAtLeast(0)
+            return Math.round((need - slept) * debtFactor(nightDate)).toInt().coerceAtLeast(0)
+        }
+
+        /**
+         * Parte de lo que faltó dormir que pasa a la noche siguiente (22/11). WHOOP usa la mitad o 9/14 (0,643): con 110 noches del export,
+         * 0,643 cuando la noche SIGUIENTE acaba en jueves, viernes o sábado (31 de 49) y 0,5 el resto (47 de 61). Error de la deuda: export
+         * 2,00 → 1,79 min; noches 9–22/11 de la API (no usadas para elegir la regla) 4,94 → 0,32 (solo falla el miércoles 11/11).
+         * [nightDate] = día en que acaba la noche que deja la deuda; sin fecha, la mitad.
+         */
+        fun debtFactor(nightDate: String?): Double {
+            val next = nightDate?.let { runCatching { java.time.LocalDate.parse(it).plusDays(1) }.getOrNull() } ?: return 0.5
+            return if (next.dayOfWeek in java.time.DayOfWeek.THURSDAY..java.time.DayOfWeek.SATURDAY) 9.0 / 14.0 else 0.5
         }
 
         /** Deuda acumulada tras la última noche guardada, recorriendo las noches de la más antigua a la más reciente. */
@@ -53,7 +64,7 @@ class SleepPlanner {
             var debt = 0
             rowsOldestFirst.forEach { r ->
                 val prev = java.time.LocalDate.parse(r.date).minusDays(1).toString()
-                debt = nextDebt(debt, base, strainByDate[prev], r.sleepMinutes)
+                debt = nextDebt(debt, base, strainByDate[prev], r.sleepMinutes, r.date)
             }
             return debt
         }
