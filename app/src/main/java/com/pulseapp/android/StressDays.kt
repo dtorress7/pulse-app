@@ -13,7 +13,7 @@ import java.time.ZoneId
  */
 object StressDays {
     private const val FILE = "stress_days.csv"
-    private const val HEADER = "#pulseapp_stress_days v2"
+    private const val HEADER = "#pulseapp_stress_days v3"
 
     private fun readCache(dir: File): MutableMap<String, StressBreakdown.Day?> {
         val f = File(dir, FILE)

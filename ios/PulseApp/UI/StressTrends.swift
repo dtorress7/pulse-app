@@ -7,7 +7,7 @@ import SwiftUI
 /// stress_days.csv (mismo formato que Android); hoy se calcula siempre.
 enum StressDays {
     private static let file = "stress_days.csv"
-    private static let header = "#pulseapp_stress_days v2"
+    private static let header = "#pulseapp_stress_days v3"
 
     private static func readCache() -> [String: StressBreakdown.DayMins?] {
         var out = [String: StressBreakdown.DayMins?]()

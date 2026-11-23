@@ -1190,6 +1190,11 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   Minutos de alto medios: PulseApp 126 / 57 / 2 frente a WHOOP 120 / 69 / 4 (total / sin actividad / sueño). Reajustar solo K_HR y K_HRV (≈ 3,0 / 0,68)
   mejora los % en todas las pruebas (una mitad → la otra 6,18 → 5,74 y 5,08 → 5,06; cada semana fuera 5,70 → 5,30) PERO empeora el sueño (3,35 → 4,92) y
   los minutos de alto (sin actividad 57 → 49, sueño 2 → 14) → las dos comprobaciones no coinciden: NO se cambia. Las dos mitades piden más peso a la VFC.
+  **APLICADO (23/11, Android + iOS `PersonalBaseline.stressHrv/stressRhr`, `BaselineProvider.STRESS_NIGHTS` 14)**: la IA de WHOOP dice que el estrés compara
+  con una referencia de los ÚLTIMOS 14 DÍAS (la recuperación ~30) → referencia del estrés = media SIMPLE de las 14 últimas noches (antes la EWMA de la
+  recuperación); mismos coeficientes, sin reajustar. Error 5,61 → 5,17 (1.ª mitad 5,08 → 4,63, 2.ª 6,18 → 5,75; las 4 semanas mejoran; total 5,42 → 5,00,
+  sin actividad 8,05 → 7,35, sueño 3,35 → 3,14); minutos de alto iguales (127/58/2). Código real con BaselineProvider.computeFrom (SD2.kt) = Python.
+  Excluye sueño + entrenos (detectados o a mano; andar sin registrar SÍ cuenta). stress_days.csv v3 (se recalcula la caché).
 
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,

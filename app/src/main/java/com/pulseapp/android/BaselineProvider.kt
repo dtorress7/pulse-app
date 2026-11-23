@@ -19,7 +19,11 @@ data class PersonalBaseline(
     val respMean: Double? = null,
     val respSd: Double? = null,
     /** Media simple de ln VFC de esas noches (para el percentil de la recuperación, 30/10); null con < 7 noches. */
-    val lnHrvMean30: Double? = null
+    val lnHrvMean30: Double? = null,
+    /** Referencia del ESTRÉS (23/11): media simple de las 14 últimas noches (IA de WHOOP: "referencia de los últimos 14 días").
+     *  La recuperación sigue con la EWMA de arriba. null = usar avgHrv / avgRestingHr. */
+    val stressHrv: Double? = null,
+    val stressRhr: Double? = null
 )
 
 class BaselineProvider {
@@ -29,6 +33,8 @@ class BaselineProvider {
         const val LOOKBACK_DAYS = 30
         /** Media ponderada exponencial con "span" de 14 días: las noches recientes pesan más (ajustado a WHOOP). */
         private const val EWMA_ALPHA = 2.0 / (14 + 1)
+        /** Noches de la referencia del estrés (media simple, 23/11). */
+        const val STRESS_NIGHTS = 14
 
         // Variación mínima: evita que con pocos días casi idénticos un cambio pequeño parezca enorme
         private const val MIN_LN_HRV_SD = 0.08
@@ -77,7 +83,9 @@ class BaselineProvider {
             rhrSd = maxOf(sd(validRhr), MIN_RHR_SD),
             respMean = if (validResp.size >= MIN_DAYS_REQUIRED) validResp.average() else null,
             respSd = if (validResp.size >= MIN_DAYS_REQUIRED) maxOf(sd(validResp), MIN_RESP_SD) else null,
-            lnHrvMean30 = if (lnHrv.size >= 7) lnHrv.average() else null
+            lnHrvMean30 = if (lnHrv.size >= 7) lnHrv.average() else null,
+            stressHrv = validHrv.take(STRESS_NIGHTS).average(),
+            stressRhr = validRhr.take(STRESS_NIGHTS).average()
         )
     }
 

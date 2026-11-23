@@ -50,8 +50,8 @@ class StressCalculator {
         val readings = parseCsv(file).filter { it.timeMillis >= now - 24 * 3_600_000L }
         if (readings.isEmpty()) return StressSummary(null, "BAJO", null, emptyList())
 
-        val baselineRhr = baseline?.avgRestingHr ?: Formulas.FALLBACK_RHR
-        val baselineHrv = baseline?.avgHrv ?: Formulas.FALLBACK_HRV
+        val baselineRhr = baseline?.stressRhr ?: baseline?.avgRestingHr ?: Formulas.FALLBACK_RHR
+        val baselineHrv = baseline?.stressHrv ?: baseline?.avgHrv ?: Formulas.FALLBACK_HRV
 
         val windowMillis = WINDOW_MS
         val series = readings.groupBy { it.timeMillis / windowMillis }.entries.sortedBy { it.key }
@@ -109,8 +109,8 @@ class StressCalculator {
 
     /** Serie de estrés (un punto cada minuto) entre [from] y [to] con la misma fórmula que [analyze]. */
     fun seriesBetween(samples: List<Sample>, from: Long, to: Long, restingHr: Int?, baseline: PersonalBaseline?): List<StressPoint> {
-        val baselineRhr = baseline?.avgRestingHr ?: Formulas.FALLBACK_RHR
-        val baselineHrv = baseline?.avgHrv ?: Formulas.FALLBACK_HRV
+        val baselineRhr = baseline?.stressRhr ?: baseline?.avgRestingHr ?: Formulas.FALLBACK_RHR
+        val baselineHrv = baseline?.stressHrv ?: baseline?.avgHrv ?: Formulas.FALLBACK_HRV
         val windowMillis = WINDOW_MS
         return samples.filter { it.timeMillis in from until to }
             .groupBy { it.timeMillis / windowMillis }.entries.sortedBy { it.key }

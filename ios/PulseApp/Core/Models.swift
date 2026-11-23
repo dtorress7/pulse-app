@@ -69,6 +69,9 @@ struct PersonalBaseline {
     var respSd: Double? = nil
     /// Media simple de ln VFC de esas noches (percentil de la recuperación, 30/10); nil con < 7 noches.
     var lnHrvMean30: Double? = nil
+    /// Referencia del ESTRÉS (23/11): media simple de las 14 últimas noches (IA de WHOOP). nil = usar avgHrv / avgRestingHr.
+    var stressHrv: Double? = nil
+    var stressRhr: Double? = nil
 }
 
 /// Una lectura de pulso con su hora real y los intervalos RR (ms) si los hay.

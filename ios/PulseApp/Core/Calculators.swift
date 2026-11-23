@@ -57,8 +57,12 @@ enum BaselineProvider {
             rhrSd: max(sd(validRhr), minRhrSd),
             respMean: respOk ? validResp.reduce(0, +) / Double(validResp.count) : nil,
             respSd: respOk ? max(sd(validResp), minRespSd) : nil,
-            lnHrvMean30: lnHrv.count >= 7 ? lnHrv.reduce(0, +) / Double(lnHrv.count) : nil)
+            lnHrvMean30: lnHrv.count >= 7 ? lnHrv.reduce(0, +) / Double(lnHrv.count) : nil,
+            stressHrv: { let v = Array(validHrv.prefix(stressNights)); return v.reduce(0, +) / Double(v.count) }(),
+            stressRhr: { let v = Array(validRhr.prefix(stressNights)); return v.reduce(0, +) / Double(v.count) }())
     }
+    /// Noches de la referencia del estrés (media simple, 23/11, igual que Android).
+    static let stressNights = 14
 
     private static func ewma(_ oldestFirst: [Double], prior: Double) -> Double {
         var m = prior
@@ -342,8 +346,8 @@ enum StressCalculator {
         let readings = hrLog.readings(from: now - 24 * 3_600_000, to: now + 60_000)
         if readings.isEmpty { return StressSummary(currentScore: nil, level: "BAJO", lastUpdateMinute: nil, series: []) }
 
-        let baselineRhr = baseline?.avgRestingHr ?? Formulas.fallbackRhr
-        let baselineHrv = baseline?.avgHrv ?? Formulas.fallbackHrv
+        let baselineRhr = baseline?.stressRhr ?? baseline?.avgRestingHr ?? Formulas.fallbackRhr
+        let baselineHrv = baseline?.stressHrv ?? baseline?.avgHrv ?? Formulas.fallbackHrv
 
         let windowMillis: Int64 = 60 * 1000
         var groups = [Int64: [HrReading]]()
@@ -368,8 +372,8 @@ enum StressCalculator {
 
     /// Serie de estrés (un punto cada 5 min) entre [from] y [to) con la misma fórmula que [analyze].
     static func seriesBetween(_ readings: [HrReading], from: Int64, to: Int64, baseline: PersonalBaseline?) -> [StressPoint] {
-        let baselineRhr = baseline?.avgRestingHr ?? Formulas.fallbackRhr
-        let baselineHrv = baseline?.avgHrv ?? Formulas.fallbackHrv
+        let baselineRhr = baseline?.stressRhr ?? baseline?.avgRestingHr ?? Formulas.fallbackRhr
+        let baselineHrv = baseline?.stressHrv ?? baseline?.avgHrv ?? Formulas.fallbackHrv
         let windowMillis: Int64 = 60 * 1000
         var groups = [Int64: [HrReading]]()
         for r in readings where r.timeMillis >= from && r.timeMillis < to {
