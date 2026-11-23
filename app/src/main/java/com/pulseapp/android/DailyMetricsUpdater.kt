@@ -138,9 +138,19 @@ class DailyMetricsUpdater {
         // (sin noche, de 00:00 a 00:00). El esfuerzo, la FC media y las calorías salen de ese tramo, como el ciclo de WHOOP.
         val cycleStart = window?.first ?: d0
         val nextKey = dayFormat.format(Date(d1 + 12 * 3_600_000L))
-        val nextNight = detectNight(allReadings, csvFile, nextKey)
-            ?.takeIf { DayCycle.opensDay(it.asleep, it.window.second, java.time.LocalDate.parse(nextKey)) }
-        val cycleEnd = maxOf(cycleStart + 3_600_000L, nextNight?.window?.first ?: d1)
+        // 23/11 (igual que iOS): si el día siguiente ya está guardado (pasado), su noche sale de lo guardado (mismo cálculo, sin repetir
+        // la búsqueda en cada día del recálculo); hoy no está guardado → se busca.
+        val nextLd = java.time.LocalDate.parse(nextKey)
+        val stored = if (nextKey < dayFormat.format(Date())) db.dailyMetricsDao().getByDate(nextKey) else null
+        val nextStart: Long? = if (stored != null) {
+            val ns = stored.sleepStartMinuteOfDay; val ne = stored.sleepEndMinuteOfDay
+            if (ns != null && ne != null) {
+                val endMs = d1 + ne * 60_000L
+                if (DayCycle.opensDay(stored.sleepMinutes, endMs, nextLd)) DayCycle.startMillis(nextLd, ns, ne) else null
+            } else null
+        } else detectNight(allReadings, csvFile, nextKey)
+            ?.takeIf { DayCycle.opensDay(it.asleep, it.window.second, nextLd) }?.window?.first
+        val cycleEnd = maxOf(cycleStart + 3_600_000L, nextStart ?: d1)
         val cycleReadings = allReadings.filter { it.timeMillis in cycleStart until cycleEnd }.ifEmpty { dayReadings }
         // Día con fuerza/funcional: + carga muscular, como WHOOP (22/10)
         val allSessionsForDay = db.activitySessionDao().getAll()

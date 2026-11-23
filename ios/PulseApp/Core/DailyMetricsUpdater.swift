@@ -41,11 +41,32 @@ enum DailyMetricsUpdater {
         if UserDefaults.standard.integer(forKey: recalcKey) >= 25 { return }   // 25 (22/11): esfuerzo, FC media y calorías del día de sueño a sueño; 24 (21/11): suelo del giroscopio de cada pulsera; 23 (20/11): inicio con giros en la cama; 22 (19/11): modelo de fases con 30 noches y contexto ±7 min; 21 (18/11): VO₂ máx con K 16,45; 20 (12/11): inicio con tramo quieto de 9 min; 19 (11/11): paseos sin carga aparte en el día; 18 (11/11): esfuerzo del día sin el pulso casi en reposo fuera de las actividades; 17 (10/11): fin de la noche sin cortar al dormitar con el pulso alto ni con un despertar de 3 min; 16 (9/11 tarde): temperatura de la piel; 15 (9/11): fin antes del rato despierto tumbado e inquieto; 14 (7/11): inicio/fin de la noche despierto en la cama; 13 (5/11): fases con segunda pasada sobre la noche recortada; 12 (4/11): VFC sin los tramos de pulso alto; 11 (3/11): fin de la noche con 40 pasos y pesas con su carga; 10 (2/11): esfuerzo con la FCR de referencia; 9 (1/11): VFC por profundo + ligero; 8 (1/11): fin de la noche sin remolonear; 7 (30/10): esfuerzo sin el pulso bajo dormido; 6 (27/10): esfuerzo del día sin base fuera de actividades; 5: fases 11 noches
         let today = TimeUtil.dayKey(TimeUtil.nowMillis())
         let importUntil = WhoopImport.importedUntil()
+        // 23/11: se apunta cada día ya rehecho; si iOS cierra la app a mitad (tarda minutos con el pulso de 40 días), la próxima vez
+        // sigue donde iba en vez de empezar de cero (antes no terminaba nunca y la app se quedaba en "--" y se cerraba).
+        let target = 25
+        var done = recalcProgress(target)
+        // De más reciente a más antiguo: el día siguiente ya está rehecho y su noche marca dónde acaba cada día (sin volver a buscarla)
         for row in store.lastDays(60) where row.date < today && (importUntil.isEmpty || row.date > importUntil) {
-            if let d = computeDay(store: store, hrLog: hrLog, motionFile: motionFile, key: row.date,
-                                  ageYears: ageYears, weightKg: weightKg, sex: sex) { store.saveDay(d) }
+            if done.contains(row.date) { continue }
+            autoreleasepool {
+                if let d = computeDay(store: store, hrLog: hrLog, motionFile: motionFile, key: row.date,
+                                      ageYears: ageYears, weightKg: weightKg, sex: sex) { store.saveDay(d) }
+            }
+            done.insert(row.date)
+            UserDefaults.standard.set("\(target)|" + done.sorted().joined(separator: ","), forKey: recalcProgressKey)
         }
-        UserDefaults.standard.set(25, forKey: recalcKey)
+        UserDefaults.standard.set(target, forKey: recalcKey)
+        UserDefaults.standard.removeObject(forKey: recalcProgressKey)
+    }
+
+    static let recalcProgressKey = "pulseapp_night_recalc_progress"
+
+    /// Días ya rehechos en el recálculo [target] que quedó a medias.
+    private static func recalcProgress(_ target: Int) -> Set<String> {
+        guard let v = UserDefaults.standard.string(forKey: recalcProgressKey) else { return [] }
+        let parts = v.split(separator: "|", maxSplits: 1).map(String.init)
+        guard parts.count == 2, Int(parts[0]) == target else { return [] }
+        return Set(parts[1].split(separator: ",").map(String.init))
     }
 
     /// 17/11: tras importar el pulso de otro móvil (p. ej. de PulseApp a Pulse Beta), calcula los días que aún no están guardados
@@ -111,8 +132,20 @@ enum DailyMetricsUpdater {
         // (sin noche, de 00:00 a 00:00). El esfuerzo, la FC media y las calorías salen de ese tramo, como el ciclo de WHOOP.
         let cycleStart = window?.0 ?? dayStart
         let nextKey = Day.add(yesterdayKey, 1)
-        let nextStart = detectNight(hrLog: hrLog, motionFile: motionFile, key: nextKey)
-            .flatMap { DayCycle.opensDay(asleepMinutes: $0.asleep, endMillis: $0.window.1, date: nextKey) ? $0.window.0 : nil }
+        // 23/11: si el día siguiente ya está guardado (pasado), su noche sale de lo guardado: es el mismo cálculo y así no se repite
+        // la búsqueda de la noche (que relee el archivo de pulso entero) para cada día del recálculo. Hoy no está guardado → se busca.
+        var nextStart: Int64? = nil
+        if nextKey < TimeUtil.dayKey(TimeUtil.nowMillis()), let nr = store.getDay(nextKey) {
+            if let ns = nr.sleepStartMinuteOfDay, let ne = nr.sleepEndMinuteOfDay {
+                let endMs = Day.start(nextKey) + Int64(ne) * 60_000
+                if DayCycle.opensDay(asleepMinutes: nr.sleepMinutes, endMillis: endMs, date: nextKey) {
+                    nextStart = DayCycle.startMillis(nextKey, ns, ne)
+                }
+            }
+        } else {
+            nextStart = detectNight(hrLog: hrLog, motionFile: motionFile, key: nextKey)
+                .flatMap { DayCycle.opensDay(asleepMinutes: $0.asleep, endMillis: $0.window.1, date: nextKey) ? $0.window.0 : nil }
+        }
         let cycleEnd = max(cycleStart + 3_600_000, nextStart ?? dayEnd)
         var cycleReadings = hrLog.readings(from: cycleStart, to: cycleEnd).filter { $0.timeMillis >= cycleStart && $0.timeMillis < cycleEnd }
         if cycleReadings.isEmpty { cycleReadings = dayReadings }
