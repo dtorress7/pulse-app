@@ -23,7 +23,8 @@ import java.util.zip.Inflater
  */
 object DataShare {
     const val BUCKET = "pulse-data"
-    val FILES = listOf("hr_log.csv", "motion_minutes.csv", "band_steps.csv", "sleep_edits.csv", "sleep_caps.csv")
+    val FILES = listOf("hr_log.csv", "motion_minutes.csv", "band_steps.csv", "band_battery.csv", "sleep_edits.csv", "sleep_caps.csv",
+        "whoop_bio_log.csv", "whoop_service_log.txt", "strength_logs.tsv")
     private const val PREFS = "pulseapp_datashare"
     private const val CHUNK = 8 * 1024 * 1024
     private const val MIN_INTERVAL_MS = 3 * 3_600_000L

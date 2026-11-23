@@ -10,7 +10,8 @@ import Compression
 /// reescribe (más corto, o el byte anterior al punto donde iba ya no es un salto de línea) empieza una generación nueva desde 0.
 enum DataShare {
     static let bucket = "pulse-data"
-    static let files = ["hr_log.csv", "motion_minutes.csv", "band_steps.csv", "sleep_edits.csv", "sleep_caps.csv"]
+    static let files = ["hr_log.csv", "motion_minutes.csv", "band_steps.csv", "band_battery.csv", "sleep_edits.csv", "sleep_caps.csv",
+                         "whoop_bio_log.csv", "whoop_service_log.txt", "strength_logs.tsv"]
     private static let chunk = 8 * 1024 * 1024
     private static let minInterval: TimeInterval = 3 * 3600
     private static let d = UserDefaults.standard
@@ -81,8 +82,21 @@ enum DataShare {
         var id: String { uid }
     }
 
-    static func isAdmin() async throws -> Bool { try await CommunityAPI.shared.rpcBool("is_data_admin") }
-    static func claimAdmin() async throws -> Bool { try await CommunityAPI.shared.rpcBool("claim_data_admin") }
+    /// Si este móvil es el del administrador (guardado para enseñar los datos de los amigos en Mi WHOOP sin preguntar cada vez).
+    static var isAdminCached: Bool { d.bool(forKey: "pulseapp_datashare_admin") }
+    static func isAdmin() async throws -> Bool {
+        let v = try await CommunityAPI.shared.rpcBool("is_data_admin"); d.set(v, forKey: "pulseapp_datashare_admin"); return v
+    }
+    static func claimAdmin() async throws -> Bool {
+        let v = try await CommunityAPI.shared.rpcBool("claim_data_admin"); if v { d.set(true, forKey: "pulseapp_datashare_admin") }; return v
+    }
+
+    /// Archivos de [person] ya juntados en el móvil (de la última descarga).
+    static func localFiles(_ person: Person) -> [URL] {
+        let outDir = AppPaths.baseDir.appendingPathComponent("amigos/archivos", isDirectory: true)
+        let tag = safe(person.name)
+        return files.map { outDir.appendingPathComponent("\(tag)_\($0)") }.filter { FileManager.default.fileExists(atPath: $0.path) }
+    }
 
     static func people() async throws -> [Person] {
         let folders = try await CommunityAPI.shared.storageList(bucket: bucket, prefix: "")

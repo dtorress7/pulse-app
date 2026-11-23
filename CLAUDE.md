@@ -1205,6 +1205,8 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   enteros (`<nombre>_hr_log.csv`…). Comprobado: Kotlin 30 MB del hr_log real en 6 trozos (5 MB comprimido) → reconstruido igual; Python zlib −15 lo lee;
   CI de iOS "Comprobar los datos para calibrar" (Swift lee los trozos de Kotlin, ios/Tests/datashare). Hay que ejecutar supabase/datos.sql UNA vez.
   El contenedor de Claude NO llega a Supabase (bloqueado): el usuario descarga y comparte.
+  Ampliado (23/11 noche, a petición del usuario): también band_battery, whoop_bio_log, whoop_service_log y strength_logs; en iOS, si eres el
+  administrador, Mi WHOOP enseña bajo "Exportar" una tarjeta "Datos de <amigo>" por persona con sus archivos (se actualizan solos al abrir, botón ↻).
 
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,

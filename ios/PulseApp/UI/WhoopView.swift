@@ -11,6 +11,9 @@ struct WhoopView: View {
     @State private var showClear = false
     @State private var testTick = 0
     @State private var alarm = WhoopSettings.alarmEnabled
+    @State private var friends: [DataShare.Person] = []
+    @State private var friendFiles: [String: [URL]] = [:]
+    @State private var friendStatus: [String: String] = [:]
 
     var body: some View {
         NavigationStack {
@@ -20,11 +23,13 @@ struct WhoopView: View {
                 modesCard
                 dataCard
                 exportCard
+                ForEach(friends) { p in friendCard(p) }
                 logCard
             }
             .navigationTitle("WHOOP")
             .navigationBarTitleDisplayMode(.inline)
             .onAppear { logLines = ServiceLog.shared.snapshot(150) }
+            .task { await loadFriends() }
             .onChange(of: mgr.logVersion) { _ in logLines = ServiceLog.shared.snapshot(150) }
         }
     }
@@ -140,6 +145,62 @@ struct WhoopView: View {
                 Hairline()
                 ListRow(title: "Tamaño del registro de pulso", value: "\(mgr.hrLog.fileSize() / 1024) KB")
             }
+        }
+    }
+
+    // MARK: - 23/11: archivos de los amigos (solo el administrador), como los tuyos de "Exportar"
+
+    private func friendCard(_ p: DataShare.Person) -> some View {
+        let files = friendFiles[p.uid] ?? []
+        return Card {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    CapsLabel(text: "Datos de \(p.name)")
+                    Spacer()
+                    Button { Task { await syncFriend(p) } } label: {
+                        Image(systemName: "arrow.clockwise").foregroundColor(Theme.strainBlue)
+                    }
+                }
+                Text(friendStatus[p.uid] ?? (p.updated > 0 ? "Último envío de su móvil: " + Self.fmt.string(from: Date(timeIntervalSince1970: Double(p.updated) / 1000)) : ""))
+                    .font(Theme.text(11)).foregroundColor(Theme.textSecondary)
+                if files.isEmpty {
+                    EmptyNote(text: "Aún no hay archivos.")
+                } else {
+                    ForEach(files, id: \.self) { f in
+                        ShareLink(item: f) {
+                            HStack {
+                                Image(systemName: "square.and.arrow.up")
+                                Text(f.lastPathComponent).font(Theme.text(14))
+                                Spacer()
+                            }
+                            .foregroundColor(Theme.strainBlue)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private static let fmt: DateFormatter = { let f = DateFormatter(); f.dateFormat = "dd/MM HH:mm"; return f }()
+
+    private func loadFriends() async {
+        guard DataShare.isAdminCached else { return }
+        guard let ps = try? await DataShare.people() else { return }
+        let me = try? await CommunityAPI.shared.userId()
+        friends = ps.filter { $0.uid != me }
+        for p in friends { friendFiles[p.uid] = DataShare.localFiles(p) }
+        for p in friends { await syncFriend(p) }
+    }
+
+    private func syncFriend(_ p: DataShare.Person) async {
+        let uid = p.uid
+        friendStatus[uid] = "Actualizando…"
+        do {
+            let got = try await DataShare.download(p) { msg in Task { @MainActor in friendStatus[uid] = "Descargando " + msg } }
+            friendFiles[uid] = got
+            friendStatus[uid] = p.updated > 0 ? "Al día · último envío de su móvil: " + Self.fmt.string(from: Date(timeIntervalSince1970: Double(p.updated) / 1000)) : "Al día"
+        } catch {
+            friendStatus[uid] = (error as? LocalizedError)?.errorDescription ?? "No se pudo actualizar"
         }
     }
 
