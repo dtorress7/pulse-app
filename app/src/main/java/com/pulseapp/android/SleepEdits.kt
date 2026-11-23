@@ -52,6 +52,35 @@ object SleepEdits {
         File(dir, FILE_NAME).appendText(String.format(Locale.US, "%s,%d,%d\n", date, startMillis, endMillis))
     }
 
+    // ---- 23/11: noches procesadas ("FIN DEL SUEÑO"). sleep_caps.csv: "fecha del despertar,hora a la que se procesó (ms)" ----
+    const val CAPS_FILE = "sleep_caps.csv"
+    private var capsStamp = ""
+    private var caps: List<Pair<String, Long>> = emptyList()
+
+    @Synchronized
+    private fun allCaps(dir: File): List<Pair<String, Long>> {
+        val f = File(dir, CAPS_FILE)
+        val st = if (f.exists()) "${f.lastModified()}:${f.length()}" else "-"
+        if (st == capsStamp) return caps
+        caps = if (!f.exists()) emptyList() else f.readLines().mapNotNull { l ->
+            val p = l.trim().split(','); if (p.size < 2) null else p[1].toLongOrNull()?.let { p[0] to it }
+        }
+        capsStamp = st
+        return caps
+    }
+
+    /** Hora a la que se procesó la noche detectada [from, to] (si cae dentro de ella): los datos de después no la alargan. */
+    fun capFor(dir: File, from: Long, to: Long): Long? = allCaps(dir).map { it.second }.filter { it in (from + 1)..to }.minOrNull()
+
+    /** Sello para las cachés (cambia al procesar una noche). */
+    fun capsStamp(dir: File): String { val f = File(dir, CAPS_FILE); return if (f.exists()) "${f.lastModified()}:${f.length()}" else "-" }
+
+    @Synchronized
+    fun saveCap(dir: File, date: String, atMillis: Long) {
+        if (allCaps(dir).any { it.first == date }) return   // la primera vez manda
+        File(dir, CAPS_FILE).appendText(String.format(Locale.US, "%s,%d\n", date, atMillis))
+    }
+
     @Synchronized
     fun clear(dir: File, date: String) {
         File(dir, FILE_NAME).appendText("$date,0,0\n")

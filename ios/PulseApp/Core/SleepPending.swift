@@ -9,7 +9,11 @@ enum SleepPending {
     private static func key(_ date: String) -> String { "pulseapp_sleep_processed_" + date }
 
     static func processed(_ date: String) -> Bool { UserDefaults.standard.bool(forKey: key(date)) }
-    static func markProcessed(_ date: String) { UserDefaults.standard.set(true, forKey: key(date)) }
+    /// 23/11: además guarda la hora en que se procesó: la noche ya no se alarga con lo que pase después (ver SleepEdits.capFor).
+    static func markProcessed(_ date: String, now: Int64 = TimeUtil.nowMillis()) {
+        UserDefaults.standard.set(true, forKey: key(date))
+        SleepEdits.saveCap(AppPaths.baseDir, date, now)
+    }
 
     /// [date] = día en que acaba la noche (yyyy-MM-dd); [sleepEnd] = fin de la noche (ms).
     static func isPending(date: String, sleepEnd: Int64?, now: Int64 = TimeUtil.nowMillis()) -> Bool {

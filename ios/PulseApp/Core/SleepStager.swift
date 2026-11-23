@@ -175,7 +175,7 @@ enum SleepStager {
     static func stageNight(hrLog: HrLog, motionFile: URL, startMillis: Int64, endMillis: Int64) -> Result? {
         if !FileManager.default.fileExists(atPath: motionFile.path) { return nil }
         let msize = (try? FileManager.default.attributesOfItem(atPath: motionFile.path)[.size] as? NSNumber)?.int64Value ?? 0
-        let key = "\(startMillis)-\(endMillis)-\(msize)-\(hrLog.fileSize() / 200_000)-\(SleepEdits.stamp(motionFile.deletingLastPathComponent()))"
+        let key = "\(startMillis)-\(endMillis)-\(msize)-\(hrLog.fileSize() / 200_000)-\(SleepEdits.stamp(motionFile.deletingLastPathComponent()))-\(SleepEdits.capsStamp(motionFile.deletingLastPathComponent()))"
         cacheLock.lock()
         if key == cacheKey { let v = cacheValue; cacheLock.unlock(); return v }
         cacheLock.unlock()
@@ -190,8 +190,14 @@ enum SleepStager {
             cacheLock.lock(); cacheKey = key; cacheValue = computed; cacheLock.unlock()
             return computed
         }
-        let allMotion = normalizeGyro(MotionTracker.readMinutes(motionFile), startMillis, endMillis)
-        let (start, end) = motionBounds(startMillis, endMillis, allMotion)
+        // 23/11: noche ya procesada ("FIN DEL SUEÑO"): se calcula con los datos que había entonces, así el fin no se sigue alargando
+        // si te quedas tumbado quieto en la cama (WHOOP no lo cambia una vez procesado)
+        let cap = SleepEdits.capFor(motionFile.deletingLastPathComponent(), startMillis, endMillis)
+        let end0 = cap ?? endMillis
+        var rawMotion = MotionTracker.readMinutes(motionFile)
+        if let c = cap { rawMotion = rawMotion.filter { $0.minuteStartUnix * 1000 < c } }
+        let allMotion = normalizeGyro(rawMotion, startMillis, end0)
+        let (start, end) = motionBounds(startMillis, end0, allMotion)
         let lo = start / 60_000, hi = end / 60_000
         let motion = allMotion.filter { $0.minuteStartUnix / 60 >= lo && $0.minuteStartUnix / 60 <= hi }
         var computed: Result? = nil

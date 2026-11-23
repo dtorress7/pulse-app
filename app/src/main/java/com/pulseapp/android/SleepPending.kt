@@ -17,7 +17,11 @@ object SleepPending {
 
     private fun p(ctx: Context) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
     fun processed(ctx: Context, date: String) = p(ctx).getBoolean(date, false)
-    fun markProcessed(ctx: Context, date: String) = p(ctx).edit().putBoolean(date, true).apply()
+    /** 23/11: además guarda la hora en que se procesó: la noche ya no se alarga con lo que pase después (ver SleepEdits.capFor). */
+    fun markProcessed(ctx: Context, date: String, nowMillis: Long = System.currentTimeMillis()) {
+        p(ctx).edit().putBoolean(date, true).apply()
+        ctx.getExternalFilesDir(null)?.let { SleepEdits.saveCap(it, date, nowMillis) }
+    }
 
     /** [date] = día en que acaba la noche (yyyy-MM-dd); [sleepEnd] = fin de la noche (ms). */
     fun isPending(ctx: Context, date: String, sleepEnd: Long?, now: Long = System.currentTimeMillis()): Boolean =

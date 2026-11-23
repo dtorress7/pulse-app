@@ -130,7 +130,7 @@ object SleepStager {
     fun stageNight(hrFile: File, motionFile: File, startMillis: Long, endMillis: Long): Result? {
         if (!motionFile.exists()) return null
         // Inicio solo se llama una vez por minuto desde Inicio: se reaprovecha si no cambió la ventana ni el movimiento
-        val key = "$startMillis-$endMillis-${motionFile.length()}-${hrFile.length() / 200_000L}-${SleepEdits.stamp(hrFile.parentFile ?: File("."))}"
+        val key = "$startMillis-$endMillis-${motionFile.length()}-${hrFile.length() / 200_000L}-${SleepEdits.stamp(hrFile.parentFile ?: File("."))}-${SleepEdits.capsStamp(hrFile.parentFile ?: File("."))}"
         synchronized(this) { if (key == cacheKey) return cacheValue }
         val computed = computeNight(hrFile, motionFile, startMillis, endMillis)
         synchronized(this) { cacheKey = key; cacheValue = computed }
@@ -145,8 +145,13 @@ object SleepStager {
             if (motion.isEmpty()) return null
             return stage(ed.startMillis, ed.endMillis, parseHr(hrFile, ed.startMillis, ed.endMillis), motion, forced = true)
         }
-        val allMotion = normalizeGyro(MotionTracker.readMinutes(motionFile), startMillis0, endMillis0)
-        val (startMillis, endMillis) = motionBounds(startMillis0, endMillis0, allMotion)
+        // 23/11: noche ya procesada ("FIN DEL SUEÑO" o "Sueño detectado" que pasó solo): se calcula con los datos que había entonces,
+        // así el fin no se sigue alargando si te quedas tumbado quieto en la cama (WHOOP no lo cambia una vez procesado)
+        val cap = SleepEdits.capFor(hrFile.parentFile ?: File("."), startMillis0, endMillis0)
+        val end0 = cap ?: endMillis0
+        val rawMotion = MotionTracker.readMinutes(motionFile).let { m -> if (cap == null) m else m.filter { it.minuteStartUnix * 1000L < cap } }
+        val allMotion = normalizeGyro(rawMotion, startMillis0, end0)
+        val (startMillis, endMillis) = motionBounds(startMillis0, end0, allMotion)
         val motion = allMotion.filter { it.minuteStartUnix / 60 in (startMillis / 60_000L)..(endMillis / 60_000L) }
         if (motion.isEmpty()) return null
         val readings = parseHr(hrFile, startMillis, endMillis)

@@ -59,4 +59,49 @@ enum SleepEdits {
 
     static func save(_ dir: URL, _ date: String, _ startMillis: Int64, _ endMillis: Int64) { append(dir, "\(date),\(startMillis),\(endMillis)\n") }
     static func clear(_ dir: URL, _ date: String) { append(dir, "\(date),0,0\n") }
+
+    // ---- 23/11: noches procesadas ("FIN DEL SUEÑO"). sleep_caps.csv: "fecha del despertar,hora a la que se procesó (ms)" ----
+    static let capsFile = "sleep_caps.csv"
+    private static var capsStampValue = ""
+    private static var caps = [(String, Int64)]()
+
+    static func capsStamp(_ dir: URL) -> String {
+        let f = dir.appendingPathComponent(capsFile)
+        guard let at = try? FileManager.default.attributesOfItem(atPath: f.path) else { return "-" }
+        let m = (at[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
+        let sz = (at[.size] as? NSNumber)?.int64Value ?? 0
+        return "\(m):\(sz)"
+    }
+
+    private static func allCaps(_ dir: URL) -> [(String, Int64)] {
+        lock.lock(); defer { lock.unlock() }
+        let st = capsStamp(dir)
+        if st == capsStampValue { return caps }
+        var out = [(String, Int64)]()
+        if let text = try? String(contentsOf: dir.appendingPathComponent(capsFile), encoding: .utf8) {
+            for line in text.split(separator: "\n") {
+                let p = line.trimmingCharacters(in: .whitespaces).split(separator: ",").map(String.init)
+                if p.count >= 2, let v = Int64(p[1]) { out.append((p[0], v)) }
+            }
+        }
+        caps = out; capsStampValue = st
+        return out
+    }
+
+    /// Hora a la que se procesó la noche detectada [from, to] (si cae dentro de ella): los datos de después no la alargan.
+    static func capFor(_ dir: URL, _ from: Int64, _ to: Int64) -> Int64? {
+        allCaps(dir).map { $0.1 }.filter { $0 > from && $0 <= to }.min()
+    }
+
+    static func saveCap(_ dir: URL, _ date: String, _ atMillis: Int64) {
+        if allCaps(dir).contains(where: { $0.0 == date }) { return }   // la primera vez manda
+        let f = dir.appendingPathComponent(capsFile)
+        let line = "\(date),\(atMillis)\n"
+        lock.lock(); defer { lock.unlock() }
+        if let h = try? FileHandle(forWritingTo: f) {
+            h.seekToEndOfFile(); h.write(line.data(using: .utf8)!); try? h.close()
+        } else {
+            try? line.write(to: f, atomically: true, encoding: .utf8)
+        }
+    }
 }
