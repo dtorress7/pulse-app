@@ -1174,7 +1174,10 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   VFC 97,97, FCR 56, resp 13,45, calificación 87 (regularidad 72), necesidad + 67 min por esfuerzo, recuperación 68. Código real (check/n23, hr_log_7 +
   motion_minutes): 21:42–07:53 (con datos hasta 07:54), 31/437/116/27, VFC 99,7, FCR 57 → recuperación 83 (app 83). Con la VFC/FCR EXACTAS de WHOOP la
   fórmula da 79 → −11, el mayor error de la fórmula visto (19–22/11: +1/+1/+4/+3). Sin explicar con una noche (¿esfuerzo 19,2 de la víspera? el 8/11, tras 19,0,
-  cuadraba). REM 27 vs 84 (capturas en check/n23/z para la ronda de fases).
+  cuadraba).
+  Comprobado (check/r23, 217 noches export + API): el error de la fórmula NO depende del esfuerzo de la víspera (r −0,03; 22 noches tras ≥ 17:
+  media −0,6, de −11 a +10) ni del cambio de VFC frente a la noche anterior (r −0,01); añadirlos empeora (CV 3,75 → 3,76–3,79, en línea 3,44 → 3,45–3,46).
+  Igual pasó el 6/9 (−11,4). Ruido de WHOOP → no se toca. REM 27 vs 84 (capturas en check/n23/z para la ronda de fases).
   - **Fin de la noche que se alarga tumbado en la cama (23/11, Android + iOS `SleepEdits.capFor/saveCap`, sleep_caps.csv)**: pulsó "FIN DEL SUEÑO" a las 07:45 →
     07:44; a las 07:54, tumbado quieto, 07:53 (el rato quieto que llega al último dato cuenta como sueño). Reproducido cortando los datos: 07:45 → 07:44, 07:50 → 07:48,
     todo → 07:53. Ahora `SleepPending.markProcessed` guarda la hora en que se procesó y `SleepStager.computeNight` calcula esa noche solo con los datos de hasta
