@@ -1183,6 +1183,14 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
     todo → 07:53. Ahora `SleepPending.markProcessed` guarda la hora en que se procesó y `SleepStager.computeNight` calcula esa noche solo con los datos de hasta
     entonces (pulso y movimiento) → 07:44 fijo (WHOOP 07:41). Las noches 21 y 22/11 iguales. Sin pulsar (procesado solo a las 2 h) no se fija.
 
+- **Estrés vs WHOOP con 3 capturas mensuales (23/11, check/st23: dig.py lee las barras, SD.kt = código real con las ventanas de sueño/entreno de la API
+  y línea base EWMA14 de WHOOP, Dump.kt + fit.py = misma cuenta en Python, idéntica)**. 27 días con pulso completo 25/10→22/11, error en puntos de %
+  bajo/medio/alto: días de ajuste (≤ 4/11) total 5,7/4,2/3,1 · sin actividad 8,0/6,6/3,7 · sueño 7,1/5,5/1,6; días NUEVOS (5–22/11) total 7,9/7,3/2,9 ·
+  sin actividad 12,3/11,6/3,8 (sesgo bajo −6, medio +8: los días tranquilos 16, 17, 19, 20/11 WHOOP 65–89 % bajo, PulseApp 36–62 %) · sueño 3,6/3,3/0,6.
+  Minutos de alto medios: PulseApp 126 / 57 / 2 frente a WHOOP 120 / 69 / 4 (total / sin actividad / sueño). Reajustar solo K_HR y K_HRV (≈ 3,0 / 0,68)
+  mejora los % en todas las pruebas (una mitad → la otra 6,18 → 5,74 y 5,08 → 5,06; cada semana fuera 5,70 → 5,30) PERO empeora el sueño (3,35 → 4,92) y
+  los minutos de alto (sin actividad 57 → 49, sueño 2 → 14) → las dos comprobaciones no coinciden: NO se cambia. Las dos mitades piden más peso a la VFC.
+
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
 esfuerzo 11,5, 271 kcal, FC media 127 (la media aritmética de esos segundos es 133: WHOOP no usa la media simple), máx 170,
