@@ -181,7 +181,8 @@ enum AutoActivityScanner {
     /// Una sola vez tras actualizar (20/10): rehace zonas, calorías y esfuerzo de las actividades guardadas
     /// con las fórmulas nuevas. Mismo inicio, fin y deporte; si no hay pulso, se deja como estaba.
     private static func recalcAllOnce(store: AppStore, hrLog: HrLog, profile: UserProfile) {
-        if UserDefaults.standard.integer(forKey: keyRecalc) >= 7 { return }
+        let doneVersion = UserDefaults.standard.integer(forKey: keyRecalc)
+        if doneVersion >= 7 { return }
         if Formulas.bmr() <= 0 {
             Formulas.setBmr(CalorieCalculator.basalMetabolicRate(ageYears: profile.ageYears(), weightKg: profile.weightKg,
                                                                  heightCm: profile.heightCm, sex: profile.sex))
@@ -192,6 +193,8 @@ enum AutoActivityScanner {
         for old in store.allSessions() {
             // Las importadas de WHOOP se quedan con los números de WHOOP
             if !importUntil.isEmpty && TimeUtil.dayKey(old.startMillis) <= importUntil { continue }
+            // 23/11: de la 6 a la 7 solo cambian los paseos (cada actividad relee el archivo de pulso entero: con todas tardaba minutos)
+            if doneVersion == 6 && !Formulas.isWalk(old.type) { continue }
             guard var fresh = ActivityRecorder.summarize(
                 hrLog: hrLog, startMillis: old.startMillis, endMillis: old.endMillis,
                 ageYears: profile.ageYears(), weightKg: profile.weightKg, sex: profile.sex,
