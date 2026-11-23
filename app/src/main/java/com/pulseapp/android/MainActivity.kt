@@ -216,6 +216,8 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.dayLabel).setOnClickListener { if (dayOffset != 0) { dayOffset = 0; refresh() } }
 
         findViewById<View>(R.id.rowExport).setOnClickListener { exportCsv() }
+        findViewById<View>(R.id.rowFriendsData).setOnClickListener { FriendsDataDialog.open(this) }
+        findViewById<View>(R.id.rowShareData).setOnClickListener { FriendsDataDialog.shareSettings(this) }
         findViewById<View>(R.id.rowWhoopImport).setOnClickListener { askWhoopImport() }
         findViewById<View>(R.id.rowWhoopExperimental).setOnClickListener(openWhoop)
         findViewById<TextView>(R.id.txtBuildInfo).text = "Versión: " + BuildConfig.BUILD_INFO
@@ -357,6 +359,7 @@ class MainActivity : AppCompatActivity() {
         lastData = d
         hideLoading()
         if (d.isToday) CommunitySync.upload(this, d)
+        if (d.isToday) DataShare.maybeUpload(this)
         val ctx = this
         findViewById<TextView>(R.id.streakText).text = d.streak.toString()
 

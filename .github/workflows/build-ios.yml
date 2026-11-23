@@ -39,24 +39,30 @@ jobs:
           swiftc PulseApp/Core/TimeUtil.swift PulseApp/Core/BandSteps.swift Tests/bandsteps/main.swift -o bandcheck
           ./bandcheck
 
+      - name: Comprobar los datos para calibrar (Swift lee lo de Android)
+        working-directory: ios
+        run: |
+          swiftc PulseApp/Core/DataShareCodec.swift Tests/datashare/main.swift -o dscheck
+          ./dscheck Tests/datashare
+
       - name: Comprobar la VFC de la noche (Swift = Android)
         run: |
-          swiftc $(ls PulseApp/Core/*.swift | grep -v -e HomeData.swift -e AndroidImport.swift -e Community.swift) Tests/vfc/main.swift -o vfccheck
+          swiftc $(ls PulseApp/Core/*.swift | grep -v -e HomeData.swift -e AndroidImport.swift -e Community.swift -e DataShare.swift) Tests/vfc/main.swift -o vfccheck
           ./vfccheck Tests/vfc/nights.csv
 
       - name: Comprobar el recorte y las fases de la noche (Swift = Android)
         run: |
-          swiftc -O $(ls PulseApp/Core/*.swift | grep -v -e HomeData.swift -e AndroidImport.swift -e Community.swift) Tests/stager/main.swift -o stagercheck
+          swiftc -O $(ls PulseApp/Core/*.swift | grep -v -e HomeData.swift -e AndroidImport.swift -e Community.swift -e DataShare.swift) Tests/stager/main.swift -o stagercheck
           ./stagercheck Tests/stager/nights.csv PulseApp/Resources/sleep_model.json
 
       - name: Comprobar el entrenador de fuerza (Swift = Android)
         run: |
-          swiftc $(ls PulseApp/Core/*.swift | grep -v -e HomeData.swift -e AndroidImport.swift -e Community.swift) Tests/strength/main.swift -o strengthcheck
+          swiftc $(ls PulseApp/Core/*.swift | grep -v -e HomeData.swift -e AndroidImport.swift -e Community.swift -e DataShare.swift) Tests/strength/main.swift -o strengthcheck
           ./strengthcheck Tests/strength
 
       - name: Comprobar la calibración de la recuperación (Swift = Android)
         run: |
-          swiftc $(ls PulseApp/Core/*.swift | grep -v -e HomeData.swift -e AndroidImport.swift -e Community.swift) Tests/reccal/main.swift -o reccalcheck
+          swiftc $(ls PulseApp/Core/*.swift | grep -v -e HomeData.swift -e AndroidImport.swift -e Community.swift -e DataShare.swift) Tests/reccal/main.swift -o reccalcheck
           ./reccalcheck Tests/reccal
 
       - name: Marcar la versión (commit y fecha, se ve en Más)

@@ -197,6 +197,58 @@ actor CommunityAPI {
         return try decoder.decode([T].self, from: try await rest("GET", path))
     }
 
+    // ---------- Almacén de archivos (23/11, datos para calibrar: ver DataShare y supabase/datos.sql) ----------
+
+    private func storageCall(_ method: String, _ path: String, body: Data?, contentType: String, upsert: Bool = false) async throws -> Data {
+        let t = try await token()
+        guard let url = URL(string: CommunityConfig.url + "/storage/v1/" + path) else { throw CommunityError(message: "Dirección del servidor no válida") }
+        var req = URLRequest(url: url, timeoutInterval: 60)
+        req.httpMethod = method
+        req.setValue(CommunityConfig.key, forHTTPHeaderField: "apikey")
+        req.setValue("Bearer " + t, forHTTPHeaderField: "Authorization")
+        req.setValue(contentType, forHTTPHeaderField: "Content-Type")
+        if upsert { req.setValue("true", forHTTPHeaderField: "x-upsert") }
+        req.httpBody = body
+        let (data, resp) = try await URLSession.shared.data(for: req)
+        let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
+        if code >= 300 {
+            var msg = "Error \(code) del servidor"
+            if let o = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let m = (o["message"] as? String) ?? (o["error"] as? String) { msg = m }
+            throw CommunityError(message: msg)
+        }
+        return data
+    }
+
+    func storageUpload(bucket: String, path: String, data: Data, contentType: String) async throws {
+        _ = try await storageCall("POST", "object/\(bucket)/\(path)", body: data, contentType: contentType, upsert: true)
+    }
+
+    func storageDownload(bucket: String, path: String) async throws -> Data {
+        return try await storageCall("GET", "object/authenticated/\(bucket)/\(path)", body: nil, contentType: "application/json")
+    }
+
+    /// Lista una "carpeta" (prefijo terminado en "/" o vacío). Las carpetas vienen con id nulo.
+    func storageList(bucket: String, prefix: String) async throws -> [[String: Any]] {
+        var out = [[String: Any]]()
+        var offset = 0
+        while true {
+            let body = try JSONSerialization.data(withJSONObject: ["prefix": prefix, "limit": 1000, "offset": offset,
+                                                                   "sortBy": ["column": "name", "order": "asc"]])
+            let d = try await storageCall("POST", "object/list/\(bucket)", body: body, contentType: "application/json")
+            let a = (try? JSONSerialization.jsonObject(with: d) as? [[String: Any]]) ?? []
+            out.append(contentsOf: a)
+            if a.count < 1000 { break }
+            offset += 1000
+        }
+        return out
+    }
+
+    func rpcBool(_ fn: String) async throws -> Bool {
+        let d = try await rest("POST", "rpc/\(fn)", body: [String: String]())
+        return String(decoding: d, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "true"
+    }
+
     private func nowIso() -> String { return ISO8601DateFormatter().string(from: Date()) }
 
     // ---------- Perfil ----------

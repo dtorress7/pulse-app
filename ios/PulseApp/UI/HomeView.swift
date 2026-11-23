@@ -25,6 +25,7 @@ struct HomeView: View {
 
     // Hojas y diálogos
     @State private var showProfile = false
+    @State private var showFriends = false
     @State private var showHub = false
     @State private var showWhoop = false
     @State private var showAdd = false
@@ -120,6 +121,7 @@ struct HomeView: View {
         .sheet(isPresented: $showProfile, onDismiss: { HomeStore.shared.invalidate() }) { ProfileView() }
         .fullScreenCover(isPresented: $showHub, onDismiss: { HomeStore.shared.invalidate() }) { ProfileHubSheet() }
         .sheet(isPresented: $showWhoop) { WhoopView() }
+        .sheet(isPresented: $showFriends) { FriendsDataView() }
         .sheet(isPresented: $showAdd) {
             AddActivitySheet(dayOffset: dayOffset) { start, end, type in saveSession(start, end, type) }
         }
@@ -222,6 +224,7 @@ struct HomeView: View {
         HomeStore.shared.load(offset, maxAge: force ? 0 : 50) { d in
             if loadingOffset == offset { loadingOffset = nil }
             if d.isToday { CommunitySync.upload(d) }
+            if d.isToday { DataShare.maybeUpload() }
             if offset == dayOffset {
                 data = d
                 hideLoading()
@@ -790,6 +793,8 @@ struct HomeView: View {
                 moreRow("clock.arrow.circlepath", "Importar historial de WHOOP") {
                     if !importing { showWhoopInfo = true }
                 }
+                WDivider()
+                moreRow("icloud.and.arrow.up", "Datos para calibrar") { showFriends = true }
                 WDivider()
                 ShareLink(item: AppPaths.file(AppPaths.hrLog)) {
                     moreRowContent("square.and.arrow.up", "Exportar CSV")

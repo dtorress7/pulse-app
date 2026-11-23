@@ -179,6 +179,7 @@ class WhoopBackgroundService : Service() {
                 requestHistory()
             }
             applyImuSchedule()
+            DataShare.maybeUpload(this@WhoopBackgroundService)   // 23/11: datos para calibrar (como mucho cada 3 h)
             handler.postDelayed(this, OFFLOAD_EVERY_MS)
         }
     }

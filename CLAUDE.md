@@ -1196,6 +1196,16 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   sin actividad 8,05 → 7,35, sueño 3,35 → 3,14); minutos de alto iguales (127/58/2). Código real con BaselineProvider.computeFrom (SD2.kt) = Python.
   Excluye sueño + entrenos (detectados o a mano; andar sin registrar SÍ cuenta). stress_days.csv v3 (se recalcula la caché).
 
+- **Datos para calibrar (23/11, Android `DataShare.kt` + `FriendsDataDialog.kt`, iOS `Core/DataShare.swift` + `Core/DataShareCodec.swift` +
+  `UI/FriendsDataView.swift`, servidor `supabase/datos.sql`)**: cada móvil sube SOLO LO NUEVO de hr_log, motion_minutes, band_steps, sleep_edits y
+  sleep_caps (como mucho cada 3 h: Inicio + servicio Android cada 15 min) a `pulse-data/<id anónimo>/<archivo>/<gen>-<byte>-<largo>.dfl` (trozos ≤ 8 MB
+  que acaban en salto de línea, deflate sin cabecera = mismo formato en las dos) + `info.json` (nombre de Comunidad, plataforma, versión). Activado
+  por defecto (decisión del usuario; se puede apagar). Solo el ADMINISTRADOR (el primero que pulsa "Hacerme administrador", `claim_data_admin`) ve las
+  carpetas de los demás: Más → "Datos de amigos"/"Datos para calibrar" → elegir persona → descarga solo los trozos que faltan y comparte los archivos
+  enteros (`<nombre>_hr_log.csv`…). Comprobado: Kotlin 30 MB del hr_log real en 6 trozos (5 MB comprimido) → reconstruido igual; Python zlib −15 lo lee;
+  CI de iOS "Comprobar los datos para calibrar" (Swift lee los trozos de Kotlin, ios/Tests/datashare). Hay que ejecutar supabase/datos.sql UNA vez.
+  El contenedor de Claude NO llega a Supabase (bloqueado): el usuario descarga y comparte.
+
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
 esfuerzo 11,5, 271 kcal, FC media 127 (la media aritmética de esos segundos es 133: WHOOP no usa la media simple), máx 170,

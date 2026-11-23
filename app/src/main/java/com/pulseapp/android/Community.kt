@@ -137,6 +137,69 @@ object CommunityApi {
             }
         }
 
+    // ---------- Almacén de archivos (23/11, datos para calibrar: ver DataShare y supabase/datos.sql) ----------
+
+    private suspend fun storageCall(ctx: Context, method: String, path: String, body: ByteArray?, contentType: String,
+                                    upsert: Boolean = false): ByteArray = withContext(Dispatchers.IO) {
+        val auth = token(ctx)
+        val conn = URL(CommunityConfig.url(ctx) + "/storage/v1/" + path).openConnection() as HttpURLConnection
+        try {
+            conn.requestMethod = method
+            conn.connectTimeout = 30_000
+            conn.readTimeout = 60_000
+            conn.setRequestProperty("apikey", CommunityConfig.key(ctx))
+            conn.setRequestProperty("Authorization", "Bearer $auth")
+            conn.setRequestProperty("Content-Type", contentType)
+            if (upsert) conn.setRequestProperty("x-upsert", "true")
+            if (body != null) {
+                conn.doOutput = true
+                conn.setFixedLengthStreamingMode(body.size)
+                conn.outputStream.use { it.write(body) }
+            }
+            val code = conn.responseCode
+            val stream = if (code >= 300) conn.errorStream else conn.inputStream
+            val bytes = stream?.use { it.readBytes() } ?: ByteArray(0)
+            if (code >= 300) {
+                val text = String(bytes, Charsets.UTF_8)
+                val o = try { JSONObject(text) } catch (e: Exception) { null }
+                throw CommunityException(o?.optString("message")?.takeIf { it.isNotEmpty() } ?: o?.optString("error")?.takeIf { it.isNotEmpty() }
+                    ?: "Error $code del servidor")
+            }
+            bytes
+        } catch (e: CommunityException) {
+            throw e
+        } catch (e: Exception) {
+            throw CommunityException("Sin conexión con el servidor (${e.javaClass.simpleName})")
+        } finally {
+            conn.disconnect()
+        }
+    }
+
+    suspend fun storageUpload(ctx: Context, bucket: String, objectPath: String, data: ByteArray, contentType: String) {
+        storageCall(ctx, "POST", "object/$bucket/$objectPath", data, contentType, upsert = true)
+    }
+
+    suspend fun storageDownload(ctx: Context, bucket: String, objectPath: String): ByteArray =
+        storageCall(ctx, "GET", "object/authenticated/$bucket/$objectPath", null, "application/json")
+
+    /** Lista una "carpeta" (prefijo terminado en "/" o vacío). Las carpetas vienen con id null. */
+    suspend fun storageList(ctx: Context, bucket: String, prefix: String): List<JSONObject> {
+        val out = ArrayList<JSONObject>()
+        var offset = 0
+        while (true) {
+            val body = JSONObject().put("prefix", prefix).put("limit", 1000).put("offset", offset)
+                .put("sortBy", JSONObject().put("column", "name").put("order", "asc")).toString()
+            val a = JSONArray(String(storageCall(ctx, "POST", "object/list/$bucket", body.toByteArray(), "application/json"), Charsets.UTF_8))
+            for (i in 0 until a.length()) out.add(a.getJSONObject(i))
+            if (a.length() < 1000) break
+            offset += 1000
+        }
+        return out
+    }
+
+    suspend fun rpcBool(ctx: Context, fn: String): Boolean =
+        rest(ctx, "POST", "rpc/$fn", "{}").trim().equals("true", ignoreCase = true)
+
     private suspend fun rest(ctx: Context, method: String, path: String, body: String? = null, prefer: String? = null): String =
         raw(ctx, method, "/rest/v1/$path", body, token(ctx), prefer)
 
