@@ -21,7 +21,14 @@ enum SleepModel {
         return try? JSONDecoder().decode(Model.self, from: data)
     }()
 
-    static func classify(_ secs: [[Second]], _ mot: [Minute?]) -> [Int]? {
+    final class RawBox { var v: [Double]? = nil; init() {} }
+
+    /// 24/11 (igual que Android): corrección personal del reparto [ligero, profundo, REM] (StagePrior); nil = sin corrección.
+    static var personalShift: [Double]? = nil
+
+    /// Fases de cada minuto. `raw` recibe la fracción de ligero/profundo/REM del modelo SIN corregir. Con `shift` se buscan los sesgos
+    /// de ligero/profundo/REM que llevan el total de la noche a (fracción del modelo + shift) y se colocan las fases con ellos.
+    static func classify(_ secs: [[Second]], _ mot: [Minute?], raw: RawBox? = nil, shift: [Double]? = personalShift) -> [Int]? {
         guard let m = model else { return nil }
         let x = features(secs, mot, roll: m.roll ?? [])
         let n = x.count
@@ -29,19 +36,55 @@ enum SleepModel {
         let k = 4
         var emis = [[Double]](repeating: [Double](repeating: 0, count: k), count: n)
         for i in 0..<n {
-            var raw = m.baseline
+            var raw0 = m.baseline
             for (idx, t) in m.trees.enumerated() {
                 var node = 0
                 while t.f[node] >= 0 { node = x[i][t.f[node]] <= t.t[node] ? t.l[node] : t.r[node] }
-                raw[idx % k] += t.v[node]
+                raw0[idx % k] += t.v[node]
             }
-            let mx = raw.max() ?? 0
-            let p = (0..<k).map { exp(raw[$0] - mx + m.bias[$0]) }
+            let mx = raw0.max() ?? 0
+            let p = (0..<k).map { exp(raw0[$0] - mx + m.bias[$0]) }
             let s = p.reduce(0, +)
             for c in 0..<k { emis[i][c] = log(p[c] / s + 1e-9) }
         }
-        let stayL = log(m.stay), moveL = log((1 - m.stay) / Double(k - 1))
-        var d = emis[0]
+        var add = [Double](repeating: 0, count: k)
+        var st = viterbi(emis, add, m.stay)
+        guard let f0 = sleepFractions(st) else { return st }
+        raw?.v = f0
+        guard let shift = shift else { return st }
+        var target = (0..<3).map { max(shiftMinFrac, f0[$0] + shift[$0]) }
+        let ts = target.reduce(0, +); for c in 0..<3 { target[c] /= ts }
+        var best = st, bestErr = fracError(f0, target)
+        var cur = f0
+        for _ in 0..<shiftIter {
+            if bestErr < 0.01 { return best }
+            for c in 0..<3 { add[c + 1] += shiftStep * log(target[c] / max(cur[c], 0.005)) }
+            st = viterbi(emis, add, m.stay)
+            guard let f = sleepFractions(st) else { return best }
+            cur = f
+            let e = fracError(cur, target)
+            if e < bestErr { bestErr = e; best = st }
+        }
+        return best
+    }
+
+    private static let shiftMinFrac = 0.02
+    private static let shiftIter = 25
+    private static let shiftStep = 0.7
+
+    private static func sleepFractions(_ st: [Int]) -> [Double]? {
+        var c = [0, 0, 0, 0]; for v in st { c[v] += 1 }
+        let t = c[1] + c[2] + c[3]
+        if t < 30 { return nil }
+        return [Double(c[1]) / Double(t), Double(c[2]) / Double(t), Double(c[3]) / Double(t)]
+    }
+
+    private static func fracError(_ a: [Double], _ b: [Double]) -> Double { abs(a[0] - b[0]) + abs(a[1] - b[1]) + abs(a[2] - b[2]) }
+
+    private static func viterbi(_ emis: [[Double]], _ add: [Double], _ stay: Double) -> [Int] {
+        let n = emis.count, k = 4
+        let stayL = log(stay), moveL = log((1 - stay) / Double(k - 1))
+        var d = (0..<k).map { emis[0][$0] + add[$0] }
         var back = [[Int]](repeating: [Int](repeating: 0, count: k), count: n)
         if n > 1 {
             for i in 1..<n {
@@ -52,7 +95,7 @@ enum SleepModel {
                         let v = d[p] + (p == c ? stayL : moveL)
                         if v > best { best = v; arg = p }
                     }
-                    nd[c] = best + emis[i][c]; back[i][c] = arg
+                    nd[c] = best + emis[i][c] + add[c]; back[i][c] = arg
                 }
                 d = nd
             }

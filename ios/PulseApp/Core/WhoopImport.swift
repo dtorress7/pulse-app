@@ -278,6 +278,10 @@ enum WhoopImport {
         let calib = RecoveryCalibration.fit(store.lastDays(400))
         Formulas.setPersonalRecovery(calib.coef)
         result.calibration = calib
+        // 24/11: con el historial de WHOOP ya se puede corregir el reparto de fases (StagePrior) → se rehacen las noches de PulseApp
+        UserDefaults.standard.removeObject(forKey: DailyMetricsUpdater.recalcKey)
+        UserDefaults.standard.removeObject(forKey: DailyMetricsUpdater.recalcProgressKey)
+        StagePrior.refresh(store: store)
 
         // 17/11: diario (journal_entries.csv) para "Información sobre comportamientos"
         result.journalDays = JournalStore.importWhoop(find("journal_entries.csv"))

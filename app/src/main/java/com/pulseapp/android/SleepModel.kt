@@ -57,28 +57,76 @@ object SleepModel {
      * Fases de cada minuto. [secs][i] = lecturas de cada segundo del minuto i (en orden), [mot][i] = movimiento del minuto i
      * (null si no hay). null si el modelo no se puede cargar.
      */
-    fun classify(secs: List<List<Second>>, mot: List<Minute?>): IntArray? {
+    /**
+     * 24/11: corrección personal de las fases [ligero, profundo, REM] (fracción del sueño que se suma a la que da el modelo). El modelo
+     * solo se entrenó con las noches del primer usuario; con otras personas se queda sin REM (Pablo 0 de 117–155 min, Nico 11 de 85) aunque
+     * coloque bien el resto. La calcula StagePrior con su historial importado de WHOOP; null = sin corrección.
+     */
+    @Volatile @JvmStatic var personalShift: DoubleArray? = null
+
+    /**
+     * Fases de cada minuto. [secs][i] = lecturas de cada segundo del minuto i (en orden), [mot][i] = movimiento del minuto i
+     * (null si no hay). null si el modelo no se puede cargar. [raw] (3 huecos) recibe la fracción de ligero/profundo/REM que da el
+     * modelo SIN corrección. Con [shift], se buscan los sesgos de ligero/profundo/REM que llevan el total de la noche a
+     * (fracción del modelo + shift), y las fases se colocan con esos sesgos (mismo Viterbi).
+     */
+    fun classify(secs: List<List<Second>>, mot: List<Minute?>, raw: DoubleArray? = null, shift: DoubleArray? = personalShift): IntArray? {
         val m = load() ?: return null
         val x = features(secs, mot, m.roll)
         val n = x.size
         val k = 4
         val emis = Array(n) { DoubleArray(k) }
         for (i in 0 until n) {
-            val raw = m.baseline.copyOf()
+            val raw0 = m.baseline.copyOf()
             for ((idx, t) in m.trees.withIndex()) {
                 var node = 0
                 while (t.f[node] >= 0) node = if (x[i][t.f[node]] <= t.t[node]) t.l[node] else t.r[node]
-                raw[idx % k] += t.v[node]
+                raw0[idx % k] += t.v[node]
             }
-            val mx = raw.max()
+            val mx = raw0.max()
             var s = 0.0
-            val p = DoubleArray(k) { exp(raw[it] - mx + m.bias[it]) }
+            val p = DoubleArray(k) { exp(raw0[it] - mx + m.bias[it]) }
             for (v in p) s += v
             for (c in 0 until k) emis[i][c] = ln(p[c] / s + 1e-9)
         }
-        // Viterbi
-        val stayL = ln(m.stay); val moveL = ln((1 - m.stay) / (k - 1))
-        var d = emis[0].copyOf()
+        val add = DoubleArray(k)
+        var st = viterbi(emis, add, m.stay)
+        val f0 = sleepFractions(st)
+        if (raw != null && f0 != null) System.arraycopy(f0, 0, raw, 0, 3)
+        if (shift == null || f0 == null) return st
+        val target = DoubleArray(3) { maxOf(SHIFT_MIN_FRAC, f0[it] + shift[it]) }
+        val ts = target.sum(); for (c in 0 until 3) target[c] /= ts
+        var best = st; var bestErr = fracError(f0, target)
+        var cur: DoubleArray = f0
+        repeat(SHIFT_ITER) {
+            if (bestErr < 0.01) return best
+            for (c in 0 until 3) add[c + 1] += SHIFT_STEP * ln(target[c] / maxOf(cur[c], 0.005))
+            st = viterbi(emis, add, m.stay)
+            cur = sleepFractions(st) ?: return best
+            val e = fracError(cur, target)
+            if (e < bestErr) { bestErr = e; best = st }
+        }
+        return best
+    }
+
+    private const val SHIFT_MIN_FRAC = 0.02
+    private const val SHIFT_ITER = 25
+    private const val SHIFT_STEP = 0.7
+
+    /** Fracción de ligero/profundo/REM sobre los minutos que el modelo da por dormidos (null si < 30). */
+    private fun sleepFractions(st: IntArray): DoubleArray? {
+        val c = IntArray(4); for (v in st) c[v]++
+        val t = c[1] + c[2] + c[3]
+        if (t < 30) return null
+        return doubleArrayOf(c[1].toDouble() / t, c[2].toDouble() / t, c[3].toDouble() / t)
+    }
+
+    private fun fracError(a: DoubleArray, b: DoubleArray) = abs(a[0] - b[0]) + abs(a[1] - b[1]) + abs(a[2] - b[2])
+
+    private fun viterbi(emis: Array<DoubleArray>, add: DoubleArray, stay: Double): IntArray {
+        val n = emis.size; val k = 4
+        val stayL = ln(stay); val moveL = ln((1 - stay) / (k - 1))
+        var d = DoubleArray(k) { emis[0][it] + add[it] }
         val back = Array(n) { IntArray(k) }
         for (i in 1 until n) {
             val nd = DoubleArray(k)
@@ -88,7 +136,7 @@ object SleepModel {
                     val v = d[p] + if (p == c) stayL else moveL
                     if (v > best) { best = v; arg = p }
                 }
-                nd[c] = best + emis[i][c]; back[i][c] = arg
+                nd[c] = best + emis[i][c] + add[c]; back[i][c] = arg
             }
             d = nd
         }

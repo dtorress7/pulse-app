@@ -72,7 +72,7 @@ object SleepStager {
     private const val ONSET_STILL = 9
     private const val MIN_MOTION_COVERAGE = 0.6
 
-    class Result(val startMinute: Long, val stages: IntArray) {
+    class Result(val startMinute: Long, val stages: IntArray, val rawFrac: DoubleArray? = null) {
         val minutes get() = stages.size
         fun count(stage: Int) = stages.count { it == stage }
         val awakeMinutes get() = count(AWAKE)
@@ -130,7 +130,7 @@ object SleepStager {
     fun stageNight(hrFile: File, motionFile: File, startMillis: Long, endMillis: Long): Result? {
         if (!motionFile.exists()) return null
         // Inicio solo se llama una vez por minuto desde Inicio: se reaprovecha si no cambió la ventana ni el movimiento
-        val key = "$startMillis-$endMillis-${motionFile.length()}-${hrFile.length() / 200_000L}-${SleepEdits.stamp(hrFile.parentFile ?: File("."))}-${SleepEdits.capsStamp(hrFile.parentFile ?: File("."))}"
+        val key = "${SleepModel.personalShift?.joinToString(";")}-$startMillis-$endMillis-${motionFile.length()}-${hrFile.length() / 200_000L}-${SleepEdits.stamp(hrFile.parentFile ?: File("."))}-${SleepEdits.capsStamp(hrFile.parentFile ?: File("."))}"
         synchronized(this) { if (key == cacheKey) return cacheValue }
         val computed = computeNight(hrFile, motionFile, startMillis, endMillis)
         synchronized(this) { cacheKey = key; cacheValue = computed }
@@ -277,7 +277,7 @@ object SleepStager {
     }
 
     fun stage(startMillis: Long, endMillis: Long, readings: List<HrReading>, motion: List<MotionMinute>,
-              minWindow: Int = MIN_WINDOW_MINUTES, forced: Boolean = false): Result? {
+              minWindow: Int = MIN_WINDOW_MINUTES, forced: Boolean = false, useShift: Boolean = true): Result? {
         val m0 = startMillis / 60_000L
         val m1 = endMillis / 60_000L
         val n = (m1 - m0 + 1).toInt()
@@ -398,21 +398,22 @@ object SleepStager {
         // ---- Clasificación (23/10): modelo aprendido del hipnograma de WHOOP; si no se puede cargar, las reglas de antes ----
         // Los despertares siguen saliendo de las reglas de arriba (ajustadas a los totales y al número de despertares de WHOOP):
         // en las capturas los despertares cortos son líneas de 1 px y el modelo aprendió menos minutos despierto de la cuenta.
-        modelStages(m0, n, readings, motion)?.let { ms ->
+        val raw1 = DoubleArray(3); val raw2 = DoubleArray(3)
+        modelStages(m0, n, readings, motion, raw1, useShift)?.let { ms ->
             for (k in 0 until n) ms[k] = if (aw[k]) AWAKE else if (ms[k] == AWAKE) LIGHT else ms[k]
-            if (forced) return Result(m0, ms)   // noche editada: la ventana ya es el tiempo en cama (como el modelo se entrenó)
+            if (forced) return Result(m0, ms, raw1)   // noche editada: la ventana ya es el tiempo en cama (como el modelo se entrenó)
             val (a0, b0) = trimBounds(ms, hrm, gyro, steps, 0)
             // 5/11: segunda pasada SOLO sobre la noche ya recortada. El modelo se entrenó con el "progreso" de la noche medido sobre el
             // tiempo en cama de WHOOP; con la ventana sin recortar, ese progreso dependía de cuánto rato llevabas levantado (la ventana del
             // pulso crece por la mañana) y las fases de TODA la noche cambiaban: 5/11 a las 8:00 VFC 94,0 / recuperación 69 y a las
             // 8:15 93,1 / 67 (12 minutos de fase distintos a las 23:08, 00:43, 02:50 y 07:06).
             if (b0 - a0 >= minWindow) debugModelWindow?.invoke(m0 + a0, b0 - a0)
-            if (b0 - a0 >= minWindow) modelStages(m0 + a0, b0 - a0, readings, motion)?.let { ms2 ->
+            if (b0 - a0 >= minWindow) modelStages(m0 + a0, b0 - a0, readings, motion, raw2, useShift)?.let { ms2 ->
                 for (k in ms2.indices) ms2[k] = if (aw[a0 + k]) AWAKE else if (ms2[k] == AWAKE) LIGHT else ms2[k]
                 val (a1, b1) = trimBounds(ms2, hrm, gyro, steps, a0, keepStart = true)
-                if (b1 > a1) return Result(m0 + a0 + a1, ms2.copyOfRange(a1, b1))
+                if (b1 > a1) return Result(m0 + a0 + a1, ms2.copyOfRange(a1, b1), raw2)
             }
-            return Result(m0 + a0, ms.copyOfRange(a0, b0))
+            return Result(m0 + a0, ms.copyOfRange(a0, b0), raw1)
         }
         val st = IntArray(n) { if (aw[it]) AWAKE else LIGHT }
         for (i in 0 until n) {
@@ -451,10 +452,10 @@ object SleepStager {
         val motion = normalizeGyro(MotionTracker.readMinutes(motionFile), startMillis, endMillis)
             .filter { it.minuteStartUnix / 60 in (startMillis / 60_000L)..(endMillis / 60_000L) }
         if (motion.isEmpty()) return null
-        val r = stage(startMillis, endMillis, parseHr(hrFile, startMillis, endMillis), motion, NAP_MIN_MINUTES) ?: return null
+        val r = stage(startMillis, endMillis, parseHr(hrFile, startMillis, endMillis), motion, NAP_MIN_MINUTES, useShift = false) ?: return null
         val st = r.stages.copyOf()
         for (i in 0 until minOf(NAP_NO_REM_MIN, st.size)) if (st[i] == REM) st[i] = LIGHT
-        return Result(r.startMinute, st)
+        return Result(r.startMinute, st, r.rawFrac)
     }
 
     /** 3/11: levantarse 2 min (16 + 9 pasos, p. ej. al baño) y volver a dormirse sigue siendo noche (WHOOP 06:55, antes 06:44).
@@ -477,7 +478,8 @@ object SleepStager {
     @JvmStatic var debugModelWindow: ((Long, Int) -> Unit)? = null
 
     /** Fases con SleepModel (pulso y RR de cada segundo + movimiento de cada minuto de la ventana). */
-    private fun modelStages(m0: Long, n: Int, readings: List<HrReading>, motion: List<MotionMinute>): IntArray? {
+    private fun modelStages(m0: Long, n: Int, readings: List<HrReading>, motion: List<MotionMinute>, raw: DoubleArray? = null,
+                            useShift: Boolean = true): IntArray? {
         val secs = List(n) { ArrayList<SleepModel.Second>() }
         for (r in readings) {
             val i = (r.timeMillis / 60_000L - m0).toInt()
@@ -488,7 +490,7 @@ object SleepStager {
             val i = (mm.minuteStartUnix / 60 - m0).toInt()
             if (i in 0 until n) mot[i] = SleepModel.Minute(mm.stillSecs.toDouble(), mm.gyroDps.toString().toDouble(), mm.steps.toDouble())
         }
-        return SleepModel.classify(secs, mot.toList())
+        return SleepModel.classify(secs, mot.toList(), raw, if (useShift) SleepModel.personalShift else null)
     }
 
     /** [inicio, fin) de la noche: del primer tramo de ≥[ONSET_RUN] min sin despertar al último minuto dormido. */

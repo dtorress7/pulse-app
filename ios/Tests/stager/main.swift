@@ -7,13 +7,14 @@ import Foundation
 let args = CommandLine.arguments
 SleepModel.modelURL = URL(fileURLWithPath: args[2])
 let text = try! String(contentsOfFile: args[1], encoding: .utf8)
-struct N { var day: String; var s: Int64; var e: Int64; var refStart: Int64; var refStages: String; var ds: Int64 = 0; var de: Int64 = 0; var hr: [HrReading] = []; var mot: [MotionMinute] = []; var wide: [MotionMinute] = [] }
+struct N { var day: String; var s: Int64; var e: Int64; var refStart: Int64; var refStages: String; var ds: Int64 = 0; var de: Int64 = 0; var hr: [HrReading] = []; var mot: [MotionMinute] = []; var wide: [MotionMinute] = []; var shStart: Int64 = 0; var shStages = "" }
 var nights: [N] = []
 for line in text.split(separator: "\n") {
     if line.hasPrefix("#night") {
         let p = line.split(separator: ",")
         var n = N(day: String(p[1]), s: Int64(p[2])!, e: Int64(p[3])!, refStart: Int64(p[4])!, refStages: String(p[5]))
         if p.count > 7 { n.ds = Int64(p[6])!; n.de = Int64(p[7])! }
+        if p.count > 9 { n.shStart = Int64(p[8])!; n.shStages = String(p[9]) }
         nights.append(n)
     } else if line.hasPrefix("W,") {
         if let m = MotionMinute.fromCsv(line.dropFirst(2)) { nights[nights.count - 1].wide.append(m) }
@@ -42,5 +43,15 @@ for n in nights {
     let ok = r.startMinute == n.refStart && s.count == n.refStages.count && same == s.count
     print("::notice::Noche \(n.day): inicio Swift \(r.startMinute) / Kotlin \(n.refStart), minutos \(s.count) / \(n.refStages.count), fases iguales \(same) \(ok ? "OK" : "DISTINTO")")
     if !ok { bad += 1 }
+    // 24/11: con la corrección personal de las fases (StagePrior) fija [-0,10; 0,03; 0,07]
+    if !n.shStages.isEmpty {
+        SleepModel.personalShift = [-0.10, 0.03, 0.07]
+        let r2 = SleepStager.stage(startMillis: n.s, endMillis: n.e, readings: n.hr, motion: n.mot)
+        SleepModel.personalShift = nil
+        let s2 = r2.map { $0.stages.map(String.init).joined() } ?? ""
+        let ok2 = r2?.startMinute == n.shStart && s2 == n.shStages
+        print("::notice::Noche \(n.day) con corrección de fases: \(ok2 ? "OK" : "DISTINTO")")
+        if !ok2 { bad += 1 }
+    }
 }
 if bad > 0 { print("::error::El recorte/fases de la noche en Swift no coincide con Android en \(bad) noches"); exit(1) }

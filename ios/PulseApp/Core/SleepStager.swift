@@ -49,7 +49,8 @@ enum SleepStager {
     final class Result {
         let startMinute: Int64
         let stages: [Int]
-        init(startMinute: Int64, stages: [Int]) { self.startMinute = startMinute; self.stages = stages }
+        let rawFrac: [Double]?   // 24/11: reparto ligero/profundo/REM del modelo sin corregir (StagePrior)
+        init(startMinute: Int64, stages: [Int], rawFrac: [Double]? = nil) { self.startMinute = startMinute; self.stages = stages; self.rawFrac = rawFrac }
 
         var minutes: Int { return stages.count }
         func count(_ stage: Int) -> Int { return stages.filter { $0 == stage }.count }
@@ -175,7 +176,7 @@ enum SleepStager {
     static func stageNight(hrLog: HrLog, motionFile: URL, startMillis: Int64, endMillis: Int64) -> Result? {
         if !FileManager.default.fileExists(atPath: motionFile.path) { return nil }
         let msize = (try? FileManager.default.attributesOfItem(atPath: motionFile.path)[.size] as? NSNumber)?.int64Value ?? 0
-        let key = "\(startMillis)-\(endMillis)-\(msize)-\(hrLog.fileSize() / 200_000)-\(SleepEdits.stamp(motionFile.deletingLastPathComponent()))-\(SleepEdits.capsStamp(motionFile.deletingLastPathComponent()))"
+        let key = "\(SleepModel.personalShift.map { $0.map { String($0) }.joined(separator: ";") } ?? "-")-\(startMillis)-\(endMillis)-\(msize)-\(hrLog.fileSize() / 200_000)-\(SleepEdits.stamp(motionFile.deletingLastPathComponent()))-\(SleepEdits.capsStamp(motionFile.deletingLastPathComponent()))"
         cacheLock.lock()
         if key == cacheKey { let v = cacheValue; cacheLock.unlock(); return v }
         cacheLock.unlock()
@@ -236,13 +237,14 @@ enum SleepStager {
             .filter { $0.minuteStartUnix / 60 >= lo && $0.minuteStartUnix / 60 <= hi }
         if motion.isEmpty { return nil }
         guard let r = stage(startMillis: startMillis, endMillis: endMillis, readings: hrLog.readings(from: startMillis, to: endMillis),
-                            motion: motion, minWindow: 20) else { return nil }
+                            motion: motion, minWindow: 20, useShift: false) else { return nil }
         var st = r.stages
         for i in 0..<min(60, st.count) where st[i] == rem { st[i] = light }
-        return Result(startMinute: r.startMinute, stages: st)
+        return Result(startMinute: r.startMinute, stages: st, rawFrac: r.rawFrac)
     }
 
-    static func stage(startMillis: Int64, endMillis: Int64, readings: [HrReading], motion: [MotionMinute], minWindow: Int = minWindowMinutes, forced: Bool = false) -> Result? {
+    static func stage(startMillis: Int64, endMillis: Int64, readings: [HrReading], motion: [MotionMinute], minWindow: Int = minWindowMinutes, forced: Bool = false,
+                      useShift: Bool = true) -> Result? {
         let m0 = startMillis / 60_000
         let m1 = endMillis / 60_000
         let n = Int(m1 - m0 + 1)
@@ -403,18 +405,20 @@ enum SleepStager {
                 mot[i] = SleepModel.Minute(still: Double(mm.stillSecs), gyro: Double("\(mm.gyroDps)") ?? Double(mm.gyroDps), steps: Double(mm.steps))
             }
         }
-        if var ms = SleepModel.classify(secs, mot) {
+        let shift = useShift ? SleepModel.personalShift : nil
+        let raw1 = SleepModel.RawBox(), raw2 = SleepModel.RawBox()
+        if var ms = SleepModel.classify(secs, mot, raw: raw1, shift: shift) {
             for k in 0..<n { ms[k] = aw[k] ? awake : (ms[k] == awake ? light : ms[k]) }
-            if forced { return Result(startMinute: m0, stages: ms) }   // noche editada: la ventana ya es el tiempo en cama
+            if forced { return Result(startMinute: m0, stages: ms, rawFrac: raw1.v) }   // noche editada: la ventana ya es el tiempo en cama
             let (a0, b0) = trimBounds(ms, hr: hrm, gyro: gyro, steps: steps, off: 0)
             // 5/11 (igual que Android): segunda pasada SOLO sobre la noche recortada. El "progreso" de la noche del modelo depende de la
             // ventana, que crecía por la mañana: 5/11 a las 8:00 VFC 94,0 / recuperación 69 y a las 8:15 93,1 / 67.
-            if b0 - a0 >= minWindow, a0 < b0, var ms2 = SleepModel.classify(Array(secs[a0..<b0]), Array(mot[a0..<b0])) {
+            if b0 - a0 >= minWindow, a0 < b0, var ms2 = SleepModel.classify(Array(secs[a0..<b0]), Array(mot[a0..<b0]), raw: raw2, shift: shift) {
                 for k in 0..<ms2.count { ms2[k] = aw[a0 + k] ? awake : (ms2[k] == awake ? light : ms2[k]) }
                 let (a1, b1) = trimBounds(ms2, hr: hrm, gyro: gyro, steps: steps, off: a0, keepStart: true)
-                if b1 > a1 { return Result(startMinute: m0 + Int64(a0 + a1), stages: Array(ms2[a1..<b1])) }
+                if b1 > a1 { return Result(startMinute: m0 + Int64(a0 + a1), stages: Array(ms2[a1..<b1]), rawFrac: raw2.v) }
             }
-            return Result(startMinute: m0 + Int64(a0), stages: Array(ms[a0..<b0]))
+            return Result(startMinute: m0 + Int64(a0), stages: Array(ms[a0..<b0]), rawFrac: raw1.v)
         }
         var st = [Int](repeating: light, count: n)
         for i in 0..<n where aw[i] { st[i] = awake }

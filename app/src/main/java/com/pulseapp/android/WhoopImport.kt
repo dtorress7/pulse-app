@@ -240,6 +240,10 @@ object WhoopImport {
         // 14/11: calibración personal de la recuperación con tus noches de WHOOP (solo si mejora a la general; ver RecoveryCalibration)
         val calib = runCatching { RecoveryCalibration.fit(dao.getLastDays(400)) }.getOrNull()
         if (calib != null) Formulas.setPersonalRecovery(context, calib.coef)
+        // 24/11: con el historial de WHOOP ya se puede corregir el reparto de fases de tus noches (StagePrior) → se rehacen las noches
+        // de PulseApp la próxima vez que se calcule el día
+        runCatching { File(context.getExternalFilesDir(null), DailyMetricsUpdater.RECALC_FLAG).delete() }
+        runCatching { StagePrior.refresh(db, context.getExternalFilesDir(null)) }
         return Result(newDays.size, newSessions.size - naps, naps, replacedDays.size, replacedSessions.size,
             newDays.keys.minOrNull(), until, backup, calib)
     }

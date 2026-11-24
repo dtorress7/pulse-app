@@ -1229,6 +1229,21 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
     25/31 vs 45/51): a él le pesa mucho dormir poco (como a Pablo la calificación). La calibración personal necesita ≥ 90 noches (tiene 24 útiles).
     Probado bajar el mínimo (ajustar con 20–45 noches y probar las 30 siguientes): a Pablo le ayuda (6,3 → 4,4) pero a ti te empeora (3,5 → 5,9) aunque
     se pida que mejore 1–2 puntos en validación cruzada → NO se baja. Que Nico vuelva a importar su export cuando tenga ~3 meses.
+  - **Fases de otras personas (24/11, Android `StagePrior.kt` + `SleepModel.classify(…, raw, shift)`, iOS `Core/StagePrior.swift` igual)**: el modelo
+    (entrenado solo con tus noches) da a Pablo REM 0 (WHOOP 117–155) y a Nico REM 11–74 (85–139), todo a ligero. Probado antes: arreglar los RR con huecos
+    en el rasgo de ln RMSSD del modelo → casi nada (descartado). Ahora: reparto habitual de WHOOP (ligero/profundo/REM de las noches importadas, 60 últimas)
+    menos lo que da el modelo SIN corregir en sus noches de PulseApp (stage_raw.csv, 30 últimas), × n/(n+1), menos 0,02 de margen → se suma a la fracción
+    del modelo de cada noche y se buscan los sesgos de ligero/profundo/REM (Viterbi, 25 iteraciones) que llevan a ese reparto. Siestas sin corrección.
+    Comprobado usando solo las OTRAS noches (check/nico/sp/SP.kt): Pablo L/P/R 133/16/134 → 59/14/57 min de error, Nico 93/27/69 → 60/19/44; con todas
+    (como en la app) Nico 23/11 45/494/94/114 (W 47/482/89/139), VFC 53,1 (54), recuperación 68 (63; con su VFC/FCR la fórmula da 69). Pablo VFC 2,3 → 2,8.
+    Tú: diferencia ≤ 0,02 (−0,016/+0,006/+0,010) → sin corrección (sin margen subía +1 min). Recálculo v27 en dos pasadas (la 1.ª guarda stage_raw;
+    si cambia la corrección se repite; iOS resumible "27"/"27b"); importar un export borra la marca del recálculo. CI de iOS: tests/stager con corrección fija.
+  - **Dormir de día (pregunta del usuario: fiesta y dormir 12–18)**: en los 3 exports (≈ 450 sueños) NINGÚN sueño principal empieza entre las 08 y las
+    20 h; todos los de día son siestas (Nico hasta 3,9–4,1 h, 13:07–17:15 y 12:25–16:21). Nico 24/10 no durmió de noche (ciclo sin sueño) y su sueño
+    12:29–14:44 fue SIESTA; la noche siguiente 05:26–14:29 fue principal. Los principales "raros" empiezan 05:20–07:12 (tras trasnochar). PulseApp hace lo
+    mismo: 12–18 → siesta (con fases, resta de la necesidad). Pendiente de la IA de WHOOP: ¿un sueño de 6 h de 12 a 18 sin dormir de noche es siesta?
+  - Siestas de Nico: giro quieto 0,4–0,6 °/s (tú 1,4); 23/11 PulseApp 15:36–17:19 (W 16:03–17:20): tumbado quieto 15:26–15:57 con pulso de dormido;
+    el suelo del giro no lo cambia.
 
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,

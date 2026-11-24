@@ -20,7 +20,7 @@ class DailyMetricsUpdater {
         private const val DISCONNECT_GAP_MINUTES = 3
         /** 22/11: último día cerrado de sueño a sueño (ver updateYesterdayIfNeeded) */
         private const val CLOSED_FILE = "cycle_closed_day.txt"
-        const val RECALC_FLAG = "night_recalc_v26"   // v26 (24/11): VFC y respiración con latidos perdidos (historial de la pulsera); v25 (22/11): esfuerzo, FC media y calorías del día de sueño a sueño (DayCycle); v24 (21/11): suelo del giroscopio de cada pulsera; v23 (20/11): inicio de la noche con giros en la cama; v22 (19/11): modelo de fases con 30 noches y contexto ±7 min; v21 (18/11): VO₂ máx con K 16,45; v20 (12/11): inicio con tramo quieto de 9 min; v19 (11/11): los paseos no suman carga aparte de su pulso al esfuerzo del día; v18 (11/11): esfuerzo del día sin el pulso casi en reposo fuera de las actividades; v17 (10/11): fin de la noche sin cortar al dormitar con el pulso alto ni con un despertar de 3 min; v16 (9/11 tarde): temperatura de la piel de cada noche; v15 (9/11): fin de la noche antes del rato despierto tumbado e inquieto; v14 (7/11): inicio/fin de la noche despierto en la cama; v13 (5/11): fases con segunda pasada sobre la noche recortada; v12 (4/11): VFC sin los tramos de pulso alto; v11 (3/11): fin de la noche con 40 pasos y pesas con su carga; v10 (2/11): esfuerzo con la FCR de referencia; v9 (1/11): VFC por profundo + ligero; v8 (1/11): fin de la noche sin el rato remoloneando; v7 (30/10): esfuerzo sin el pulso bajo dormido; v6 (27/10): esfuerzo del día sin la base fuera de las actividades; v5 (26/10): modelo de fases con 11 noches (v4: VFC mezcla, esfuerzo v4, cambio de hora)
+        const val RECALC_FLAG = "night_recalc_v27"   // v27 (24/11): reparto de fases corregido con tu historial de WHOOP (StagePrior); v26 (24/11): VFC y respiración con latidos perdidos (historial de la pulsera); v25 (22/11): esfuerzo, FC media y calorías del día de sueño a sueño (DayCycle); v24 (21/11): suelo del giroscopio de cada pulsera; v23 (20/11): inicio de la noche con giros en la cama; v22 (19/11): modelo de fases con 30 noches y contexto ±7 min; v21 (18/11): VO₂ máx con K 16,45; v20 (12/11): inicio con tramo quieto de 9 min; v19 (11/11): los paseos no suman carga aparte de su pulso al esfuerzo del día; v18 (11/11): esfuerzo del día sin el pulso casi en reposo fuera de las actividades; v17 (10/11): fin de la noche sin cortar al dormitar con el pulso alto ni con un despertar de 3 min; v16 (9/11 tarde): temperatura de la piel de cada noche; v15 (9/11): fin de la noche antes del rato despierto tumbado e inquieto; v14 (7/11): inicio/fin de la noche despierto en la cama; v13 (5/11): fases con segunda pasada sobre la noche recortada; v12 (4/11): VFC sin los tramos de pulso alto; v11 (3/11): fin de la noche con 40 pasos y pesas con su carga; v10 (2/11): esfuerzo con la FCR de referencia; v9 (1/11): VFC por profundo + ligero; v8 (1/11): fin de la noche sin el rato remoloneando; v7 (30/10): esfuerzo sin el pulso bajo dormido; v6 (27/10): esfuerzo del día sin la base fuera de las actividades; v5 (26/10): modelo de fases con 11 noches (v4: VFC mezcla, esfuerzo v4, cambio de hora)
     }
 
     private val dayFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
@@ -29,6 +29,7 @@ class DailyMetricsUpdater {
     suspend fun updateYesterdayIfNeeded(
         db: AppDatabase, csvFile: File, ageYears: Int, weightKg: Float, sex: String
     ) {
+        runCatching { StagePrior.refresh(db, csvFile.parentFile) }
         recalcPastNightsOnce(db, csvFile, ageYears, weightKg, sex)
         val yesterdayCal = Calendar.getInstance()
         yesterdayCal.add(Calendar.DAY_OF_YEAR, -1)
@@ -76,12 +77,21 @@ class DailyMetricsUpdater {
         val all = parseCsv(csvFile)
         val today = dayFormat.format(Date())
         val importUntil = Formulas.whoopImportUntil()
-        for (row in db.dailyMetricsDao().getLastDays(60)) {
-            if (row.date >= today) continue
-            if (importUntil.isNotEmpty() && row.date <= importUntil) continue   // los días importados se quedan con lo de WHOOP
-            val fresh = computeDay(db, all, csvFile, row.date, ageYears, weightKg, sex) ?: continue
-            db.dailyMetricsDao().save(fresh)
+        val before = StagePrior.refresh(db, csvFile.parentFile)
+        val rows = db.dailyMetricsDao().getLastDays(60)
+        suspend fun pass() {
+            for (row in rows) {
+                if (row.date >= today) continue
+                if (importUntil.isNotEmpty() && row.date <= importUntil) continue   // los días importados se quedan con lo de WHOOP
+                val fresh = computeDay(db, all, csvFile, row.date, ageYears, weightKg, sex) ?: continue
+                db.dailyMetricsDao().save(fresh)
+            }
         }
+        pass()
+        // 24/11: la 1.ª pasada guarda lo que da el modelo de fases en cada noche (stage_raw.csv); si con eso cambia la corrección personal
+        // de las fases (StagePrior), se rehacen otra vez con ella
+        val after = StagePrior.refresh(db, csvFile.parentFile)
+        if (after != null && (before == null || (0 until 3).any { kotlin.math.abs(after[it] - before[it]) > 0.01 })) pass()
         runCatching { flag.writeText("1") }
     }
 
@@ -122,6 +132,7 @@ class DailyMetricsUpdater {
             SleepStager.stageNight(csvFile, File(csvFile.parentFile, MotionTracker.FILE_NAME), it.startMillis, it.endMillis)
         }
         staged?.let { SleepStagesStore.save(csvFile.parentFile, yesterdayKey, it) }   // para la gráfica de fases de días pasados
+        StagePrior.record(csvFile.parentFile, yesterdayKey, staged?.rawFrac)   // 24/11: reparto del modelo sin corregir (StagePrior)
         val window = staged?.let { it.startMillis to it.endMillis - 1 } ?: sleep?.let { it.startMillis to it.endMillis }
         window?.let { SkinTemp.ensure(csvFile.parentFile, yesterdayKey, it.first, it.second) }   // 9/11: temperatura de la piel de esa noche
         val sleepWindowReadings = if (window != null) {
