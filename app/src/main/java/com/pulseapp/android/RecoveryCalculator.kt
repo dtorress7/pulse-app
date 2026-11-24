@@ -32,9 +32,10 @@ class RecoveryCalculator {
         restingHr: Int?,
         baseline: PersonalBaseline?,
         respiratoryRate: Double? = null,
-        sleepScore: Int? = null
+        sleepScore: Int? = null,
+        asleepMinutes: Int? = null
     ): RecoveryBreakdown {
-        val r = Formulas.recovery(nightlyHrv, restingHr, respiratoryRate, baseline, null, sleepScore)
+        val r = Formulas.recovery(nightlyHrv, restingHr, respiratoryRate, baseline, null, sleepScore, asleepMinutes)
         return RecoveryBreakdown(r.total, r.hrvDeltaPct, r.rhrDelta, r.respPenalty, r.usedPersonalBaseline)
     }
 }

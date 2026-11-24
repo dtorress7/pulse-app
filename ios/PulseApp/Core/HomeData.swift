@@ -283,7 +283,7 @@ enum HomeDataLoader {
                 r.recovery = w
             } else if row.avgHrv != nil || row.restingHr != nil {
                 r.recovery = Formulas.recovery(hrv: row.avgHrv, restingHr: row.restingHr, respiratoryRate: row.respiratoryRate, baseline: baseline,
-                                               date: d, sleepScore: r.sleepScore).total
+                                               date: d, sleepScore: r.sleepScore, asleepMinutes: row.sleepMinutes).total
             }
             r.hrv = row.avgHrv; r.rhr = row.restingHr; r.resp = row.respiratoryRate
             r.sleepMinutes = row.sleepMinutes; r.efficiency = row.sleepEfficiencyPct
@@ -346,7 +346,8 @@ enum HomeDataLoader {
             }
             if s.avgHrv != nil || s.restingHr != nil {
                 r.recovery = RecoveryCalculator.breakdown(nightlyHrv: s.avgHrv, restingHr: s.restingHr, baseline: baseline,
-                                                          respiratoryRate: s.respiratoryRate, sleepScore: r.sleepScore).total
+                                                          respiratoryRate: s.respiratoryRate, sleepScore: r.sleepScore,
+                                                          asleepMinutes: s.sleepMinutes).total
             }
             r.debt = debtAfter
             // VO2 máx estable: se recalcula solo los martes (o si nunca se ha calculado)

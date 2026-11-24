@@ -580,8 +580,12 @@ enum Formulas {
 
     /// [date] = día de la noche (yyyy-MM-dd); nil = hoy. [sleepScore] = calificación del sueño (calibración personal v2, 21/11, igual
     /// que Android): con 7 coeficientes [base, VFC, FCR, percentil, calificación, escalón personal, calificación media] no se suma el escalón general.
+    /// 24/11 (igual que Android): −6 puntos por cada hora por debajo de 6 h dormido, solo con los números generales (dormir poco le baja
+    /// la recuperación a WHOOP más de lo que explican la VFC y la FCR: < 5 h Nico −22, Pablo −10, tú −5). `asleepMinutes` nil = sin corrección.
+    static let shortSleepMin = 360
+    static let shortSleepK = 6.0
     static func recovery(hrv: Double?, restingHr: Int?, respiratoryRate: Double?, baseline b: PersonalBaseline?, date: String? = nil,
-                         sleepScore: Int? = nil) -> RecoveryResult {
+                         sleepScore: Int? = nil, asleepMinutes: Int? = nil) -> RecoveryResult {
         let lnRef = b?.lnHrvMean ?? log(fallbackHrv)
         var delta: Double? = nil
         if let h = hrv, h > 0 { delta = log(h) - lnRef }
@@ -594,7 +598,7 @@ enum Formulas {
             let d = date ?? TimeUtil.dayKey(TimeUtil.nowMillis())
             score += c[4] * (sleepScore.map { Double($0) } ?? c[6]) + (d >= recWhoopStepSince ? c[5] : 0)
         } else {
-            score += recoveryStep(date)
+            score += recoveryStep(date) - shortSleepK * Double(max(0, shortSleepMin - (asleepMinutes ?? shortSleepMin))) / 60.0
         }
         var penalty = false
         if let rr = respiratoryRate, rr >= 8.0, rr <= 25.0, let bb = b, let m = bb.respMean, let sd = bb.respSd {

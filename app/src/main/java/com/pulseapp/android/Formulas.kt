@@ -751,8 +751,19 @@ object Formulas {
      * calibración personal v2, 21/11; si falta, su media). Coeficientes personales de 7 números = [base, VFC, FCR, percentil,
      * calificación, escalón personal desde el 10/11, calificación media]: con ellos NO se suma el escalón general del usuario.
      */
+    /**
+     * 24/11: dormir poco baja la recuperación de WHOOP más de lo que explican la VFC y la FCR. Error de la fórmula (con los valores de
+     * WHOOP) en noches de < 5 h: Nico −22, Pablo −10, tú −5; de 5 a 7 h casi nada. Ajuste conjunto de las 3 personas (417 noches):
+     * −6 puntos por cada hora por debajo de 6 h dormido. Dejando a cada persona fuera: Nico 7,28 → 6,32, Pablo 5,67 → 5,37, tú 3,95 → 4,01;
+     * ajustando con tus noches y las de Pablo hasta el 1/9 y probando después: Nico 7,28 → 6,32, Pablo 5,89 → 5,67, tú 4,28 → 4,38 (por una
+     * noche de 3,5 h que ya estaba en 9). Solo con los números generales (la calibración personal ya incluye la calificación del sueño).
+     * [asleepMinutes] null = sin esta corrección (p. ej. el despertador inteligente, a media noche).
+     */
+    const val SHORT_SLEEP_MIN = 360
+    const val SHORT_SLEEP_K = 6.0
+
     fun recovery(hrv: Double?, restingHr: Int?, respiratoryRate: Double?, b: PersonalBaseline?, date: String? = null,
-                 sleepScore: Int? = null): RecoveryResult {
+                 sleepScore: Int? = null, asleepMinutes: Int? = null): RecoveryResult {
         val lnRef = b?.lnHrvMean ?: ln(FALLBACK_HRV)
         val delta = hrv?.takeIf { it > 0 }?.let { ln(it) - lnRef }
         val rhrDelta = if (restingHr != null) restingHr - (b?.avgRestingHr ?: FALLBACK_RHR) else null
@@ -761,7 +772,7 @@ object Formulas {
         var score = c[0] + c[1] * f[0] - c[2] * f[1] + c[3] * f[2] + if (c.size >= 7) {
             val d = date ?: java.time.LocalDate.now().toString()
             c[4] * (sleepScore?.toDouble() ?: c[6]) + if (d >= REC_WHOOP_STEP_SINCE) c[5] else 0.0
-        } else recoveryStep(date)
+        } else recoveryStep(date) - SHORT_SLEEP_K * maxOf(0, SHORT_SLEEP_MIN - (asleepMinutes ?: SHORT_SLEEP_MIN)) / 60.0
         var penalty = false
         if (respiratoryRate != null && respiratoryRate in 8.0..25.0 && b?.respMean != null && b.respSd != null) {
             val z = (respiratoryRate - b.respMean) / b.respSd

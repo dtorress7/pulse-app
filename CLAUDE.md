@@ -1250,6 +1250,15 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   (sleep_edits forzado) 36/251/99/105 (fases ≈ WHOOP), VFC 108,0, FCR 55 → app 92 (= lo que vio el usuario). Con la VFC/FCR EXACTAS de WHOOP y su
   línea base la fórmula da 89 (W 81): 1–22/11 error −4…+4 (escalón +7,4 incluido), 23/11 +11 y 24/11 +8 → dos noches seguidas muy por encima.
   Si sigue 2–3 noches más = otro cambio de WHOOP (como el 10/11) → recalibrar; preguntar si la app de WHOOP se actualizó el 22–23/11. Sin cambio de código.
+  App de WHOOP (captura App Store 24/11): 5.80.1 hace 6 días (≈ 18/11) y 5.80.2 hace 5 días (≈ 19/11); 5.78 ≈ 10/11. El salto de 23–24/11 no coincide con
+  ninguna (salvo que su nube cambie más tarde).
+- **Dormir poco en la recuperación (24/11, Android + iOS `Formulas.SHORT_SLEEP_MIN/K` 360 min / 6,0, parámetro `asleepMinutes`)**: error de la fórmula
+  general con los valores de WHOOP (check/nico/k/Res.kt + scratchpad) por horas dormidas: < 5 h Nico −22 (3 noches), Pablo −10 (11), tú −5 (3); 5–8 h ≈ 0.
+  Regla común: −6 puntos por hora por debajo de 6 h (solo con los coeficientes generales; la calibración personal ya lleva la calificación del sueño).
+  Dejando a cada persona fuera del ajuste: Nico 7,28 → 6,32, Pablo 5,67 → 5,37, tú 3,95 → 4,01; ajustando con tú+Pablo hasta el 1/9 y probando después:
+  Nico 7,28 → 6,32, Pablo 5,89 → 5,67, tú 4,28 → 4,38 (una noche de 3,5 h ya en 9). Código real: Nico 6,24, Pablo 5,41, tú 3,99. Con la calificación del
+  sueño en vez de las horas sale peor (Nico 6,9). Va en Inicio y días pasados (HomeData); el despertador inteligente no la usa. Sin recálculo (se calcula al mostrar).
+  Nico 22/11 (4:56) sigue lejos: 92 → 86 (WHOOP 65): a él le afecta mucho más; eso solo lo arreglará su calibración personal (≥ 90 noches).
 
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,

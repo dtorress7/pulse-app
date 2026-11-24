@@ -242,7 +242,7 @@ class HomeDataLoader(private val ctx: Context) {
             }
             // 21/11: la calibración personal usa también la calificación del sueño de esa noche
             val recovery = row.whoopRecovery ?: if (row.avgHrv != null || row.restingHr != null)
-                Formulas.recovery(row.avgHrv, row.restingHr, row.respiratoryRate, baseline, d.toString(), score).total else null
+                Formulas.recovery(row.avgHrv, row.restingHr, row.respiratoryRate, baseline, d.toString(), score, row.sleepMinutes).total else null
             val debtAfter = SleepPlanner.nextDebt(debtBefore, base, prevStrain, row.sleepMinutes, row.date)
             val needTonight = base + Formulas.sleepNeedFromStrain(row.strain ?: 0.0) + debtAfter
             return DayRecord(
@@ -294,7 +294,7 @@ class HomeDataLoader(private val ctx: Context) {
                 Formulas.sleepScore((it * 100 / lastNightNeed.coerceAtLeast(1)).coerceAtMost(100), summary.sleepEfficiencyPct, consistency)
             }
             val recovery = if (summary.avgHrv != null || summary.restingHr != null)
-                RecoveryCalculator().breakdown(summary.avgHrv, summary.restingHr, baseline, summary.respiratoryRate, score).total else null
+                RecoveryCalculator().breakdown(summary.avgHrv, summary.restingHr, baseline, summary.respiratoryRate, score, summary.sleepMinutes).total else null
             // VO2 máx estable: se recalcula solo los martes (o si nunca se ha calculado), como antes
             val isTuesday = Calendar.getInstance().get(Calendar.DAY_OF_WEEK) == Calendar.TUESDAY
             val vo2 = if (profile != null && (isTuesday || profile.vo2Max == null || (profile.vo2MaxUpdatedDate ?: "") < Formulas.VO2_SINCE) && summary.vo2Max != null) {

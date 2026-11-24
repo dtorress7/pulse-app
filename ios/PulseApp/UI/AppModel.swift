@@ -110,7 +110,8 @@ final class AppModel: ObservableObject {
         s.plan = SleepPlanner.computeTonightPlan(store: store, todayStrain: summary.strain)
         s.lastNightNeed = SleepPlanner.planForLastNight(store: store, summary: summary).totalNeedMinutes
         s.recovery = RecoveryCalculator.breakdown(nightlyHrv: summary.avgHrv, restingHr: summary.restingHr,
-                                                  baseline: baseline, respiratoryRate: summary.respiratoryRate)
+                                                  baseline: baseline, respiratoryRate: summary.respiratoryRate,
+                                                  asleepMinutes: summary.sleepMinutes)
         s.days = store.lastDays(14)
         var nights = HomeDataLoader.nights(Array(store.lastDays(3).reversed()))
         if let a = summary.sleepStartMinuteOfDay, let b = summary.sleepEndMinuteOfDay {
