@@ -1244,6 +1244,12 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
     mismo: 12–18 → siesta (con fases, resta de la necesidad). Pendiente de la IA de WHOOP: ¿un sueño de 6 h de 12 a 18 sin dormir de noche es siesta?
   - Siestas de Nico: giro quieto 0,4–0,6 °/s (tú 1,4); 23/11 PulseApp 15:36–17:19 (W 16:03–17:20): tumbado quieto 15:26–15:57 con pulso de dormido;
     el suelo del giro no lo cambia.
+- **23→24/11 (36.ª referencia, despierto en la cama 23:00–23:33, editado a 23:33 en las dos apps)**: WHOOP (API, editada) 23:33–07:43, dormido 7:38,
+  31/248/102/108, 8 despertares, 93,8 %, VFC 105,79, FCR 55, resp 13,31, calificación 87 (regularidad 76), recuperación 81 (80 antes de editar).
+  Código real (check/n24, hr_log__43_ + motion_minutes_31): sin editar 23:01–07:54, 43/297/79/115, VFC 105,3, FCR 56 → app 89; editada 23:33–07:43
+  (sleep_edits forzado) 36/251/99/105 (fases ≈ WHOOP), VFC 108,0, FCR 55 → app 92 (= lo que vio el usuario). Con la VFC/FCR EXACTAS de WHOOP y su
+  línea base la fórmula da 89 (W 81): 1–22/11 error −4…+4 (escalón +7,4 incluido), 23/11 +11 y 24/11 +8 → dos noches seguidas muy por encima.
+  Si sigue 2–3 noches más = otro cambio de WHOOP (como el 10/11) → recalibrar; preguntar si la app de WHOOP se actualizó el 22–23/11. Sin cambio de código.
 
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
