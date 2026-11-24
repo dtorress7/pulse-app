@@ -61,7 +61,7 @@ object NightMetrics {
     // 1,76 → 1,45 ms (máx 5,7 → 3,8); ajustando con 16–25/10 y probando 26/10–4/11: 2,08 → 1,67. Coeficientes reajustados con las 19.
     fun stageHrv(readings: List<Pair<Long, List<Double>>>, staged: SleepStager.Result, bpm: List<Int>? = null): Double? {
         val st = staged.stages
-        val deep = LinkedHashMap<Long, ArrayList<Double>>(); val light = LinkedHashMap<Long, ArrayList<Double>>()
+        val deep = LinkedHashMap<Long, ArrayList<Pair<Long, List<Double>>>>(); val light = LinkedHashMap<Long, ArrayList<Pair<Long, List<Double>>>>()
         val hrSum = HashMap<Long, Double>(); val hrN = HashMap<Long, Int>()
         val useHr = bpm != null && bpm.size == readings.size && bpm.isNotEmpty()
         val ref = if (useHr) bpm!!.sorted().let { s -> if (s.size % 2 == 0) (s[s.size / 2 - 1] + s[s.size / 2]) / 2.0 else s[s.size / 2].toDouble() } else 0.0
@@ -73,21 +73,62 @@ object NightMetrics {
             val stage = st[i]
             val map = when (stage) { SleepStager.DEEP -> deep; SleepStager.LIGHT -> light; else -> continue }
             val w = t / WINDOW_MS
-            map.getOrPut(w) { ArrayList() }.addAll(rr.filter { it in 300.0..2000.0 })
+            map.getOrPut(w) { ArrayList() }.add(t to rr.filter { it in 300.0..2000.0 })
             if (useHr) { val k = w * 8 + stage; hrSum[k] = (hrSum[k] ?: 0.0) + bpm!![n]; hrN[k] = (hrN[k] ?: 0) + 1 }
         }
-        fun mean(m: Map<Long, List<Double>>, stage: Int): Double? {
-            val v = m.entries.filter { (w, rr) ->
-                if (rr.size < MIN_RR_PER_WINDOW) return@filter false
+        fun mean(m: Map<Long, List<Pair<Long, List<Double>>>>, stage: Int): Double? {
+            val v = m.entries.filter { (w, items) ->
+                if (items.sumOf { it.second.size } < MIN_RR_PER_WINDOW) return@filter false
                 if (!useHr) return@filter true
                 val k = w * 8 + stage; val n = hrN[k] ?: return@filter true
                 hrSum.getValue(k) / n <= ref + STAGE_HIGH_HR
-            }.mapNotNull { rmssd(it.value, STAGE_ARTIFACT) }
+            }.mapNotNull { rmssdAdjacent(it.value, STAGE_ARTIFACT) }
             return if (v.size < STAGE_MIN_WINDOWS) null else v.average()
         }
         val p = mean(deep, SleepStager.DEEP) ?: return null
         val l = mean(light, SleepStager.LIGHT) ?: return null
         return Math.exp(STAGE_C + STAGE_DEEP_EXP * Math.log(p) + STAGE_LIGHT_EXP * Math.log(l))
+    }
+
+    /**
+     * 24/11: RMSSD solo con diferencias entre latidos SEGUIDOS. [items] = (hora en ms de cada lectura, RR de esa lectura), en orden.
+     * Con la pulsera de Nico (y la de Pablo) el historial solo trae RR en ~57 % de los latidos (uno por segundo como mucho): al juntar
+     * los RR de un tramo, cada hueco hacía restar dos intervalos que NO son seguidos y la VFC salía alta (Nico 23/11 63,6 vs WHOOP 54).
+     * Una lectura sigue a la anterior si el tiempo entre las dos ≤ sus RR + 0,5 s (un latido perdido deja ~2 RR de hueco).
+     * Comprobado: tus noches (pulso en directo, sin huecos) salen igual (±1 ms; 18–23/11 MAE 1,45 → 1,33); quitando de tus datos una
+     * lectura de cada 3 la VFC subía +15 % y ahora ±1 %; Nico 63,6 → 51,2 (W 54), con las ventanas de WHOOP 54,9/60,3 → 42,9/48,6
+     * (W 45/54); Pablo 3 noches 3,2 → 2,6.
+     */
+    fun rmssdAdjacent(items: List<Pair<Long, List<Double>>>, maxJump: Double): Double? {
+        if (coverage(items) >= FULL_COVERAGE) return rmssd(items.flatMap { it.second }, maxJump)
+        var prev: Double? = null; var prevT = Long.MIN_VALUE
+        var sumSq = 0.0; var n = 0
+        for ((t, rr) in items) {
+            if (rr.isEmpty()) continue
+            val joins = prev != null && t - prevT <= rr.sum() + GAP_TOL_MS
+            for ((k, r) in rr.withIndex()) {
+                val p = prev
+                if ((k == 0 && !joins) || p == null) { prev = r; continue }
+                if (kotlin.math.abs(r - p) / p <= maxJump) { val d = r - p; sumSq += d * d; n++; prev = r }
+            }
+            prevT = t
+        }
+        if (n < 1) return null
+        return sqrt(sumSq / n)
+    }
+
+    const val GAP_TOL_MS = 500.0
+    /** Con ≥ 90 % de los latidos (pulso en directo) todo se queda como antes; las reglas de latidos seguidos son para el historial con huecos. */
+    const val FULL_COVERAGE = 0.9
+
+    /** Parte del tiempo cubierta por latidos con RR: suma de los RR / tiempo entre la primera y la última lectura (1 = ninguno perdido). */
+    fun coverage(items: List<Pair<Long, List<Double>>>): Double {
+        val withRr = items.filter { it.second.isNotEmpty() }
+        if (withRr.size < 2) return 0.0
+        val first = withRr.first(); val last = withRr.last()
+        val span = (last.first - first.first) + first.second.sum()
+        val beats = withRr.sumOf { it.second.sum() }
+        return if (span > 0) beats / span else 0.0
     }
 
     private const val STAGE_ARTIFACT = 0.30
@@ -133,12 +174,12 @@ object NightMetrics {
 
     /** Método del 23/10: media del RMSSD de tramos de 2 min de toda la noche. */
     fun wholeNightHrv(readings: List<Pair<Long, List<Double>>>): Double? {
-        val windows = LinkedHashMap<Long, ArrayList<Double>>()
+        val windows = LinkedHashMap<Long, ArrayList<Pair<Long, List<Double>>>>()
         for ((t, rr) in readings) {
             if (rr.isEmpty()) continue
-            windows.getOrPut(t / WINDOW_MS) { ArrayList() }.addAll(rr.filter { it in 300.0..2000.0 })
+            windows.getOrPut(t / WINDOW_MS) { ArrayList() }.add(t to rr.filter { it in 300.0..2000.0 })
         }
-        val values = windows.values.filter { it.size >= MIN_RR_PER_WINDOW }.mapNotNull { rmssd(it) }
+        val values = windows.values.filter { w -> w.sumOf { it.second.size } >= MIN_RR_PER_WINDOW }.mapNotNull { rmssdAdjacent(it, 0.20) }
         if (values.size < MIN_WINDOWS) return null
         return HRV_K * Math.pow(values.average(), HRV_EXP)
     }

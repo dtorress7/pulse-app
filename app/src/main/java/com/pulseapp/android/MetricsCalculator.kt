@@ -99,7 +99,7 @@ class MetricsCalculator(ageYears: Int, private val male: Boolean = true) {
         val calEnd = window?.second?.let { java.util.Calendar.getInstance().apply { timeInMillis = it } }
         val sleepEfficiency = sleep?.efficiencyPct
         val respiratoryRate = if (sleepReadings.isNotEmpty()) {
-            RespiratoryRateCalculator().estimate(sleepReadings.flatMap { it.rr })
+            RespiratoryRateCalculator().estimate(sleepReadings.map { it.timeMillis to it.rr })
         } else null
 
         val timeInBedMinutes = staged?.minutes ?: sleep?.inBedMinutes

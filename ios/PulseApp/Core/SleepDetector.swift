@@ -10,6 +10,8 @@ enum SleepDetector {
     static let thresholdMultiplier = 1.30
     static let graceMinutes = 30
     static let minDurationMinutes = 90
+    static let lateSleepMinMinutes = 240
+    static let lateSleepStartBeforeHour = 8
     static let disconnectGapMinutes = 10
     static let smoothMinutes = 3
 
@@ -97,9 +99,15 @@ enum SleepDetector {
             for i in w.0...w.1 where TimeUtil.parts(keys[i] * 60_000).hour < 6 { n += 1 }
             return (n, keys[w.1] - keys[w.0])
         }
-        guard let (s, e) = windows.max(by: { score($0) < score($1) }) else { return nil }
+        guard var (s, e) = windows.max(by: { score($0) < score($1) }) else { return nil }
         // 31/10 (igual que Android): sin al menos 30 min de madrugada NO hay noche (antes la más larga: 9:38–12:40 salió como noche)
-        if score((s, e)).0 < 30 { return nil }
+        // 24/11 (igual que Android): salvo una ventana de ≥ 4 h que empieza entre las 00:00 y las 08:00 (dormir de día tras trasnochar:
+        // Nico 20/11 06:46–14:38 en WHOOP). La mañana sin noche grabada del 31/10 empezaba a las 09:27.
+        if score((s, e)).0 < 30 {
+            guard let late = windows.filter({ keys[$0.1] - keys[$0.0] >= Int64(lateSleepMinMinutes) && TimeUtil.parts(keys[$0.0] * 60_000).hour < lateSleepStartBeforeHour })
+                .max(by: { keys[$0.1] - keys[$0.0] < keys[$1.1] - keys[$1.0] }) else { return nil }
+            s = late.0; e = late.1
+        }
 
         let inBed = Int(keys[e] - keys[s])
         let minutesInWindow = e - s + 1

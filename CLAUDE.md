@@ -1208,6 +1208,28 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   Ampliado (23/11 noche, a petición del usuario): también band_battery, whoop_bio_log, whoop_service_log y strength_logs; en iOS, si eres el
   administrador, Mi WHOOP enseña bajo "Exportar" una tarjeta "Datos de <amigo>" por persona con sus archivos (se actualizan solos al abrir, botón ↻).
 
+- **Nico (24/11, export de WHOOP 34 noches 22/10→23/11 + hr_log/motion 18→23/11; check/nico, NO subir sus datos)**: WHOOP 23/11 63 % (VFC 54, FCR 58,
+  resp 12,8, 11:50 dormido); PulseApp "90 y algo" = con su export importado y VFC 63,6 (fórmula 91). Con la VFC/FCR de WHOOP la fórmula da 69.
+  - **Causa: latidos perdidos.** Su hr_log solo tiene RR del HISTORIAL (enteros, ≤ 1 por segundo) y solo en ~57 % de los latidos (patrón "xx.xx.");
+    al juntar los RR de un tramo se restaban intervalos NO seguidos → RMSSD alto. Comprobado quitando a TUS datos 1 de cada 3 lecturas: VFC +15 %,
+    el 43 % de los latidos al azar +7,5 %; respiración 8,6–9,6 (con todos 13,2). Pablo tenía lo mismo (resp 8,1 / nada).
+  - **Arreglo (Android `NightMetrics.rmssdAdjacent/coverage` + `RespiratoryRateCalculator.estimate(lecturas con hora)/estimateSparse`, iOS igual)**:
+    por tramo de 2 min, si los RR cubren ≥ 90 % del tiempo (pulso en directo) todo como antes; si no, solo diferencias entre lecturas seguidas
+    (tiempo entre ellas ≤ sus RR + 0,5 s). Respiración: si la noche tiene < 90 % → cada RR en su hora y periodograma de Lomb-Scargle por tramos de
+    2 min (≥ 30 latidos, huecos ≤ 8 s). Probado también "intervalos de hora de cada latido" (peor en tus datos con huecos) y tolerancias 300–900.
+    Resultados (código real): tus 38 noches 16/10→23/11 VFC ±0,37 (media −0,05), respiración idéntica; tus datos con huecos VFC ±2 % / −4 %,
+    respiración ±0,6; Nico 23/11 VFC 63,6 → 51,5 (W 54), resp nada → 11,7 (12,8), recuperación 91 → 64 (W 63); con las ventanas de WHOOP 20/11 42,9
+    (W 45) y 23/11 48,6 (54); Pablo VFC 3,2 → 2,3 de error, resp 8,1/nada/17,4 → 17,4/18,0/17,4 (W 17,3/17,4/17,5). CI de iOS: tests/vfc con 2 noches
+    más "-huecos" (VFC y respiración Swift = Kotlin). `night_recalc_v26` / iOS 26.
+  - **Dormir de día tras trasnochar (Android + iOS `SleepDetector`, `LATE_SLEEP_MIN_MINUTES` 240 / `LATE_SLEEP_START_BEFORE_HOUR` 8)**: Nico 20/11
+    06:46–14:38 en WHOOP y PulseApp no daba noche (regla de ≥ 30 min de madrugada). Ahora sin madrugada vale una ventana de ≥ 4 h que empieza antes
+    de las 8 → 06:55–14:43, dormido 429 (W 426), VFC 43,0 (45), FCR 61 (60), recuperación 42 (44). Con "antes de las 12" colaba la mañana sin noche
+    grabada del 31/10 (09:27–14:59) → por eso las 8. Tus 39 noches iguales.
+  - **Su recuperación con los valores de WHOOP falla 7,3 de media** (22/11 4:56 dormido VFC 63 → WHOOP 65, fórmula 92; 14/11 y 8/11 noches cortas
+    25/31 vs 45/51): a él le pesa mucho dormir poco (como a Pablo la calificación). La calibración personal necesita ≥ 90 noches (tiene 24 útiles).
+    Probado bajar el mínimo (ajustar con 20–45 noches y probar las 30 siguientes): a Pablo le ayuda (6,3 → 4,4) pero a ti te empeora (3,5 → 5,9) aunque
+    se pida que mejore 1–2 puntos en validación cruzada → NO se baja. Que Nico vuelva a importar su export cuando tenga ~3 meses.
+
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
 esfuerzo 11,5, 271 kcal, FC media 127 (la media aritmética de esos segundos es 133: WHOOP no usa la media simple), máx 170,

@@ -61,7 +61,7 @@ struct MetricsCalculator {
                                        restingHr: Formulas.zoneRestingHr(), hrMax: hrMax, male: male, sleepWindow: window,
                                        activities: activities)
 
-        let respiratoryRate: Double? = sleepReadings.isEmpty ? nil : RespiratoryRateCalculator.estimate(sleepReadings.flatMap { $0.rr })
+        let respiratoryRate: Double? = sleepReadings.isEmpty ? nil : RespiratoryRateCalculator.estimate(sleepReadings)
 
         var summary = DailySummary.empty()
         summary.restingHr = restingHr

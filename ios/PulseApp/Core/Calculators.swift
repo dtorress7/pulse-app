@@ -148,8 +148,12 @@ enum RespiratoryRateCalculator {
     private static let segmentSeconds = 120.0
     private static let fs = 4.0
 
-    static func estimate(_ input: [Double]) -> Double? {
-        let rr = input.filter { $0 >= 300 && $0 <= 2000 }
+    /// 24/11 (igual que Android): si faltan latidos (< 90 % del tiempo cubierto por RR, historial de la pulsera de Nico o Pablo) el
+    /// método de siempre juntaba latidos no seguidos y salía 0 u 8 rpm (WHOOP 12,8 / 17,3) → `estimateSparse`.
+    static func estimate(_ readings: [HrReading]) -> Double? {
+        let items: [(Int64, [Double])] = readings.map { ($0.timeMillis, $0.rr.filter { $0 >= 300 && $0 <= 2000 }) }
+        if NightMetrics.coverage(items) < NightMetrics.fullCoverage { return estimateSparse(items) }
+        let rr = items.flatMap { $0.1 }
         if rr.count < 200 { return nil }
         var estimates = [Double]()
         var i = 0
@@ -163,10 +167,80 @@ enum RespiratoryRateCalculator {
             i = j
         }
         if estimates.count < 10 { return nil }
-        estimates.sort()
-        let m = estimates.count
-        let median = m % 2 == 1 ? estimates[m / 2] : (estimates[m / 2 - 1] + estimates[m / 2]) / 2.0
-        return (median >= 8.0 && median <= 25.0) ? median : nil
+        let med = median(estimates)
+        return (med >= 8.0 && med <= 25.0) ? med : nil
+    }
+
+    private static func median(_ v: [Double]) -> Double {
+        let e = v.sorted(); let m = e.count
+        return m % 2 == 1 ? e[m / 2] : (e[m / 2 - 1] + e[m / 2]) / 2.0
+    }
+
+    /// Con latidos perdidos: cada RR en su hora (la de la lectura; varios RR de una lectura, hacia atrás), tramos de 2 min (≥ 30 latidos,
+    /// sin huecos > 8 s, artefactos > 20 % fuera, sin tendencia) → periodograma de Lomb-Scargle 0,1–0,5 Hz; mediana de ≥ 10 tramos.
+    /// Nico 23/11 11,7 (WHOOP 12,8), Pablo 17,4/18,0/17,4 (17,3/17,4/17,5).
+    static func estimateSparse(_ items: [(Int64, [Double])]) -> Double? {
+        var beats = [(Double, Double)]()
+        for (t, rr) in items {
+            var acc = 0.0
+            for k in rr.indices.reversed() { beats.append(((Double(t) + 500 - acc) / 1000.0, rr[k])); acc += rr[k] }
+        }
+        beats.sort { $0.0 < $1.0 }
+        var t = [Double](), y = [Double]()
+        for (tt, r) in beats {
+            if let last = y.last, abs(r - last) > 0.2 * last { continue }
+            t.append(tt); y.append(r)
+        }
+        if t.count < 200 { return nil }
+        var estimates = [Double]()
+        var w0 = t[0], a = 0
+        while w0 < t[t.count - 1] {
+            while a < t.count && t[a] < w0 { a += 1 }
+            var b = a
+            while b < t.count && t[b] < w0 + segmentSeconds { b += 1 }
+            w0 += segmentSeconds
+            if b - a < sparseMinBeats { continue }
+            var maxGap = 0.0
+            if b - a > 1 { for k in (a + 1)..<b { maxGap = max(maxGap, t[k] - t[k - 1]) } }
+            if maxGap > sparseMaxGapS { continue }
+            if let r = lombRate(Array(t[a..<b]), Array(y[a..<b])) { estimates.append(r) }
+        }
+        if estimates.count < 10 { return nil }
+        let med = median(estimates)
+        return (med >= 8.0 && med <= 25.0) ? med : nil
+    }
+
+    private static let sparseMinBeats = 30
+    private static let sparseMaxGapS = 8.0
+
+    private static func lombRate(_ t: [Double], _ y0: [Double]) -> Double? {
+        let n = t.count
+        let tm = t.reduce(0, +) / Double(n), ym = y0.reduce(0, +) / Double(n)
+        var num = 0.0, den = 0.0
+        for k in 0..<n { num += (t[k] - tm) * (y0[k] - ym); den += (t[k] - tm) * (t[k] - tm) }
+        let slope = den > 0 ? num / den : 0
+        var y = (0..<n).map { y0[$0] - ym - slope * (t[$0] - tm) }
+        let yMean = y.reduce(0, +) / Double(n)
+        for k in 0..<n { y[k] -= yMean }
+        var bestF = 0.0, bestP = -1.0
+        var step = 0
+        while true {
+            let f = 0.1 + Double(step) * 0.005
+            if f > 0.5 + 1e-9 { break }
+            let w = 2 * Double.pi * f
+            var s2 = 0.0, c2 = 0.0
+            for k in 0..<n { s2 += sin(2 * w * t[k]); c2 += cos(2 * w * t[k]) }
+            let tau = atan2(s2, c2) / (2 * w)
+            var yc = 0.0, ys = 0.0, cc = 0.0, ss = 0.0
+            for k in 0..<n {
+                let c = cos(w * (t[k] - tau)), s = sin(w * (t[k] - tau))
+                yc += y[k] * c; ys += y[k] * s; cc += c * c; ss += s * s
+            }
+            let pw = yc * yc / cc + ys * ys / ss
+            if pw > bestP { bestP = pw; bestF = f }
+            step += 1
+        }
+        return bestP > 0 ? bestF * 60.0 : nil
     }
 
     private static func segmentRate(_ seg: [Double]) -> Double? {
@@ -240,13 +314,43 @@ enum NightMetrics {
     /// profundo y del ligero (filtro de artefactos 30 %). 16 noches de WHOOP dejando cada una fuera: 1,9 → 1,42 ms (máx 5,3 → 3,4).
     /// 4/11 (igual que Android): fuera los tramos de 2 min con el pulso medio > FC en reposo de la noche (mediana) + 12 (tras el fútbol
     /// el primer profundo iba a 72–77 lpm y hundía la VFC: 74,6 vs WHOOP 80,1). 19 noches dejando cada una fuera 1,76 → 1,45 ms.
+    /// 24/11 (igual que Android): RMSSD solo con diferencias entre latidos SEGUIDOS. Con el historial de la pulsera con ~57 % de los
+    /// latidos (Nico, Pablo) se restaban intervalos no seguidos y la VFC salía alta (Nico 23/11 63,6 vs WHOOP 54 → ahora 51,5).
+    /// Una lectura sigue a la anterior si el tiempo entre las dos ≤ sus RR + 0,5 s. Con ≥ 90 % del tiempo cubierto (pulso en directo)
+    /// se calcula como siempre.
+    static let gapTolMs = 500.0
+    static let fullCoverage = 0.9
+    static func coverage(_ items: [(Int64, [Double])]) -> Double {
+        let withRr = items.filter { !$0.1.isEmpty }
+        guard withRr.count >= 2, let first = withRr.first, let last = withRr.last else { return 0 }
+        let span = Double(last.0 - first.0) + first.1.reduce(0, +)
+        let beats = withRr.reduce(0.0) { $0 + $1.1.reduce(0, +) }
+        return span > 0 ? beats / span : 0
+    }
+    static func rmssdAdjacent(_ items: [(Int64, [Double])], maxJump: Double) -> Double? {
+        if coverage(items) >= fullCoverage { return MetricsCalculator.computeRMSSD(items.flatMap { $0.1 }, maxJump: maxJump) }
+        var prev: Double? = nil
+        var prevT = Int64.min
+        var sumSq = 0.0, n = 0
+        for (t, rr) in items where !rr.isEmpty {
+            let joins = prev != nil && Double(t - prevT) <= rr.reduce(0, +) + gapTolMs
+            for (k, r) in rr.enumerated() {
+                guard let p = prev, k > 0 || joins else { prev = r; continue }
+                if abs(r - p) / p <= maxJump { let d = r - p; sumSq += d * d; n += 1; prev = r }
+            }
+            prevT = t
+        }
+        if n < 1 { return nil }
+        return (sumSq / Double(n)).squareRoot()
+    }
+
     static let stageHighHr = 12.0
     static let stageC = 0.03828059
     static let stageDeepExp = 0.38089473
     static let stageLightExp = 0.61171261
     static func stageHrv(_ readings: [HrReading], staged r: SleepStager.Result) -> Double? {
         let st = r.stages
-        var deep = [Int64: [Double]](), light = [Int64: [Double]]()
+        var deep = [Int64: [(Int64, [Double])]](), light = [Int64: [(Int64, [Double])]]()
         var hrSum = [Int64: Double](), hrN = [Int64: Int]()
         let sortedBpm = readings.map { $0.bpm }.sorted()
         guard !sortedBpm.isEmpty else { return nil }
@@ -257,19 +361,19 @@ enum NightMetrics {
             if i < 0 || i >= st.count { continue }
             let rr = x.rr.filter { $0 >= 300 && $0 <= 2000 }
             let w = x.timeMillis / windowMs
-            if st[i] == SleepStager.deep { deep[w, default: []].append(contentsOf: rr) }
-            else if st[i] == SleepStager.light { light[w, default: []].append(contentsOf: rr) }
+            if st[i] == SleepStager.deep { deep[w, default: []].append((x.timeMillis, rr)) }
+            else if st[i] == SleepStager.light { light[w, default: []].append((x.timeMillis, rr)) }
             else { continue }
             let k = w * 8 + Int64(st[i])
             hrSum[k, default: 0] += Double(x.bpm); hrN[k, default: 0] += 1
         }
-        func mean(_ m: [Int64: [Double]], _ stage: Int) -> Double? {
+        func mean(_ m: [Int64: [(Int64, [Double])]], _ stage: Int) -> Double? {
             var v = [Double]()
             for k in m.keys.sorted() {
-                guard let rr = m[k], rr.count >= minRrPerWindow else { continue }
+                guard let items = m[k], items.reduce(0, { $0 + $1.1.count }) >= minRrPerWindow else { continue }
                 let hk = k * 8 + Int64(stage)
                 if let c = hrN[hk], let s = hrSum[hk], s / Double(c) > ref + stageHighHr { continue }
-                guard let x = MetricsCalculator.computeRMSSD(rr, maxJump: 0.30) else { continue }
+                guard let x = rmssdAdjacent(items, maxJump: 0.30) else { continue }
                 v.append(x)
             }
             return v.count < 10 ? nil : v.reduce(0, +) / Double(v.count)
@@ -314,13 +418,14 @@ enum NightMetrics {
     }
 
     static func wholeNightHrv(_ readings: [HrReading]) -> Double? {
-        var windows = [Int64: [Double]]()
+        var windows = [Int64: [(Int64, [Double])]]()
         for x in readings where !x.rr.isEmpty {
-            windows[x.timeMillis / windowMs, default: []].append(contentsOf: x.rr.filter { $0 >= 300 && $0 <= 2000 })
+            windows[x.timeMillis / windowMs, default: []].append((x.timeMillis, x.rr.filter { $0 >= 300 && $0 <= 2000 }))
         }
         var values = [Double]()
         for k in windows.keys.sorted() {
-            guard let rr = windows[k], rr.count >= minRrPerWindow, let v = MetricsCalculator.computeRMSSD(rr) else { continue }
+            guard let items = windows[k], items.reduce(0, { $0 + $1.1.count }) >= minRrPerWindow,
+                  let v = rmssdAdjacent(items, maxJump: 0.20) else { continue }
             values.append(v)
         }
         if values.count < minWindows { return nil }

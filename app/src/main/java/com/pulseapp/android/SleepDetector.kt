@@ -16,6 +16,8 @@ import java.util.Calendar
  * Antes (1,25 y 20 min) cortaba en una subida de pulso a las 00:15 y daba 00:45.
  */
 object SleepDetector {
+    const val LATE_SLEEP_MIN_MINUTES = 240
+    const val LATE_SLEEP_START_BEFORE_HOUR = 8
 
     const val THRESHOLD_MULTIPLIER = 1.30
     const val GRACE_MINUTES = 30
@@ -85,11 +87,19 @@ object SleepDetector {
         if (start != null) close(keys.size - 1)
         // La NOCHE es la ventana que más se solapa con las 00:00–06:00 (21/10: una reunión quieto de 9:30 a 11:29 con el pulso
         // bajo salía como "la última ventana" y se tomaba como la noche).
-        val (s, e) = windows.maxWithOrNull(compareBy<Pair<Int, Int>>({ w -> (w.first..w.second).count { isSmallHours(keys[it] * 60_000L) } },
+        var (s, e) = windows.maxWithOrNull(compareBy<Pair<Int, Int>>({ w -> (w.first..w.second).count { isSmallHours(keys[it] * 60_000L) } },
             { w -> keys[w.second] - keys[w.first] })) ?: return null
         // 31/10: si ninguna ventana tiene al menos 30 min de madrugada, NO hay noche (antes se cogía la más larga: la noche 30→31 no se
         // grabó y salió "sueño" 9:38–12:40, calificación 31 % y recuperación 24 %). En el export de WHOOP las noches empiezan 22:36–01:54.
-        if ((s..e).count { isSmallHours(keys[it] * 60_000L) } < 30) return null
+        // 24/11: salvo que haya una ventana de ≥ 4 h que empieza entre las 00:00 y las 08:00 (dormir de día tras trasnochar: Nico 20/11
+        // 06:46–14:38 en WHOOP, 1/11 07:12–14:21 → PulseApp 06:55–14:43). Con las 12:00 colaba la mañana sin noche grabada del 31/10
+        // (09:27–14:59, FCR 73): por eso antes de las 8.
+        if ((s..e).count { isSmallHours(keys[it] * 60_000L) } < 30) {
+            val late = windows.filter { w -> keys[w.second] - keys[w.first] >= LATE_SLEEP_MIN_MINUTES &&
+                java.util.Calendar.getInstance().apply { timeInMillis = keys[w.first] * 60_000L }.get(java.util.Calendar.HOUR_OF_DAY) < LATE_SLEEP_START_BEFORE_HOUR }
+                .maxByOrNull { w -> keys[w.second] - keys[w.first] } ?: return null
+            s = late.first; e = late.second
+        }
 
         val inBed = (keys[e] - keys[s]).toInt()
         val minutesInWindow = (s..e).count()
