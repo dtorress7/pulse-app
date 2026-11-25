@@ -22,11 +22,11 @@ let g = RecoveryCalibration.fit(shifted)
 out.append(String(format: "shifted %d %.6f %.6f ", g.n, g.cvPersonal ?? -1, g.cvGeneral ?? -1) + (g.usePersonal ? "true " : "false ")
            + (g.coef ?? []).map { String(format: "%.6f", $0) }.joined(separator: " "))
 let b = BaselineProvider.computeFrom(Array(days.sorted { $0.date > $1.date }.prefix(30)))
-for (d, h, r) in [("2026-11-09", 87.0, 58), ("2026-11-10", 87.0, 58), ("2026-11-14", 94.2, 59)] {
+for (d, h, r) in [("2026-11-09", 87.0, 58), ("2026-11-10", 87.0, 58), ("2026-11-14", 94.2, 59), ("2026-11-25", 94.2, 59)] {
     out.append("rec \(d) \(Formulas.recovery(hrv: h, restingHr: r, respiratoryRate: nil, baseline: b, date: d).total)")
 }
 Formulas.setPersonalRecovery(g.coef)
-for (d, sc) in [("2026-11-09", 70), ("2026-11-14", 95), ("2026-11-14", -1)] {
+for (d, sc) in [("2026-11-09", 70), ("2026-11-14", 95), ("2026-11-14", -1), ("2026-11-25", 95)] {
     out.append("perso \(d) \(sc) \(Formulas.recovery(hrv: 87.0, restingHr: 58, respiratoryRate: nil, baseline: b, date: d, sleepScore: sc < 0 ? nil : sc).total)")
 }
 Formulas.setPersonalRecovery(nil)

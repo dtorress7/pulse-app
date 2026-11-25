@@ -546,12 +546,15 @@ enum Formulas {
 
     /// 14/11 (igual que Android): escalón de WHOOP desde el 10/11 (su versión 5.78). Con la VFC/FCR exactas de WHOOP la fórmula acertaba
     /// hasta el 9/11 y desde el 10/11 se queda corta siempre lo mismo (−8, −8, −8, −5, −8) → +7,4 desde esa fecha.
+    /// 25/11: desde el 23/11 WHOOP lo ha quitado (con el escalón +11/+8/+9, sin él +4/+1/+2) → solo del 10 al 22/11.
     static let recWhoopStep = 7.4
     static let recWhoopStepSince = "2026-11-10"
-    static func recoveryStep(_ date: String?) -> Double {
+    static let recWhoopStepUntil = "2026-11-22"
+    static func inStepWindow(_ date: String?) -> Bool {
         let d = date ?? TimeUtil.dayKey(TimeUtil.nowMillis())
-        return d >= recWhoopStepSince ? recWhoopStep : 0
+        return d >= recWhoopStepSince && d <= recWhoopStepUntil
     }
+    static func recoveryStep(_ date: String?) -> Double { inStepWindow(date) ? recWhoopStep : 0 }
 
     /// Coeficientes [base, VFC, FCR, percentil]: los personales del export de WHOOP si mejoran a los generales (RecoveryCalibration).
     private static let keyRecPersonal = "pulseapp_rec_personal_coef"
@@ -595,8 +598,7 @@ enum Formulas {
         let c = recoveryCoefficients()
         var score = c[0] + c[1] * f[0] - c[2] * f[1] + c[3] * f[2]
         if c.count >= 7 {
-            let d = date ?? TimeUtil.dayKey(TimeUtil.nowMillis())
-            score += c[4] * (sleepScore.map { Double($0) } ?? c[6]) + (d >= recWhoopStepSince ? c[5] : 0)
+            score += c[4] * (sleepScore.map { Double($0) } ?? c[6]) + (inStepWindow(date) ? c[5] : 0)
         } else {
             score += recoveryStep(date) - shortSleepK * Double(max(0, shortSleepMin - (asleepMinutes ?? shortSleepMin))) / 60.0
         }

@@ -28,7 +28,7 @@ enum RecoveryCalibration {
             let prev = Array(sorted[0..<i].reversed().prefix(BaselineProvider.lookbackDays))
             guard let b = BaselineProvider.computeFrom(prev) else { continue }
             let f = Formulas.recoveryFeatures(hrv: hrv, restingHr: rhr, baseline: b)
-            let step = d.date >= Formulas.recWhoopStepSince ? 1.0 : 0.0
+            let step = Formulas.inStepWindow(d.date) ? 1.0 : 0.0
             xs.append([1.0, f[0], -f[1], f[2], Double(sleep), step])
             ys.append(Double(rec)); dates.append(d.date)
         }

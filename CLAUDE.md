@@ -1260,6 +1260,13 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   sueño en vez de las horas sale peor (Nico 6,9). Va en Inicio y días pasados (HomeData); el despertador inteligente no la usa. Sin recálculo (se calcula al mostrar).
   Nico 22/11 (4:56) sigue lejos: 92 → 86 (WHOOP 65): a él le afecta mucho más; eso solo lo arreglará su calibración personal (≥ 90 noches).
 
+- **24→25/11 (37.ª referencia)**: WHOOP (API) 21:38:34Z–06:28:28Z (22:38–07:28), dormido 8:13, 36/314/95/84, 14 despertares, 93,2 %, VFC 68,77,
+  FCR 60, resp 12,90, calificación 92 (regularidad 81), recuperación 29. Código real (check/n25, hr_log__44_ + motion_minutes_32): 22:39–07:29, dormido 8:14,
+  37/325/97/72, VFC 71,7, FCR 61, resp 12,0 (los tres métodos dan 12,0; cobertura de RR 0,90) → el sueño cuadra.
+  **El escalón de WHOOP se acabó el 23/11 (Android + iOS `Formulas.REC_WHOOP_STEP_UNTIL` / `recWhoopStepUntil` "2026-11-22", `inStepWindow`)**: con la VFC/FCR
+  de WHOOP la fórmula con el escalón daba +11, +8, +9 (23, 24, 25/11) y sin él +4, +1, +2; del 10 al 22/11 con él −1…+4 y sin él −3…−8; 1–9/11 sin él −4…+4.
+  Ahora +7,4 solo del 10 al 22/11 (también el escalón personal de la calibración v2). 25/11: con valores de WHOOP 30 (W 29), app 32 (antes 39). Test reccal + 25/11.
+
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
 esfuerzo 11,5, 271 kcal, FC media 127 (la media aritmética de esos segundos es 133: WHOOP no usa la media simple), máx 170,

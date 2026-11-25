@@ -716,13 +716,17 @@ object Formulas {
      * 9/11 (23/10–9/11: sesgo −0,9, 18 noches) y desde el 10/11 se queda corta SIEMPRE lo mismo: −8, −8, −8, −5, −8 (59 a 95, sin cambiar
      * con el nivel). +7,4 a partir de esa fecha: esas 5 noches 7,4 → 1,2 de error (dejando cada una fuera), 23/10–14/11 4,13 → 2,78.
      * Las noches de antes del 10/11 se calculan sin él (así salían en WHOOP).
+     * 25/11: desde el 23/11 WHOOP lo ha QUITADO. Con su VFC/FCR la fórmula con el escalón da +11, +8, +9 (23, 24, 25/11) y sin él +4, +1, +2;
+     * del 10 al 22/11 sigue haciendo falta (con él −1…+4, sin él −3…−8). Solo se aplica del 10 al 22/11.
      */
     const val REC_WHOOP_STEP = 7.4
     const val REC_WHOOP_STEP_SINCE = "2026-11-10"
-    fun recoveryStep(date: String?): Double {
+    const val REC_WHOOP_STEP_UNTIL = "2026-11-22"
+    fun inStepWindow(date: String?): Boolean {
         val d = date ?: java.time.LocalDate.now().toString()
-        return if (d >= REC_WHOOP_STEP_SINCE) REC_WHOOP_STEP else 0.0
+        return d >= REC_WHOOP_STEP_SINCE && d <= REC_WHOOP_STEP_UNTIL
     }
+    fun recoveryStep(date: String?): Double = if (inStepWindow(date)) REC_WHOOP_STEP else 0.0
 
     /** Coeficientes de la recuperación [base, VFC, FCR, percentil]: los personales del export de WHOOP si mejoran a los generales. */
     @Volatile private var personalRecCoef: DoubleArray? = null
@@ -770,8 +774,7 @@ object Formulas {
         val f = recoveryFeatures(hrv, restingHr, b)
         val c = recoveryCoefficients()
         var score = c[0] + c[1] * f[0] - c[2] * f[1] + c[3] * f[2] + if (c.size >= 7) {
-            val d = date ?: java.time.LocalDate.now().toString()
-            c[4] * (sleepScore?.toDouble() ?: c[6]) + if (d >= REC_WHOOP_STEP_SINCE) c[5] else 0.0
+            c[4] * (sleepScore?.toDouble() ?: c[6]) + if (inStepWindow(date)) c[5] else 0.0
         } else recoveryStep(date) - SHORT_SLEEP_K * maxOf(0, SHORT_SLEEP_MIN - (asleepMinutes ?: SHORT_SLEEP_MIN)) / 60.0
         var penalty = false
         if (respiratoryRate != null && respiratoryRate in 8.0..25.0 && b?.respMean != null && b.respSd != null) {

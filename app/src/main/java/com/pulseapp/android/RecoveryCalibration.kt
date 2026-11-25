@@ -39,7 +39,7 @@ object RecoveryCalibration {
             val prev = sorted.subList(0, i).asReversed().take(BaselineProvider.LOOKBACK_DAYS)
             val b = BaselineProvider().computeFrom(prev) ?: continue
             val f = Formulas.recoveryFeatures(hrv, rhr, b)
-            val step = if (d.date >= Formulas.REC_WHOOP_STEP_SINCE) 1.0 else 0.0
+            val step = if (Formulas.inStepWindow(d.date)) 1.0 else 0.0
             // misma forma que Formulas.recovery con 7 números: c0 + c1·ΔVFC − c2·ΔFCR + c3·Φ + c4·calificación + c5·escalón
             xs.add(doubleArrayOf(1.0, f[0], -f[1], f[2], sleep.toDouble(), step))
             ys.add(rec.toDouble()); dates.add(d.date)
