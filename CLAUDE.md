@@ -1267,6 +1267,17 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   de WHOOP la fórmula con el escalón daba +11, +8, +9 (23, 24, 25/11) y sin él +4, +1, +2; del 10 al 22/11 con él −1…+4 y sin él −3…−8; 1–9/11 sin él −4…+4.
   Ahora +7,4 solo del 10 al 22/11 (también el escalón personal de la calibración v2). 25/11: con valores de WHOOP 30 (W 29), app 32 (antes 39). Test reccal + 25/11.
 
+- **Búsqueda completa de la fórmula de recuperación (25/11, check/f25: data.py/all.py/feat.py/search.py; tú 233 noches export+API, Pablo 206, Nico 32;
+  con la VFC/FCR de WHOOP)**: línea base EWMA 5–30 × ventana 14–90 (36 combinaciones): la actual (14/30) está entre las mejores (diferencias ≤ 0,05).
+  Añadir calificación, horas, respiración, temperatura, SpO2, esfuerzo de ayer, VFC de ayer, FCR z, separar hoy/base: tú nada mejora (4,06–4,4);
+  Pablo mejora con la calificación (ya en su calibración); Nico/Pablo con dormir poco (ya aplicado). Techo con árboles y todo: tú 3,69, Pablo 3,83.
+  **Los errores de WHOOP vienen por rachas**: autocorrelación del error tuyo 0,53 (1 día), 0,35 (3), 0,22 (5–7); rachas −5 en mayo-junio y −6,5 del 10 al 22/11
+  (13 días exactos, empieza y acaba de golpe = huella de una ventana de ~14 noches con algo interno de WHOOP que no sale en la API). Ningún dato lo explica.
+  Candidato SIN aplicar: media de la temperatura de la piel de los 7 días anteriores (tú 4,06 → 3,71 en validación y 4,11 → 3,62 hacia delante; Pablo no
+  mejora; no explica la racha de noviembre; puede ser estacional) → revisar con los exports de más amigos.
+  **Tarea programada "Vigilar recuperación WHOOP"** (trig_01UPGJmKwMTCZoDKDpmukMxd, 09:33 Madrid): calcula la fórmula con los datos de la API y avisa si 2 noches
+  seguidas fallan > 6 del mismo signo (o la última > 10).
+
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
 esfuerzo 11,5, 271 kcal, FC media 127 (la media aritmética de esos segundos es 133: WHOOP no usa la media simple), máx 170,
