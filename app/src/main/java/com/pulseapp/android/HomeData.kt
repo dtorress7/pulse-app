@@ -346,10 +346,11 @@ class HomeDataLoader(private val ctx: Context) {
         // Una sola lectura del archivo: el día elegido y, si es hoy, también las últimas 24 h (el valor "actual" de siempre)
         val loadFrom = listOfNotNull(dayStart, sleepFrom, if (isToday) now - 86_400_000L else null).minOrNull()!!
         val samples = withContext(Dispatchers.IO) { stressCalc.loadSamples(hrFile, loadFrom) }
-        val sleepStress = if (sleepFrom != null && sleepTo != null) stressCalc.seriesBetween(samples, sleepFrom, sleepTo, day.rhr, baselineNow) else emptyList()
+        val sleepRange = if (sleepFrom != null && sleepTo != null) listOf(sleepFrom..sleepTo) else emptyList()
+        val sleepStress = if (sleepFrom != null && sleepTo != null) stressCalc.seriesBetween(samples, sleepFrom, sleepTo, day.rhr, baselineNow, sleepRange) else emptyList()
         val stressTo = if (isToday) now else dayEnd
-        val series = stressCalc.seriesBetween(samples, dayStart, stressTo, day.rhr, baselineNow)
-        val current = if (isToday) stressCalc.seriesBetween(samples, now - 86_400_000L, now, day.rhr, baselineNow).lastOrNull() else null
+        val series = stressCalc.seriesBetween(samples, dayStart, stressTo, day.rhr, baselineNow, sleepRange)
+        val current = if (isToday) stressCalc.seriesBetween(samples, now - 86_400_000L, now, day.rhr, baselineNow, sleepRange).lastOrNull() else null
         val lastPoint = (current ?: series.lastOrNull())?.score
         val lastMinute = (current ?: series.lastOrNull())?.minuteOfDay
         val level = when {

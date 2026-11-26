@@ -477,7 +477,10 @@ enum StressCalculator {
     }
 
     /// Serie de estrés (un punto cada 5 min) entre [from] y [to) con la misma fórmula que [analyze].
-    static func seriesBetween(_ readings: [HrReading], from: Int64, to: Int64, baseline: PersonalBaseline?) -> [StressPoint] {
+    /// 26/11: dormido, un minuto con el pulso ≥ FCR de referencia + 19 es estrés ALTO (igual que Android SLEEP_HIGH_HR).
+    static let sleepHighHr = 19.0
+    static func seriesBetween(_ readings: [HrReading], from: Int64, to: Int64, baseline: PersonalBaseline?,
+                              sleep: [ClosedRange<Int64>] = []) -> [StressPoint] {
         let baselineRhr = baseline?.stressRhr ?? baseline?.avgRestingHr ?? Formulas.fallbackRhr
         let baselineHrv = baseline?.stressHrv ?? baseline?.avgHrv ?? Formulas.fallbackHrv
         let windowMillis: Int64 = 60 * 1000
@@ -491,9 +494,11 @@ enum StressCalculator {
             var hrSum = 0.0
             var rr = [Double]()
             for r in w { hrSum += Double(r.bpm); rr.append(contentsOf: r.rr) }
-            let score = computeScore(avgHr: hrSum / Double(w.count), windowHrv: computeRMSSD(rr),
+            let avgHr = hrSum / Double(w.count)
+            var score = computeScore(avgHr: avgHr, windowHrv: computeRMSSD(rr),
                                      baselineRhr: baselineRhr, baselineHrv: baselineHrv)
             let t = key * windowMillis
+            if avgHr >= baselineRhr + sleepHighHr && sleep.contains(where: { $0.contains(t + windowMillis / 2) }) { score = max(score, 2) }
             series.append(StressPoint(minuteOfDay: TimeUtil.minuteOfDay(t), score: score, timeMillis: t))
         }
         return series

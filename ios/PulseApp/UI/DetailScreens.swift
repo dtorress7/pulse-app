@@ -341,7 +341,6 @@ struct StressDetailView: View {
         // Gráfica: 24 h hasta ahora (o hasta el final del día elegido)
         let chartFrom = end - 86_400_000
         let chartSamples = WhoopManager.shared.hrLog.readings(from: chartFrom, to: end)
-        let chart = StressCalculator.seriesBetween(chartSamples, from: chartFrom, to: end, baseline: baseline)
         var sleeps = [(Int64, Int64)]()
         if let f = home.sleepFromMillis, let t = home.sleepToMillis, t > f { sleeps.append((f, t)) }
         if let p = sleepOf(Day.add(day, -1)) { sleeps.append((p.lowerBound, p.upperBound)) }
@@ -349,10 +348,12 @@ struct StressDetailView: View {
         var seen = Set<Int64>()
         sleeps = sleeps.filter { $0.1 > chartFrom && $0.0 < end && seen.insert($0.0 / 60_000).inserted }
         let acts = all.filter { $0.type != Formulas.napType && $0.endMillis > chartFrom && $0.startMillis < end }.map { ($0.startMillis, $0.endMillis) }
+        let chart = StressCalculator.seriesBetween(chartSamples, from: chartFrom, to: end, baseline: baseline,
+                                                   sleep: sleeps.filter { $0.1 > $0.0 }.map { $0.0...$0.1 })
 
         func dayFor(_ d: String, _ samples: [HrReading]) -> StressBreakdown.DayMins? {
             let s = Day.start(d)
-            let series = StressCalculator.seriesBetween(samples, from: s, to: s + elapsed, baseline: baseline)
+            let series = StressCalculator.seriesBetween(samples, from: s, to: s + elapsed, baseline: baseline, sleep: sleepOf(d).map { [$0] } ?? [])
             if series.isEmpty || series.count < todayDay.total.total / 2 { return nil }
             return StressBreakdown.of(series, sleep: sleepOf(d).map { [$0] } ?? [], activities: sessions)
         }

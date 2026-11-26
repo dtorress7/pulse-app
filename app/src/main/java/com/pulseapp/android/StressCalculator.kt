@@ -108,7 +108,8 @@ class StressCalculator {
     }
 
     /** Serie de estrés (un punto cada minuto) entre [from] y [to] con la misma fórmula que [analyze]. */
-    fun seriesBetween(samples: List<Sample>, from: Long, to: Long, restingHr: Int?, baseline: PersonalBaseline?): List<StressPoint> {
+    fun seriesBetween(samples: List<Sample>, from: Long, to: Long, restingHr: Int?, baseline: PersonalBaseline?,
+                      sleep: List<LongRange> = emptyList()): List<StressPoint> {
         val baselineRhr = baseline?.stressRhr ?: baseline?.avgRestingHr ?: Formulas.FALLBACK_RHR
         val baselineHrv = baseline?.stressHrv ?: baseline?.avgHrv ?: Formulas.FALLBACK_HRV
         val windowMillis = WINDOW_MS
@@ -116,12 +117,19 @@ class StressCalculator {
             .groupBy { it.timeMillis / windowMillis }.entries.sortedBy { it.key }
             .filter { it.value.size >= 30 }
             .map { (windowKey, w) ->
-                val score = computeScore(w.map { it.bpm }.average(), computeRMSSD(w.flatMap { it.rr }), baselineRhr, baselineHrv)
+                val avgHr = w.map { it.bpm }.average()
+                var score = computeScore(avgHr, computeRMSSD(w.flatMap { it.rr }), baselineRhr, baselineHrv)
                 val t = windowKey * windowMillis
+                // 26/11: dormido, un minuto con el pulso ≥ FCR de referencia + SLEEP_HIGH_HR es estrés ALTO (WHOOP: 26/11 10 %, 4/11 9 %, 20/10 25 min
+                // con 68/69/36 min así; la curva de siempre los dejaba en "medio"). 31 noches: % de alto del sueño MAE 0,99 → 0,42 (18–20 todos mejor).
+                if (avgHr >= baselineRhr + SLEEP_HIGH_HR && sleep.any { (t + windowMillis / 2) in it }) score = maxOf(score, 2f)
                 val cal = Calendar.getInstance().apply { timeInMillis = t }
                 StressPoint(cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE), score, t)
             }
     }
+
+    /** 26/11: lpm sobre la FCR de referencia que, dormido, ya cuentan como estrés alto. */
+    private val SLEEP_HIGH_HR = 19.0
 
     private fun computeScore(avgHr: Double, windowHrv: Double?, baselineRhr: Double, baselineHrv: Double): Float {
         val reserve = (Formulas.hrMaxOrDefault() - baselineRhr).coerceAtLeast(60.0)

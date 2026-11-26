@@ -1285,6 +1285,12 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   iguales (check/n26b). `night_recalc_v28` / iOS 28. Recuperación: con la VFC/FCR de WHOOP la fórmula da 28 (W 34), la app 31.
   Estrés alto del sueño: PulseApp 1,2 % (con el inicio bien 1,4 %: 23:28–01:05 sale "medio") frente a WHOOP 10 %; en 30 noches de la tendencia de WHOOP
   el alto del sueño es 0–4 % salvo una de 9 % → muy pocos casos para reajustar; se guarda como referencia.
+  **Revisado el mismo día (a petición del usuario) → APLICADO (Android + iOS `StressCalculator.seriesBetween(…, sleep)`, `SLEEP_HIGH_HR` / `sleepHighHr` 19)**:
+  la de 9 % es el 4/11, y las tres noches con estrés alto en WHOOP (20/10 25 min, 4/11 9 %, 26/11 10 %) son las que tienen más minutos dormido con el pulso alto
+  (36/69/68 min ≥ 74 lpm; el resto 0–23). Regla: dormido, un minuto con el pulso ≥ FCR de referencia del estrés + 19 = estrés alto. 31 noches (Python con FCR 57,5:
+  X 17/18/19/20/21 → MAE 0,91/0,66/0,42/0,55/0,73; código real con la línea base de cada día, check/n26b/st2/SL.kt): % alto del sueño MAE 0,88 → 0,61;
+  26/11 1,4 → 9,9 (W 10), 4/11 6,2 → 11,5 (9,3), 20/10 0,4 → 2,4 (5,0), 12/11 1,0 → 3,1 (4,1). Solo cambia el sueño (día y sin actividad igual).
+  stress_days.csv v4.
 
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,

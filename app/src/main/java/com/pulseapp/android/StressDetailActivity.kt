@@ -88,7 +88,7 @@ class StressDetailActivity : AppCompatActivity() {
             val calc = StressCalculator()
             val samples = withContext(Dispatchers.IO) { calc.loadSamples(file, dayStart - 28L * 86_400_000L).filter { it.timeMillis <= end } }
             val chartFrom = end - 86_400_000L
-            val chart = withContext(Dispatchers.Default) { calc.seriesBetween(samples, chartFrom, end, null, baseline) }
+
             fun sleepOf(d: LocalDate): LongRange? {
                 val row = stored[d.toString()] ?: return null
                 val ss = row.sleepStartMinuteOfDay ?: return null; val se = row.sleepEndMinuteOfDay ?: return null
@@ -101,12 +101,13 @@ class StressDetailActivity : AppCompatActivity() {
                 listOfNotNull(sleepOf(day.minusDays(1))?.let { it.first to it.last }) +
                 allSessions.filter { it.type == Formulas.NAP_TYPE }.map { it.startMillis to it.endMillis })
                 .filter { it.second > chartFrom && it.first < end }.distinctBy { it.first / 60000 }
+            val chart = withContext(Dispatchers.Default) { calc.seriesBetween(samples, chartFrom, end, null, baseline, sleeps.map { it.first..it.second }) }
             val acts = allSessions.filter { it.type != Formulas.NAP_TYPE && it.endMillis > chartFrom && it.startMillis < end }
                 .map { it.startMillis to it.endMillis }
 
             fun dayFor(d: LocalDate): StressBreakdown.Day? {
                 val s = d.atStartOfDay(zone).toInstant().toEpochMilli()
-                val series = calc.seriesBetween(samples, s, s + elapsed, null, baseline)
+                val series = calc.seriesBetween(samples, s, s + elapsed, null, baseline, listOfNotNull(sleepOf(d)))
                 if (series.size < todayDay.total.total / 2 || series.isEmpty()) return null
                 return StressBreakdown.of(series, listOfNotNull(sleepOf(d)), sessions)
             }

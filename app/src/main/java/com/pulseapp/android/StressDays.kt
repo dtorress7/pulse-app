@@ -13,7 +13,7 @@ import java.time.ZoneId
  */
 object StressDays {
     private const val FILE = "stress_days.csv"
-    private const val HEADER = "#pulseapp_stress_days v3"
+    private const val HEADER = "#pulseapp_stress_days v4"
 
     private fun readCache(dir: File): MutableMap<String, StressBreakdown.Day?> {
         val f = File(dir, FILE)
@@ -72,13 +72,11 @@ object StressDays {
             val samples = calc.loadSamplesIn(File(dir, "hr_log.csv"), ranges)
             for ((i, d) in chunk.withIndex()) {
                 val r = ranges[i]
-                val series = calc.seriesBetween(samples, r.first, r.last, null, baseline)
-                val day = if (series.size < 60) null else {
-                    val next = stored[d.plusDays(1).toString()]
-                    val sleep = listOfNotNull(sleepOf(stored[d.toString()], r.first),
-                        sleepOf(next, d.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli())) + naps
-                    StressBreakdown.of(series, sleep, acts)
-                }
+                val next = stored[d.plusDays(1).toString()]
+                val sleep = listOfNotNull(sleepOf(stored[d.toString()], r.first),
+                    sleepOf(next, d.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli())) + naps
+                val series = calc.seriesBetween(samples, r.first, r.last, null, baseline, sleep)
+                val day = if (series.size < 60) null else StressBreakdown.of(series, sleep, acts)
                 res[d] = day
                 if (d != today) cache[d.toString()] = day
             }

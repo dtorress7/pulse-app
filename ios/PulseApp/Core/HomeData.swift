@@ -425,13 +425,15 @@ enum HomeDataLoader {
         let samples = hrLog.readings(from: loadFrom, to: loadTo)
         var sleepStress = [StressPoint]()
         var nightReadings = [HrReading]()
+        var sleepRange = [ClosedRange<Int64>]()
+        if let f = sleepFrom, let t = sleepTo, t > f { sleepRange = [f...t] }
         if let f = sleepFrom, let t = sleepTo {
-            sleepStress = StressCalculator.seriesBetween(samples, from: f, to: t, baseline: baselineNow)
+            sleepStress = StressCalculator.seriesBetween(samples, from: f, to: t, baseline: baselineNow, sleep: sleepRange)
             nightReadings = samples.filter { $0.timeMillis >= f - 10 * 60_000 && $0.timeMillis <= t + 10 * 60_000 }
         }
         let stressTo = isToday ? now : dayEnd
-        let series = StressCalculator.seriesBetween(samples, from: dayStart, to: stressTo, baseline: baselineNow)
-        let current: StressPoint? = isToday ? StressCalculator.seriesBetween(samples, from: now - 86_400_000, to: now, baseline: baselineNow).last : nil
+        let series = StressCalculator.seriesBetween(samples, from: dayStart, to: stressTo, baseline: baselineNow, sleep: sleepRange)
+        let current: StressPoint? = isToday ? StressCalculator.seriesBetween(samples, from: now - 86_400_000, to: now, baseline: baselineNow, sleep: sleepRange).last : nil
         let lastPoint = (current ?? series.last)?.score
         let lastMinute = (current ?? series.last)?.minuteOfDay
         var level = "ALTO"

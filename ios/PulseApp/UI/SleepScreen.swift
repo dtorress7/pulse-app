@@ -57,7 +57,7 @@ struct SleepDetailView: View {
         var out = [String: [StressPoint]]()
         for (date, r) in nights {
             if date == d.date && !d.sleepStressSeries.isEmpty { out[date] = d.sleepStressSeries }
-            else { out[date] = StressCalculator.seriesBetween(samples, from: r.lowerBound, to: r.upperBound, baseline: baseline) }
+            else { out[date] = StressCalculator.seriesBetween(samples, from: r.lowerBound, to: r.upperBound, baseline: baseline, sleep: [r]) }
         }
         return out
     }

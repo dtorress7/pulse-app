@@ -90,7 +90,7 @@ class SleepDetailActivity : AppCompatActivity() {
             val baseline = BaselineProvider().compute(AppDatabaseHolder.get(ctx))
             val nightStress = nights.mapValues { (date, r) ->
                 if (date == d.date && d.sleepStressSeries.isNotEmpty()) d.sleepStressSeries
-                else calc.seriesBetween(samples, r.first, r.last, byDate[date]?.rhr, baseline)
+                else calc.seriesBetween(samples, r.first, r.last, byDate[date]?.rhr, baseline, listOf(r))
             }
             fun stressMins(date: LocalDate): StressBreakdown.Mins? = nightStress[date]?.takeIf { it.isNotEmpty() }?.let {
                 StressBreakdown.of(it, emptyList(), emptyList()).total

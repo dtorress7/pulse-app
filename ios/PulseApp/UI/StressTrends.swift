@@ -7,7 +7,7 @@ import SwiftUI
 /// stress_days.csv (mismo formato que Android); hoy se calcula siempre.
 enum StressDays {
     private static let file = "stress_days.csv"
-    private static let header = "#pulseapp_stress_days v3"
+    private static let header = "#pulseapp_stress_days v4"
 
     private static func readCache() -> [String: StressBreakdown.DayMins?] {
         var out = [String: StressBreakdown.DayMins?]()
@@ -65,12 +65,12 @@ enum StressDays {
             let samples = WhoopManager.shared.hrLog.readings(in: ranges)
             for (k, d) in chunk.enumerated() {
                 let r = ranges[k]
-                let series = StressCalculator.seriesBetween(samples, from: r.lowerBound, to: r.upperBound, baseline: baseline)
+                var sleep = [ClosedRange<Int64>]()
+                if let s = sleepOf(stored[d], r.lowerBound) { sleep.append(s) }
+                if let s = sleepOf(stored[Day.add(d, 1)], Day.start(Day.add(d, 1))) { sleep.append(s) }
+                let series = StressCalculator.seriesBetween(samples, from: r.lowerBound, to: r.upperBound, baseline: baseline, sleep: sleep + naps)
                 var day: StressBreakdown.DayMins? = nil
                 if series.count >= 60 {
-                    var sleep = [ClosedRange<Int64>]()
-                    if let s = sleepOf(stored[d], r.lowerBound) { sleep.append(s) }
-                    if let s = sleepOf(stored[Day.add(d, 1)], Day.start(Day.add(d, 1))) { sleep.append(s) }
                     day = StressBreakdown.of(series, sleep: sleep + naps, activities: acts)
                 }
                 res[d] = .some(day)
