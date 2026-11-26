@@ -1278,6 +1278,14 @@ Maqueta aprobada: artefacto "PulseApp rediseño" (Inicio, Sueño, Esfuerzo, Salu
   **Tarea programada "Vigilar recuperación WHOOP"** (trig_01UPGJmKwMTCZoDKDpmukMxd, 09:33 Madrid): calcula la fórmula con los datos de la API y avisa si 2 noches
   seguidas fallan > 6 del mismo signo (o la última > 10).
 
+- **25→26/11 (38.ª referencia)**: WHOOP (API) 22:28:14Z–07:02:37Z (23:28–08:02), dormido 8:16, 18/320/105/72, 11 despertares, 96,8 %, VFC 65,74,
+  FCR 65, resp 13,58, calificación 85 (100/85/97, estrés del sueño alto 10 %), recuperación 34. Quieto desde las 23:28 con el pulso alto (69–81) y una
+  vuelta en la cama 01:01–01:05 (21 + 14 "pasos") → PulseApp empezaba a la 01:06. **`ONSET_TURN_STEPS` 20 → 30 (Android + iOS)**: 23:28 (W 23:28),
+  20/332/103/59, dormido 8:14, VFC 67,7, FCR 63; de 43 noches solo cambia esta (inicio MAE sin las editadas 4,19 → 1,56; 30/40/60 iguales); Pablo y Nico
+  iguales (check/n26b). `night_recalc_v28` / iOS 28. Recuperación: con la VFC/FCR de WHOOP la fórmula da 28 (W 34), la app 31.
+  Estrés alto del sueño: PulseApp 1,2 % (con el inicio bien 1,4 %: 23:28–01:05 sale "medio") frente a WHOOP 10 %; en 30 noches de la tendencia de WHOOP
+  el alto del sueño es 0–4 % salvo una de 9 % → muy pocos casos para reajustar; se guarda como referencia.
+
 ## Actividades como WHOOP (20/10, Android + iOS)
 Referencia: entrenamiento funcional 19/10 con la pulsera en PulseApp y WHOOP a la vez. WHOOP: 18:16–18:54 (38:59), detectado solo,
 esfuerzo 11,5, 271 kcal, FC media 127 (la media aritmética de esos segundos es 133: WHOOP no usa la media simple), máx 170,

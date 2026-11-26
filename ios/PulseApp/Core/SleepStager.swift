@@ -118,7 +118,7 @@ enum SleepStager {
         while true {
             var b = m, steps = 0
             while let x = byMin[b], !still(x), m - b < 6 { steps += x.steps; b -= 1 }
-            if byMin[b] == nil || m - b > 5 || steps > 20 { break }   // 20/11: 12 → 20 (giros en la cama de 16–17 pasos; igual que Android ONSET_TURN_STEPS)
+            if byMin[b] == nil || m - b > 5 || steps > 30 { break }   // 26/11: 20 → 30 (vuelta de 21 + 14 "pasos" a la 01:01–01:05); 20/11: 12 → 20 (giros en la cama de 16–17 pasos; igual que Android ONSET_TURN_STEPS)
             var q = b
             while still(byMin[q]) { q -= 1 }
             if b - q >= 9 { onset = q + 1 }   // 24/10: 15 → 10; 12/11: 10 → 9 (igual que Android ONSET_STILL)

@@ -462,8 +462,11 @@ object SleepStager {
      *  15 → 40 pasos: 18 noches, solo cambia la 3/11 (error del fin 1,9 → 1,3 min); igual con 25–60. */
     private const val END_EXT_STEPS = 40
     /** 20/11: pasos máximos de un giro en la cama al buscar el inicio hacia atrás (antes 12; al darse la vuelta salen 16–17 "pasos").
-     *  Con 20 + ONSET_RUN 8, de 35 noches solo cambia la 19→20/11: 23:26 → 23:11 (WHOOP 23:11); inicio MAE 2,14 → 1,71 min. */
-    private const val ONSET_TURN_STEPS = 20
+     *  Con 20 + ONSET_RUN 8, de 35 noches solo cambia la 19→20/11: 23:26 → 23:11 (WHOOP 23:11); inicio MAE 2,14 → 1,71 min.
+     *  26/11: 20 → 30. Quieto desde las 23:28 con el pulso alto (75–80) y a la 01:01–01:05 una vuelta en la cama de 21 + 14 "pasos"
+     *  → el inicio se quedaba en la 01:06 (WHOOP 23:28). Con 30 (igual 40 o 60): 23:28; de 43 noches solo cambia esa (inicio MAE 4,19 → 1,56
+     *  sin las editadas); Pablo y Nico iguales. */
+    private const val ONSET_TURN_STEPS = 30
     // 10/11: despertar de 3 min (07:15–07:17, 26 pasos) y otra vez quieto: sigue siendo noche (antes ≤ 2 min)
     private const val END_EXT_GAP = 3
     private const val ONGOING_MIN = 5
